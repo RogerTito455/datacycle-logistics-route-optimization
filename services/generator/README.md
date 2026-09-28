@@ -74,9 +74,12 @@ seed and the generator version in its Parquet metadata.
 
 **Re-running.** Bronze is write-once, so `load-reference` inserts only the rows whose key is not in
 the table yet: a second run writes nothing. `generate` for a date that was generated before
-replaces that date, in one transaction, and overwrites its file; a date is never duplicated.
-Regenerating is the one case where rows leave bronze, and only the generator's own orders of that
-date (`source = 'generator/orders'`).
+deletes that date's rows and inserts the new ones in one transaction, and uploads the date's file
+inside that transaction, before the commit. If the database or the upload fails, the transaction
+rolls back and the date keeps its rows and its file. If the commit fails after the upload, the
+bucket holds the new file with the old rows until the next run of the date overwrites it. A date is
+never duplicated. Regenerating is the one case where rows leave bronze, and only the generator's own
+orders of that date (`source = 'generator/orders'`).
 
 ## How to run
 

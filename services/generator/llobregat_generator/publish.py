@@ -69,20 +69,26 @@ def orders_table(day: Day, metadata: FileMetadata) -> pa.Table:
 
 
 def publish_day(conn: psycopg.Connection, bucket: Bucket, day: Day, ingested_at: datetime) -> tuple[str, int, int]:
-    """Store the day's file and rows; a date generated before is replaced, not duplicated.
+    """Replace the day's rows and file in one database transaction; a date is never duplicated.
+
+    The rows of an earlier run of the date are deleted and the new rows copied in, then the file is
+    uploaded, before the transaction commits. If the database or the upload fails, the transaction
+    rolls back and the date keeps its rows and its file. If the commit fails after the upload, the
+    bucket holds the new file with the old rows until the next run of the date overwrites it.
 
     File and rows get the same ingested_at. Returns the object key, the rows deleted (from an
     earlier run of the date) and the rows written.
     """
-    metadata = FileMetadata.for_table(conn, "bronze.orders", SOURCE_ID, ingested_at)
-    table = orders_table(day, metadata)
-    key = bucket.put_parquet(object_key(day.service_date), table)
+    key = object_key(day.service_date)
     with conn.transaction():
+        metadata = FileMetadata.for_table(conn, "bronze.orders", SOURCE_ID, ingested_at)
+        table = orders_table(day, metadata)
         deleted = conn.execute(
             "DELETE FROM bronze.orders WHERE service_date = %s AND source = %s", (day.service_date, SOURCE_ID)
         ).rowcount
         rows = ([*o.values(), metadata.ingested_at, key] for o in day.orders)
         db.copy_rows(conn, "bronze.orders", [*table.column_names, "raw_object_key"], rows)
+        bucket.put_parquet(key, table)
     return key, deleted, table.num_rows
 
 

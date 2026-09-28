@@ -316,11 +316,14 @@ Platform tables in `ops`:
   statuses, priorities, energy types, DGT labels and traffic states take their allowed values.
 - **Write-once.** Pipelines insert bronze rows and never update or delete them. Reference loads
   insert only the rows whose key is new, so loading a file twice writes nothing the second time.
-  The one exception is the order generator: regenerating a service date replaces that date's
-  generated orders (`source = 'generator/orders'`) and its file in one transaction, so a date is
-  never duplicated. A plan's stops
-  have no `ON DELETE CASCADE`, so deleting a plan that has stops fails instead of taking them
-  along.
+  The one exception is the order generator: regenerating a service date deletes that date's
+  generated orders (`source = 'generator/orders'`) and inserts the new ones in one transaction,
+  and uploads the date's file inside it, before the commit. If the database or the upload fails,
+  the transaction rolls back and the date keeps its rows and its file. If the commit fails after
+  the upload, the bucket holds the new file with the old rows until the next run of the date
+  overwrites it. A date is never duplicated.
+- **No cascades.** A plan's stops have no `ON DELETE CASCADE`, so deleting a plan that has stops
+  fails instead of taking them along.
 
 ## Storage lifecycle
 
