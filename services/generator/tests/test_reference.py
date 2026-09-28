@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import zipfile
 
 import jsonschema
 import pytest
@@ -127,11 +128,33 @@ def test_icgc_blocks_and_other_towns_are_not_delivery_addresses(zone_map):
     assert addresses.icgc_address(icgc_row(municipality="Viladecans"), zone_map) is None
 
 
-def test_etrs89_to_wgs84_matches_the_published_coordinates():
-    # A taula-direle row, which publishes both: x_etrs89, y_etrs89 and longitud_wgs84, latitud_wgs84.
-    lon, lat = addresses.to_wgs84(429217.072, 4581017.569)
-    assert lon == pytest.approx(2.1535184, abs=1e-6)  # about 8 cm
-    assert lat == pytest.approx(41.3775667, abs=1e-6)
+def test_read_icgc_keeps_the_zone_towns_converts_coordinates_and_skips_rows_without_them(tmp_path, zone_map):
+    """The loader's path: the zip, the subset of the five towns, the conversion to WGS84."""
+    towns = ["l'Hospitalet de Llobregat", "el Prat de Llobregat", "Cornellà de Llobregat"]
+    towns += ["Esplugues de Llobregat", "Sant Boi de Llobregat", "Viladecans"]
+    municipi = ["codmuni;nommuni"] + [f"08{n:04d};{name}" for n, name in enumerate(towns)]
+    header = list(addresses.ICGC_COLUMNS)
+
+    def address(address_id: str, town: int, x: str, y: str) -> str:
+        values = dict.fromkeys(header, " ")
+        values |= {"idadrvia": address_id, "codmuni": f"08{town:04d}", "nommuni": towns[town]}
+        values |= {"tipusadr": "vianum", "numini": "1", "coor_utmx": x, "coor_utmy": y}
+        return ";".join(values[column] for column in header)
+
+    # x and y of a taula-direle row, which publishes WGS84 too: 2.1535184, 41.3775667.
+    adrecavia = [";".join(header), address("a1", 0, "429217.072", "4581017.569"), address("a2", 1, " ", " ")]
+    adrecavia.append(address("a3", 5, "420000", "4570000"))  # Viladecans: not a zone
+    zip_path = tmp_path / "adreces-simplificat-v1r0-20260410.zip"
+    with zipfile.ZipFile(zip_path, "w") as archive:
+        archive.writestr("adreces-simplificat-v1r0-municipi-20260410.csv", "\n".join(municipi) + "\n")
+        archive.writestr("adreces-simplificat-v1r0-adrecavia-20260410.csv", "\n".join(adrecavia) + "\n")
+
+    rows, skipped = addresses.read_icgc(zip_path, zone_map)
+    assert [r["address_id"] for r in rows] == ["a1"]
+    assert skipped == 1  # a2 has no coordinates
+    assert rows[0]["lon"] == pytest.approx(2.1535184, abs=1e-6)  # about 8 cm
+    assert rows[0]["lat"] == pytest.approx(41.3775667, abs=1e-6)
+    assert (rows[0]["x_etrs89"], rows[0]["y_etrs89"]) == (429217.072, 4581017.569)
 
 
 @pytest.mark.parametrize("name", ["fleet", "drivers", "demand"])

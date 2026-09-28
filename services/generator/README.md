@@ -28,7 +28,8 @@ The five neighbouring municipalities are not in `taula-direle`, which covers Bar
 The ICGC register covers all of Catalonia, so the loader keeps the street addresses of the five
 municipalities of the zones (46,290 of 1,669,529) and converts their ETRS89 UTM zone 31N
 coordinates to WGS84 with PROJ. Converted this way, a `taula-direle` point lands within 1 cm of the
-WGS84 coordinates the city publishes for it.
+WGS84 coordinates the city publishes for it. A row without coordinates cannot be placed, so it is
+skipped and counted in the `skipped` column of the load summary; the current file has none.
 
 Each address belongs to a zone by what its register says, not by distance: the district code of
 `taula-direle` (Nou Barris and Sant Andreu make zone Z08) or the municipality of the ICGC record.

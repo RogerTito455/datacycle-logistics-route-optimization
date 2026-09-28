@@ -124,7 +124,7 @@ def build_sample(seeds: Seeds, cache_dir: Path, boundaries: dict) -> list[addres
     pool = addresses.build_pool(
         addresses.read_taula_direle(addresses.fetch_download(addresses.TAULA_DIRELE, cache_dir)),
         {s["street_code"]: s["official_name"] for s in streets},
-        addresses.read_icgc(addresses.fetch_icgc(cache_dir), zone_map),
+        addresses.read_icgc(addresses.fetch_icgc(cache_dir), zone_map)[0],
         zone_map,
     )
     shapes = {f["properties"]["zone_id"]: f["geometry"]["coordinates"] for f in boundaries["features"]}

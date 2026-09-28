@@ -20,9 +20,9 @@ from llobregat_generator.zones import ZoneMap, load_boundaries
 
 def cmd_load_reference(settings: Settings, _: argparse.Namespace) -> int:
     results = load_reference(settings)
-    print(f"\n{'table':<24}{'rows':>9}{'inserted':>10}{'in table':>10}")
-    for table, (rows, inserted, present) in results.items():
-        print(f"{table:<24}{rows:>9}{inserted:>10}{present:>10}")
+    print(f"\n{'table':<24}{'rows':>9}{'skipped':>9}{'inserted':>10}{'in table':>10}")
+    for table, loaded in results.items():
+        print(f"{table:<24}{loaded.rows:>9}{loaded.skipped:>9}{loaded.inserted:>10}{loaded.in_table:>10}")
     return 0
 
 

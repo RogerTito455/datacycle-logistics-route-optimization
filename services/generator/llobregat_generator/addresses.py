@@ -179,13 +179,18 @@ def _icgc_csv(archive: zipfile.ZipFile, kind: str) -> Iterator[list[str]]:
         yield from csv.reader(io.TextIOWrapper(raw, encoding="utf-8", newline=""), delimiter=";")
 
 
-def read_icgc(zip_path: Path, zone_map: ZoneMap) -> list[dict]:
+def read_icgc(zip_path: Path, zone_map: ZoneMap) -> tuple[list[dict], int]:
     """Street addresses of the zone municipalities, with bronze.icgc_addresses column names.
 
     The register covers all of Catalonia; only the municipalities of the zones in company.json are
     kept, and that subset is cached next to the zip, because reading the whole file takes a minute.
-    lon and lat are converted from ETRS89 UTM 31N.
+    Returns the rows and the number of rows skipped for having no coordinates (read_icgc_subset).
     """
+    return read_icgc_subset(icgc_subset(zip_path, zone_map))
+
+
+def icgc_subset(zip_path: Path, zone_map: ZoneMap) -> Path:
+    """The address rows of the zone municipalities, extracted once from the zip to a CSV beside it."""
     with zipfile.ZipFile(zip_path) as archive:
         municipalities = _icgc_csv(archive, "municipi")
         header = next(municipalities)
@@ -204,16 +209,27 @@ def read_icgc(zip_path: Path, zone_map: ZoneMap) -> list[dict]:
                 writer.writerow(header)
                 writer.writerows(row for row in addresses if row[column] in codes)
             partial.rename(subset)
-    rows = _read_csv(subset, ICGC_COLUMNS)
-    lons, lats = _TO_WGS84.transform([float(r["x_etrs89"]) for r in rows], [float(r["y_etrs89"]) for r in rows])
+    return subset
+
+
+def read_icgc_subset(path: Path) -> tuple[list[dict], int]:
+    """Rows of an ICGC address CSV with bronze.icgc_addresses column names, and WGS84 coordinates.
+
+    lon and lat are converted from the published ETRS89 UTM 31N easting and northing and rounded to
+    7 decimals, like taula-direle. A row without an easting or a northing cannot be placed on a
+    map, so it is skipped; the second value returned counts those rows.
+    """
+    rows, skipped = [], 0
+    for row in _read_csv(path, ICGC_COLUMNS):
+        if not row["x_etrs89"].strip() or not row["y_etrs89"].strip():
+            skipped += 1
+            continue
+        row["x_etrs89"], row["y_etrs89"] = float(row["x_etrs89"]), float(row["y_etrs89"])
+        rows.append(row)
+    lons, lats = _TO_WGS84.transform([r["x_etrs89"] for r in rows], [r["y_etrs89"] for r in rows])
     for row, lon, lat in zip(rows, lons, lats, strict=True):
         row["lon"], row["lat"] = round(lon, 7), round(lat, 7)
-    return rows
-
-
-def to_wgs84(x: float, y: float) -> tuple[float, float]:
-    """ETRS89 UTM 31N easting and northing to WGS84 longitude and latitude."""
-    return _TO_WGS84.transform(x, y)
+    return rows, skipped
 
 
 def barcelona_ref(row: Mapping) -> str:

@@ -11,6 +11,7 @@ import re
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from typing import NamedTuple
 
 import pyarrow as pa
 
@@ -35,6 +36,7 @@ class Table:
     rows: list[dict]
     source: str
     raw_object_key: str | None = None
+    skipped: int = 0  # rows of the file that could not be loaded
 
     @property
     def columns(self) -> list[str]:
@@ -46,6 +48,15 @@ class Table:
         extra = [self.source, self.raw_object_key] if self.raw_object_key else [self.source]
         for row in self.rows:
             yield [*row.values(), *extra]
+
+
+class Loaded(NamedTuple):
+    """What loading one table did."""
+
+    rows: int  # rows offered from the seed or file
+    skipped: int  # rows of the file left out (ICGC addresses without coordinates)
+    inserted: int  # rows whose key was new
+    in_table: int  # rows in the table afterwards
 
 
 def hub_id(hub: dict) -> str:
@@ -251,6 +262,7 @@ def address_tables(settings: Settings, zone_map: ZoneMap, bucket: Bucket) -> lis
         )
     }
     numeric = ("x_ed50", "y_ed50", "x_etrs89", "y_etrs89", "lon", "lat")
+    icgc_rows, icgc_skipped = addresses.read_icgc(icgc, zone_map)
     return [
         Table("bronze.streets", addresses.read_carrerer(carrerer), addresses.CARRERER.source_id, keys[carrerer]),
         Table(
@@ -259,12 +271,7 @@ def address_tables(settings: Settings, zone_map: ZoneMap, bucket: Bucket) -> lis
             addresses.TAULA_DIRELE.source_id,
             keys[direle],
         ),
-        Table(
-            "bronze.icgc_addresses",
-            blank_to_none(addresses.read_icgc(icgc, zone_map), numeric[2:]),
-            addresses.ICGC_SOURCE_ID,
-            keys[icgc],
-        ),
+        Table("bronze.icgc_addresses", icgc_rows, addresses.ICGC_SOURCE_ID, keys[icgc], icgc_skipped),
     ]
 
 
@@ -278,8 +285,8 @@ def seed_parquet(seeds: Seeds, bucket: Bucket) -> list[str]:
     return [bucket.put_parquet(key, pa.Table.from_pylist(rows)) for key, rows in files.items()]
 
 
-def load_reference(settings: Settings) -> dict[str, tuple[int, int, int]]:
-    """Load every reference table; return rows offered, inserted and present per table."""
+def load_reference(settings: Settings) -> dict[str, Loaded]:
+    """Load every reference table; return what loading did, per table."""
     seeds = Seeds.load(settings.seed_dir)
     zone_map = ZoneMap.from_company(seeds.company)
     bucket = Bucket(settings)
@@ -294,5 +301,5 @@ def load_reference(settings: Settings) -> dict[str, tuple[int, int, int]]:
     with db.connect(settings) as conn, conn.transaction():
         for table in tables:
             inserted = db.insert_new(conn, table.name, table.columns, table.rows_with_metadata())
-            results[table.name] = (len(table.rows), inserted, db.count(conn, table.name))
+            results[table.name] = Loaded(len(table.rows), table.skipped, inserted, db.count(conn, table.name))
     return results
