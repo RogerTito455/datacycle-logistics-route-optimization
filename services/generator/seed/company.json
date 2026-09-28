@@ -1,0 +1,470 @@
+{
+  "schema_version": 1,
+  "company": {
+    "name": "Llobregat Express",
+    "legal_name": "Llobregat Express Logística, S.L.",
+    "founded_year": 2014,
+    "headquarters_municipality": "Barcelona",
+    "business_model": "Regional last-mile parcel carrier that receives parcels from e-commerce shippers, local fulfilment centres and partner carriers at a single cross-dock in the Zona Franca and delivers them across Barcelona and the lower Llobregat area: same day for shipments registered before 11:00, next day otherwise. It charges shippers per parcel by size and service level, and also works as the final-mile subcontractor for national networks that have no fleet of their own in Barcelona.",
+    "modeled_on": "It works like the Barcelona metropolitan branch of a Spanish national parcel network such as SEUR, MRW, GLS or Correos Express. Overnight linehaul trucks feed one cross-dock, parcels are sorted by delivery zone before dawn, and salaried drivers run fixed zone routes in the morning, with a second afternoon wave for same-day e-commerce. Unlike those networks it has no national coverage of its own: it only delivers in the Barcelona area and takes parcels from shippers and partner carriers.",
+    "customer_segments": [
+      "E-commerce retailers (fashion, electronics, home goods) shipping to consumers in the Barcelona metropolitan area",
+      "Marketplace sellers and local online shops buying same-day delivery",
+      "National parcel networks and couriers subcontracting final-mile delivery in Barcelona",
+      "Pharmacies and healthcare distributors (ambient-temperature goods only)",
+      "Retail chains and independent shops in Ciutat Vella, Eixample and Gràcia (store replenishment and supplies)",
+      "Offices and professional services in the 22@, Diagonal and Gran Via L'Hospitalet business districts",
+      "Industrial and spare-parts distributors in the Zona Franca, El Prat, Cornellà and Sant Boi industrial estates"
+    ]
+  },
+  "hub": {
+    "name": "Llobregat Express Hub Zona Franca (BCN-ZF)",
+    "address": "Carrer 4, 18-24, Sector C, Polígon Industrial de la Zona Franca, 08040 Barcelona",
+    "municipality": "Barcelona",
+    "lat": 41.3395,
+    "lon": 2.1365,
+    "floor_area_m2": 7500,
+    "loading_docks": 36,
+    "sorting_capacity_parcels_per_hour": 2500,
+    "timetable": {
+      "inbound_trucks_arrive": "02:30-12:30",
+      "sorting": "03:00-14:00",
+      "first_departure": "07:30",
+      "last_departure": "14:45",
+      "same_day_cutoff": "11:00"
+    }
+  },
+  "service_promise": {
+    "delivery_windows": [
+      {"name": "Morning wave (next-day B2C and B2B)", "start": "08:00", "end": "14:00"},
+      {"name": "Afternoon-evening wave (same-day and evening B2C)", "start": "15:00", "end": "21:00"}
+    ],
+    "promised_window_minutes": 120,
+    "on_time_target_pct": 95.0,
+    "first_attempt_success_target_pct": 92.0,
+    "failed_delivery_policy": "On a failed B2C attempt the driver leaves the parcel with a neighbour or building concierge only if the recipient authorised it in advance. Otherwise the recipient gets an SMS and e-mail notice (plus a card at the door) and the parcel returns to the hub. The recipient can book a free second attempt on the next working day in either window, or redirect the parcel to a partner pick-up point or locker. After a second failed attempt the parcel is held at the nearest pick-up point for 7 calendar days and then returned to the shipper. When a B2B recipient is found closed, the parcel is re-attempted automatically on the next morning's route."
+  },
+  "daily_volume": {
+    "weekday_parcels_mean": 3500,
+    "weekday_parcels_stddev": 350,
+    "saturday_parcels_mean": 1050,
+    "sunday_operates": false,
+    "seasonal_peaks": [
+      {"name": "Black Friday and Cyber Monday week", "month": 11, "multiplier": 1.55},
+      {"name": "Christmas gift season", "month": 12, "multiplier": 1.4},
+      {"name": "Three Kings (Reis) gifts and January sales returns", "month": 1, "multiplier": 1.2},
+      {"name": "Back to school (tornada a l'escola)", "month": 9, "multiplier": 1.1}
+    ],
+    "parcel_mix": {"small_pct": 58.0, "medium_pct": 30.0, "large_pct": 12.0},
+    "b2b_share_pct": 32.0
+  },
+  "zones": [
+    {
+      "zone_id": "Z01",
+      "name": "Ciutat Vella",
+      "municipality": "Barcelona",
+      "districts": ["Ciutat Vella"],
+      "centroid": {"lat": 41.3822, "lon": 2.1755},
+      "distance_from_hub_km": 7.5,
+      "share_of_daily_parcels": 0.06,
+      "stops_per_route": 55,
+      "minutes_per_stop": 4.6,
+      "delivery_difficulty": "high",
+      "difficulty_factors": [
+        "Medieval street pattern in the Gòtic, Born and Raval: lanes 3-5 m wide where a van cannot enter or turn, so most stops are walked with a hand trolley 150-400 m from the vehicle",
+        "Camera-controlled restricted-access areas for non-resident vehicles in the Gòtic, Born and Barceloneta; registered goods vehicles may enter only in a morning loading slot (roughly until 11:00), so later stops are done entirely on foot",
+        "Large pedestrian streets (Portal de l'Àngel, Portaferrissa, the streets off La Rambla) and dense tourist crowds slow trolley walks all day",
+        "Perimeter DUM bays on Via Laietana, Ronda de Sant Pau, Paral·lel and Passeig de Colom are full from about 09:00; stays are limited to 30 minutes and must be registered in the areaDUM app",
+        "Old walk-up buildings without lifts or concierges, and many tourist flats with no one to receive, push up failed first attempts",
+        "Shops, bars and hotels open between 09:30 and 10:30, so B2B stops bunch up in the late morning"
+      ],
+      "preferred_vehicle_type_ids": ["EV-Q", "EV-S"]
+    },
+    {
+      "zone_id": "Z02",
+      "name": "Eixample",
+      "municipality": "Barcelona",
+      "districts": ["Eixample"],
+      "centroid": {"lat": 41.3910, "lon": 2.1630},
+      "distance_from_hub_km": 8.0,
+      "share_of_daily_parcels": 0.17,
+      "stops_per_route": 78,
+      "minutes_per_stop": 3.0,
+      "delivery_difficulty": "medium",
+      "difficulty_factors": [
+        "Regular Cerdà grid with chamfered corners (xamfrans) where most DUM bays sit: stop sequencing is predictable and one parking often serves 3-5 addresses",
+        "Superilla Barcelona green axes (Consell de Cent, Rocafort, Comte Borrell, Girona) and the Sant Antoni superblock: through traffic removed, 10 km/h limit, forced loops and loading only at designated bays",
+        "Heavy congestion on Aragó, Gran Via, Diagonal, Balmes and Passeig de Sant Joan at peak hours; stopping in bus and bike lanes is fined",
+        "DUM bays limited to 30 minutes through the areaDUM app; some chamfer bays are loading-only in the morning and revert to resident parking later, so afternoon stops take longer",
+        "Many buildings have a concierge (porter) who accepts parcels in the morning, which raises first-attempt success",
+        "Dense mix of shops, offices and flats gives several parcels per stop, but many shops only receive goods between 10:00 and 13:30"
+      ],
+      "preferred_vehicle_type_ids": ["EV-M", "EV-S"]
+    },
+    {
+      "zone_id": "Z03",
+      "name": "Sants-Montjuïc",
+      "municipality": "Barcelona",
+      "districts": ["Sants-Montjuïc"],
+      "centroid": {"lat": 41.3718, "lon": 2.1415},
+      "distance_from_hub_km": 4.8,
+      "share_of_daily_parcels": 0.08,
+      "stops_per_route": 80,
+      "minutes_per_stop": 3.0,
+      "delivery_difficulty": "medium",
+      "difficulty_factors": [
+        "Nearest city district to the hub (La Marina borders the Zona Franca), so the drive to the first stop takes only 10-15 minutes",
+        "Sants, Hostafrancs and La Bordeta: dense blocks with narrow side streets; Carrer de Sants and Creu Coberta form a busy bus-and-taxi shopping street with few places to stop",
+        "Poble-sec climbs the slope of Montjuïc: steep streets and public stairways in the upper part, and very few DUM bays",
+        "Trade fairs at Fira Montjuïc and concerts and sports events at the Olympic Stadium and Palau Sant Jordi close streets around Plaça d'Espanya",
+        "La Marina del Prat Vermell: new developments with wide streets and easy parking"
+      ],
+      "preferred_vehicle_type_ids": ["EV-M", "EV-L"]
+    },
+    {
+      "zone_id": "Z04",
+      "name": "Les Corts",
+      "municipality": "Barcelona",
+      "districts": ["Les Corts"],
+      "centroid": {"lat": 41.3860, "lon": 2.1300},
+      "distance_from_hub_km": 7.0,
+      "share_of_daily_parcels": 0.05,
+      "stops_per_route": 84,
+      "minutes_per_stop": 2.8,
+      "delivery_difficulty": "low",
+      "difficulty_factors": [
+        "Wide avenues (Diagonal, Travessera de les Corts, Numància, Joan Güell) and modern blocks with loading access and concierge desks",
+        "Diagonal office and retail cluster around L'Illa: mailrooms take large multi-parcel B2B deliveries",
+        "Pedralbes and the university area: low-density housing and campuses with gatehouses, so walks are longer and there are access checks",
+        "Match and event days at the Camp Nou close nearby streets and jam Travessera de les Corts and Arístides Maillol",
+        "Good DUM coverage along the Travessera de les Corts shopping street"
+      ],
+      "preferred_vehicle_type_ids": ["EV-L", "EV-M"]
+    },
+    {
+      "zone_id": "Z05",
+      "name": "Sarrià-Sant Gervasi",
+      "municipality": "Barcelona",
+      "districts": ["Sarrià-Sant Gervasi"],
+      "centroid": {"lat": 41.4005, "lon": 2.1345},
+      "distance_from_hub_km": 9.5,
+      "share_of_daily_parcels": 0.07,
+      "stops_per_route": 64,
+      "minutes_per_stop": 3.5,
+      "delivery_difficulty": "high",
+      "difficulty_factors": [
+        "Steep streets above Via Augusta (Bonanova, Putxet, Sant Gervasi, Tres Torres) with gradients over 10%: frequent hill starts and slow trolley work",
+        "Detached houses and gated blocks with intercoms and front gardens: long walks from van to door and more recipients not at home",
+        "Vallvidrera, Tibidabo and Les Planes on the Collserola hillside: winding roads that add 20-30 minutes, usually served once a day on a dedicated sub-route",
+        "Pedestrianised Carrer Major de Sarrià and narrow streets in the old village of Sarrià",
+        "School-run traffic around the many private schools blocks streets in Bonanova and Sant Gervasi from 08:30 to 09:15 and 16:30 to 17:30",
+        "Fewer DUM bays per street than in the Eixample; double parking on Via Augusta, Balmes and Muntaner is strictly enforced"
+      ],
+      "preferred_vehicle_type_ids": ["EV-S", "EV-M"]
+    },
+    {
+      "zone_id": "Z06",
+      "name": "Gràcia",
+      "municipality": "Barcelona",
+      "districts": ["Gràcia"],
+      "centroid": {"lat": 41.4030, "lon": 2.1565},
+      "distance_from_hub_km": 9.8,
+      "share_of_daily_parcels": 0.06,
+      "stops_per_route": 66,
+      "minutes_per_stop": 3.7,
+      "delivery_difficulty": "high",
+      "difficulty_factors": [
+        "Tight mesh of narrow one-lane streets in the Vila de Gràcia, many of them single-level pedestrian-priority streets with a 10 km/h limit",
+        "Gràcia superblock: inner streets closed to through traffic, access loops only for residents, services and deliveries, and loading only at set places and times",
+        "Very few DUM bays inside the neighbourhood, so drivers park on Travessera de Gràcia, Gran de Gràcia or Via Augusta and walk in with a trolley",
+        "Upper Gràcia (Vallcarca, El Coll, La Salut) is steep, with stairways and outdoor escalators, plus tourist coaches and crowds around Park Güell",
+        "Small shops and bars open late in the morning; the Festa Major de Gràcia closes many streets for a week in mid-August"
+      ],
+      "preferred_vehicle_type_ids": ["EV-S", "EV-M"]
+    },
+    {
+      "zone_id": "Z07",
+      "name": "Horta-Guinardó",
+      "municipality": "Barcelona",
+      "districts": ["Horta-Guinardó"],
+      "centroid": {"lat": 41.4200, "lon": 2.1660},
+      "distance_from_hub_km": 13.0,
+      "share_of_daily_parcels": 0.06,
+      "stops_per_route": 60,
+      "minutes_per_stop": 3.6,
+      "delivery_difficulty": "high",
+      "difficulty_factors": [
+        "Hilliest district: El Carmel, La Teixonera, Can Baró and Sant Genís dels Agudells have gradients above 15%, dead ends and stairway streets",
+        "Irregular street layout forces out-and-back sequences, and large vans cannot turn in many of the upper streets",
+        "Long drive from the hub, either across the city or via the Ronda de Dalt, which is congested at the Vall d'Hebron exits in the morning",
+        "Vall d'Hebron hospital campus: healthcare B2B deliveries with controlled access and security checks",
+        "Mostly residential, with few parcels per stop; street parking is easier than in the centre but DUM bays are scarce"
+      ],
+      "preferred_vehicle_type_ids": ["EV-S", "EV-M"]
+    },
+    {
+      "zone_id": "Z08",
+      "name": "Nou Barris i Sant Andreu",
+      "municipality": "Barcelona",
+      "districts": ["Nou Barris", "Sant Andreu"],
+      "centroid": {"lat": 41.4385, "lon": 2.1775},
+      "distance_from_hub_km": 16.0,
+      "share_of_daily_parcels": 0.09,
+      "stops_per_route": 66,
+      "minutes_per_stop": 3.2,
+      "delivery_difficulty": "medium",
+      "difficulty_factors": [
+        "Farthest zone from the hub (about 16 km): the drive via the Ronda Litoral or Ronda de Dalt to the Nus de la Trinitat takes 30-45 minutes at peak",
+        "Upper Nou Barris (Roquetes, Torre Baró, Ciutat Meridiana, Vallbona) sits on steep Collserola slopes with stairways and outdoor escalators",
+        "Avinguda Meridiana has been redesigned with fewer car lanes and limited stopping, and carries heavy traffic towards the Nus de la Trinitat",
+        "Sant Andreu de Palomar has a narrow old village core around Gran de Sant Andreu, and the La Sagrera station works cause shifting road closures",
+        "Flat industrial areas in Bon Pastor and Sant Andreu with wide streets, loading docks and easy parking for B2B",
+        "Many blocks have no concierge and online-shopping density is lower, so stops are farther apart"
+      ],
+      "preferred_vehicle_type_ids": ["EV-M", "CNG-L", "EV-L"]
+    },
+    {
+      "zone_id": "Z09",
+      "name": "Sant Martí",
+      "municipality": "Barcelona",
+      "districts": ["Sant Martí"],
+      "centroid": {"lat": 41.4045, "lon": 2.1975},
+      "distance_from_hub_km": 11.0,
+      "share_of_daily_parcels": 0.11,
+      "stops_per_route": 80,
+      "minutes_per_stop": 2.9,
+      "delivery_difficulty": "low",
+      "difficulty_factors": [
+        "Flat Cerdà grid in Poblenou and the 22@ district with wide streets and newer DUM bays, so stops sequence efficiently",
+        "22@ technology district: offices and co-working buildings with reception desks give many parcels per stop, but receiving closes at lunchtime and after 18:00",
+        "Poblenou superblock: inner streets closed to through traffic at 10 km/h, with access loops",
+        "Diagonal Mar and Front Marítim residential towers with concierges and underground loading access",
+        "Ronda Litoral exits at Poblenou and Glòries congest in the morning peak; large music festivals at the Parc del Fòrum close roads in late spring and summer",
+        "Besòs i el Maresme and La Verneda: dense blocks without concierges and more failed attempts"
+      ],
+      "preferred_vehicle_type_ids": ["EV-L", "EV-M"]
+    },
+    {
+      "zone_id": "Z10",
+      "name": "L'Hospitalet de Llobregat",
+      "municipality": "L'Hospitalet de Llobregat",
+      "districts": ["Centre", "Sant Josep", "Sanfeliu", "Collblanc", "La Torrassa", "Santa Eulàlia", "Granvia", "La Florida", "Les Planes", "Pubilla Cases", "Can Serra", "Bellvitge", "El Gornal"],
+      "centroid": {"lat": 41.3610, "lon": 2.1105},
+      "distance_from_hub_km": 5.0,
+      "share_of_daily_parcels": 0.11,
+      "stops_per_route": 80,
+      "minutes_per_stop": 3.1,
+      "delivery_difficulty": "medium",
+      "difficulty_factors": [
+        "Collblanc-La Torrassa and La Florida are among the densest urban areas in Europe: narrow streets with cars parked on both sides and very few DUM bays",
+        "Bellvitge and El Gornal: high-rise blocks with many flats per entrance; easy van access but long lift and doorstep times",
+        "Gran Via business district (Fira Gran Via, hotels, office towers, Bellvitge hospital) takes large B2B deliveries; major trade fairs such as the Mobile World Congress in early March jam the Gran Via",
+        "Very close to the hub (about 5 km via the Gran Via), so routes are compact and suit the afternoon same-day wave",
+        "Pedestrian and traffic-calmed shopping streets in the Centre and Collblanc"
+      ],
+      "preferred_vehicle_type_ids": ["EV-M", "EV-L"]
+    },
+    {
+      "zone_id": "Z11",
+      "name": "El Prat de Llobregat",
+      "municipality": "El Prat de Llobregat",
+      "districts": ["Centre", "Sant Cosme", "Sant Jordi - Ribera Baixa", "La Seda", "Mas Blau business park", "ZAL Prat logistics area"],
+      "centroid": {"lat": 41.3262, "lon": 2.0948},
+      "distance_from_hub_km": 7.0,
+      "share_of_daily_parcels": 0.04,
+      "stops_per_route": 84,
+      "minutes_per_stop": 2.7,
+      "delivery_difficulty": "low",
+      "difficulty_factors": [
+        "Flat, compact town with a regular street layout and a pedestrianised centre around Plaça de la Vila",
+        "Mas Blau business park and the ZAL Prat logistics area: B2B stops with loading docks, but with gate and security checks",
+        "The only road links from the hub cross the Llobregat (B-10/C-31 bridges), so a single incident there adds 20-40 minutes",
+        "Airport traffic on the C-31 and C-32B during the morning peak",
+        "Good kerbside parking and DUM coverage, with short distances between stops"
+      ],
+      "preferred_vehicle_type_ids": ["EV-L", "CNG-L", "DSL-L"]
+    },
+    {
+      "zone_id": "Z12",
+      "name": "Cornellà de Llobregat",
+      "municipality": "Cornellà de Llobregat",
+      "districts": ["Centre", "Almeda", "Riera", "Sant Ildefons", "Gavarra", "Fontsanta-Fatjó", "Les Planes", "El Pedró"],
+      "centroid": {"lat": 41.3555, "lon": 2.0735},
+      "distance_from_hub_km": 8.5,
+      "share_of_daily_parcels": 0.04,
+      "stops_per_route": 78,
+      "minutes_per_stop": 2.8,
+      "delivery_difficulty": "low",
+      "difficulty_factors": [
+        "Mostly flat, with a regular grid in Almeda, Riera and Fontsanta-Fatjó",
+        "Almeda industrial and office area (large office campus buildings) with loading docks and many parcels per stop",
+        "Sant Ildefons: dense 1960s high-rise estate with many flats per entrance and scarce parking",
+        "Event days at the Espanyol football stadium and the nearby shopping centre jam Avinguda del Baix Llobregat",
+        "Recurring bottlenecks at the A-2 and B-23 access junctions in the morning peak"
+      ],
+      "preferred_vehicle_type_ids": ["EV-L", "CNG-L"]
+    },
+    {
+      "zone_id": "Z13",
+      "name": "Esplugues de Llobregat",
+      "municipality": "Esplugues de Llobregat",
+      "districts": ["Centre", "Can Vidalet", "La Plana", "Can Clota", "La Mallola", "Montesa", "El Gall", "Finestrelles", "Ciutat Diagonal"],
+      "centroid": {"lat": 41.3770, "lon": 2.0880},
+      "distance_from_hub_km": 9.0,
+      "share_of_daily_parcels": 0.02,
+      "stops_per_route": 68,
+      "minutes_per_stop": 3.2,
+      "delivery_difficulty": "medium",
+      "difficulty_factors": [
+        "Built on the lower slopes of Collserola: steep streets in the old centre, Montesa and Finestrelles; only the lower areas next to L'Hospitalet (Can Vidalet) are flat",
+        "Ciutat Diagonal and upper Finestrelles: low-density housing and gated developments with long walks from the van",
+        "Avinguda Laureà Miró (N-340) and the Diagonal/B-23 junction are heavy bottlenecks in the morning",
+        "Sant Joan de Déu children's hospital and corporate offices near the Diagonal: healthcare and B2B deliveries with controlled access",
+        "Low volume, so routes usually combine Esplugues with the western edge of L'Hospitalet or Les Corts"
+      ],
+      "preferred_vehicle_type_ids": ["EV-M", "EV-S"]
+    },
+    {
+      "zone_id": "Z14",
+      "name": "Sant Boi de Llobregat",
+      "municipality": "Sant Boi de Llobregat",
+      "districts": ["Centre", "Casablanca", "Marianao", "Camps Blancs", "Ciutat Cooperativa", "Molí Nou", "Vinyets"],
+      "centroid": {"lat": 41.3436, "lon": 2.0366},
+      "distance_from_hub_km": 12.5,
+      "share_of_daily_parcels": 0.04,
+      "stops_per_route": 74,
+      "minutes_per_stop": 2.8,
+      "delivery_difficulty": "low",
+      "difficulty_factors": [
+        "Longest drive from the hub among the neighbouring towns (about 12.5 km) via the B-10, C-31 and C-32/C-245, and the Llobregat bridge crossings are single points of failure",
+        "Flat town centre with a pedestrianised historic core and easy parking just outside it",
+        "Industrial estates along the C-245 and the river: bulky B2B parcels and loading docks, suited to large vans",
+        "Hillside streets around Marianao and high-rise blocks in Camps Blancs",
+        "Congestion on the C-245 (Carretera de Castelldefels) through Cornellà and Sant Boi at peak hours"
+      ],
+      "preferred_vehicle_type_ids": ["CNG-L", "DSL-L", "EV-L"]
+    }
+  ],
+  "fleet": {
+    "vehicle_types": [
+      {
+        "type_id": "EV-L",
+        "description": "Large battery-electric panel van, 3.5 t GVW, long wheelbase, high roof, fitted with parcel shelving",
+        "count": 7,
+        "energy": "electric",
+        "dgt_label": "0",
+        "payload_kg": 1000,
+        "cargo_volume_m3": 11.0,
+        "parcel_capacity": 190,
+        "consumption": {"value": 27.0, "unit": "kWh/100km"},
+        "range_km": 260,
+        "urban_average_speed_kmh": 18.0,
+        "telemetry_sensors": ["GNSS position and heading", "CAN-bus speed, odometer and ignition state", "Traction battery state of charge and energy used", "Charging sessions (start, stop, kWh)", "Cargo and side door open/close switches", "3-axis accelerometer (harsh braking and acceleration)", "Tyre pressure (TPMS)", "Driver handheld scan events (loaded, delivered, failed, proof of delivery)"]
+      },
+      {
+        "type_id": "EV-M",
+        "description": "Medium battery-electric panel van, 3.1 t GVW, long wheelbase, standard roof low enough for underground car parks",
+        "count": 11,
+        "energy": "electric",
+        "dgt_label": "0",
+        "payload_kg": 950,
+        "cargo_volume_m3": 6.1,
+        "parcel_capacity": 120,
+        "consumption": {"value": 21.5, "unit": "kWh/100km"},
+        "range_km": 250,
+        "urban_average_speed_kmh": 19.0,
+        "telemetry_sensors": ["GNSS position and heading", "CAN-bus speed, odometer and ignition state", "Traction battery state of charge and energy used", "Charging sessions (start, stop, kWh)", "Cargo and side door open/close switches", "3-axis accelerometer (harsh braking and acceleration)", "Tyre pressure (TPMS)", "Driver handheld scan events (loaded, delivered, failed, proof of delivery)"]
+      },
+      {
+        "type_id": "EV-S",
+        "description": "Compact battery-electric city van, 2.3 t GVW, extended body with sliding doors on both sides",
+        "count": 5,
+        "energy": "electric",
+        "dgt_label": "0",
+        "payload_kg": 650,
+        "cargo_volume_m3": 3.9,
+        "parcel_capacity": 85,
+        "consumption": {"value": 17.0, "unit": "kWh/100km"},
+        "range_km": 220,
+        "urban_average_speed_kmh": 19.0,
+        "telemetry_sensors": ["GNSS position and heading", "CAN-bus speed, odometer and ignition state", "Traction battery state of charge and energy used", "Charging sessions (start, stop, kWh)", "Cargo and side door open/close switches", "3-axis accelerometer (harsh braking and acceleration)", "Driver handheld scan events (loaded, delivered, failed, proof of delivery)"]
+      },
+      {
+        "type_id": "EV-Q",
+        "description": "Battery-electric heavy utility quadricycle (L7e-CU) with a box body, about 1.4 m wide, for the narrow streets of the old town",
+        "count": 2,
+        "energy": "electric",
+        "dgt_label": "0",
+        "payload_kg": 500,
+        "cargo_volume_m3": 3.2,
+        "parcel_capacity": 70,
+        "consumption": {"value": 9.5, "unit": "kWh/100km"},
+        "range_km": 110,
+        "urban_average_speed_kmh": 16.0,
+        "telemetry_sensors": ["GNSS position and heading", "Speed and odometer", "Battery state of charge", "Cargo box door open/close switch", "3-axis accelerometer (harsh braking and acceleration)", "Driver handheld scan events (loaded, delivered, failed, proof of delivery)"]
+      },
+      {
+        "type_id": "CNG-L",
+        "description": "Large compressed-natural-gas panel van, 3.5 t GVW, long wheelbase, high roof",
+        "count": 3,
+        "energy": "CNG",
+        "dgt_label": "ECO",
+        "payload_kg": 950,
+        "cargo_volume_m3": 10.5,
+        "parcel_capacity": 180,
+        "consumption": {"value": 9.0, "unit": "kg/100km"},
+        "range_km": 330,
+        "urban_average_speed_kmh": 18.0,
+        "telemetry_sensors": ["GNSS position and heading", "CAN-bus speed, odometer and ignition state", "CNG tank pressure and fuel remaining", "Engine idling time", "Cargo and side door open/close switches", "3-axis accelerometer (harsh braking and acceleration)", "Tyre pressure (TPMS)", "Driver handheld scan events (loaded, delivered, failed, proof of delivery)"]
+      },
+      {
+        "type_id": "DSL-L",
+        "description": "Large Euro 6d diesel panel van, 3.5 t GVW, extra-long wheelbase, high roof, used for bulky B2B loads and as peak reserve",
+        "count": 2,
+        "energy": "diesel",
+        "dgt_label": "C",
+        "payload_kg": 1300,
+        "cargo_volume_m3": 13.0,
+        "parcel_capacity": 220,
+        "consumption": {"value": 10.5, "unit": "l/100km"},
+        "range_km": 700,
+        "urban_average_speed_kmh": 18.0,
+        "telemetry_sensors": ["GNSS position and heading", "CAN-bus speed, odometer, ignition state and engine rpm", "Fuel level and fuel rate", "AdBlue level", "Engine idling time", "Cargo and side door open/close switches", "3-axis accelerometer (harsh braking and acceleration)", "Driver handheld scan events (loaded, delivered, failed, proof of delivery)"]
+      }
+    ],
+    "total_vehicles": 30
+  },
+  "drivers": {
+    "headcount": 48,
+    "shifts": [
+      {"name": "Morning wave", "start": "07:00", "end": "15:30", "break_minutes": 30, "drivers": 30},
+      {"name": "Afternoon-evening wave", "start": "13:30", "end": "22:00", "break_minutes": 30, "drivers": 10}
+    ],
+    "max_route_duration_minutes": 390
+  },
+  "kpi_targets": {
+    "avg_delivery_time_per_route_minutes": {
+      "current_baseline": 361.0,
+      "target_with_optimization": 330.0,
+      "rationale": "Measured for each route from the telematics geofence exit at the hub to the last delivered-or-failed scan, averaged over the 40 weekday routes (30 morning, 10 afternoon), including the 30-minute mid-route break. The 361-minute baseline is roughly 22 min from the hub to the first stop, 231 min stopped at addresses (about 72 stops x 3.2 min, i.e. stops_per_route x minutes_per_stop), 78 min driving between stops and the 30-min break. The 330-minute target (-31 min, -8.6%) comes from four changes: time-dependent stop sequencing (-14 min between stops), clustering stops around DUM bays so one parking serves several addresses (-8 min), staggered departures that avoid the Ronda Litoral and Ronda de Dalt peak (-5 min), and putting small vehicles in Ciutat Vella, Gràcia and the hill zones (-4 min). Every route stays under the 390-minute maximum, so morning routes that leave at about 07:40 finish by about 13:10 and afternoon routes that leave at about 14:40 finish by about 20:10, inside the 08:00-14:00 and 15:00-21:00 windows."
+    },
+    "avg_delay_vs_plan_minutes": {"current_baseline": 22.0, "target": 8.0},
+    "on_time_share_pct": {"current_baseline": 87.5, "target": 95.0}
+  },
+  "operational_risks": [
+    "Morning congestion on the Ronda Litoral (B-10) and Ronda de Dalt (B-20), especially at the Nus del Llobregat and Nus de la Trinitat, between 07:30 and 09:30",
+    "Incidents on the few exits from the Zona Franca (Passeig de la Zona Franca, Gran Via, B-10 and the Llobregat bridges) that trap the whole fleet at departure time",
+    "Port container and logistics truck traffic in the Zona Franca and around the Mercabarna wholesale market overlapping with van departures",
+    "Private cars and other vans occupying DUM loading bays, forcing fined double parking or circling, with the 30-minute limit enforced through the areaDUM app",
+    "Street works and superblock or green-axis redesigns that change one-way systems and close streets at short notice",
+    "Mass events: FC Barcelona match days, the Mobile World Congress at Fira Gran Via, concerts at Montjuïc and the Parc del Fòrum, La Mercè in late September, the Festa Major de Gràcia in August and Sant Jordi on 23 April",
+    "Demonstrations and strikes (the Diada on 11 September, general strikes, taxi protests and farmers' tractor protests) that cut the Gran Via, Diagonal and ring roads",
+    "Rodalies commuter-rail outages that push commuters onto the A-2, B-23, C-31 and C-32 and sharply increase road congestion",
+    "Autumn rainstorms (DANA / gota freda) flooding underpasses and low-lying roads in the Llobregat delta",
+    "Summer heat waves that force adapted working hours and extra rest breaks for drivers and cut electric-van range because of air conditioning",
+    "Tourist crowds and cruise-ship days (coaches around the port, Drassanes and the Sagrada Família) slowing traffic and trolley walks",
+    "B2C recipients absent during working hours and tourist flats with no one to receive, causing failed first attempts and extra second-attempt work",
+    "Van break-ins and parcel theft while the driver is away from the vehicle, especially in tourist areas",
+    "Limited midday fast-charging capacity at the hub, and occupied public chargers, for electric vans that run both waves"
+  ]
+}
