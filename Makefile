@@ -4,10 +4,10 @@ COMPOSE := docker compose
 WAIT_TIMEOUT ?= 1800
 
 .DEFAULT_GOAL := help
-.PHONY: help up down restart ps logs smoke config clean
+.PHONY: help up down restart ps logs smoke validate-seeds config clean
 
 help:  ## List the available commands
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-9s %s\n", $$1, $$2}'
+	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-15s %s\n", $$1, $$2}'
 
 .env:
 	cp .env.example .env
@@ -36,6 +36,9 @@ logs:  ## Follow the logs of every service (make logs s=grafana for one)
 
 smoke: .env  ## Check that every service answers and does its job
 	./scripts/smoke-test.sh
+
+validate-seeds:  ## Check the AI-generated seed data: structure, consistency, geography
+	uv run --with jsonschema python services/generator/validate_company.py
 
 config: .env  ## Validate docker-compose.yml
 	$(COMPOSE) config --quiet && echo "docker-compose.yml is valid"
