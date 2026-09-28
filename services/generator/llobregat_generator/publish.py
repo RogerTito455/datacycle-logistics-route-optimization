@@ -6,6 +6,7 @@ from datetime import date
 
 import psycopg
 import pyarrow as pa
+from psycopg import sql
 from psycopg.rows import dict_row
 
 from llobregat_generator import __version__, addresses, db
@@ -44,7 +45,8 @@ ORDER_SCHEMA = pa.schema(
         ("event_time", TIMESTAMP),
     ]
 )
-assert tuple(ORDER_SCHEMA.names) == COLUMNS
+if tuple(ORDER_SCHEMA.names) != COLUMNS:
+    raise RuntimeError(f"the Parquet schema and orders.COLUMNS disagree: {ORDER_SCHEMA.names} against {COLUMNS}")
 
 
 def object_key(service_date: date) -> str:
@@ -93,8 +95,9 @@ def read_pool(conn: psycopg.Connection, zone_map: ZoneMap) -> dict[str, list[add
 
 
 def read_day(conn: psycopg.Connection, service_date: date) -> list[dict]:
+    """The generated orders of one service date, as generate_day returned them."""
+    query = sql.SQL("SELECT {} FROM bronze.orders WHERE service_date = %s AND source = %s ORDER BY order_id").format(
+        sql.SQL(", ").join(map(sql.Identifier, COLUMNS))
+    )
     with conn.cursor(row_factory=dict_row) as cur:
-        return cur.execute(
-            f"SELECT {', '.join(COLUMNS)} FROM bronze.orders WHERE service_date = %s AND source = %s ORDER BY order_id",
-            (service_date, SOURCE_ID),
-        ).fetchall()
+        return cur.execute(query, (service_date, SOURCE_ID)).fetchall()

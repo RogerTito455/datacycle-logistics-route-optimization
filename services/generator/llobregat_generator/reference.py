@@ -8,7 +8,6 @@ untouched, so running the load twice writes nothing the second time.
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -42,7 +41,8 @@ class Table:
         columns = list(self.rows[0]) + ["source"]
         return columns + ["raw_object_key"] if self.raw_object_key else columns
 
-    def values(self):
+    def rows_with_metadata(self):
+        """Each row's values followed by source (and raw_object_key), in the order of `columns`."""
         extra = [self.source, self.raw_object_key] if self.raw_object_key else [self.source]
         for row in self.rows:
             yield [*row.values(), *extra]
@@ -278,21 +278,21 @@ def seed_parquet(seeds: Seeds, bucket: Bucket) -> list[str]:
     return [bucket.put_parquet(key, pa.Table.from_pylist(rows)) for key, rows in files.items()]
 
 
-def load_reference(settings: Settings, log: Callable[[str], None] = print) -> dict[str, tuple[int, int, int]]:
+def load_reference(settings: Settings) -> dict[str, tuple[int, int, int]]:
     """Load every reference table; return rows offered, inserted and present per table."""
     seeds = Seeds.load(settings.seed_dir)
     zone_map = ZoneMap.from_company(seeds.company)
     bucket = Bucket(settings)
-    log("Reference files in the bronze bucket")
+    print("Reference files in the bronze bucket")
     for key in seed_parquet(seeds, bucket):
-        log(f"  {bucket.name}/{key}")
+        print(f"  {bucket.name}/{key}")
     tables = seed_tables(seeds) + address_tables(settings, zone_map, bucket)
     for table in tables:
         if table.raw_object_key:
-            log(f"  {bucket.name}/{table.raw_object_key}")
+            print(f"  {bucket.name}/{table.raw_object_key}")
     results = {}
     with db.connect(settings) as conn, conn.transaction():
         for table in tables:
-            inserted = db.insert_new(conn, table.name, table.columns, table.values())
+            inserted = db.insert_new(conn, table.name, table.columns, table.rows_with_metadata())
             results[table.name] = (len(table.rows), inserted, db.count(conn, table.name))
     return results

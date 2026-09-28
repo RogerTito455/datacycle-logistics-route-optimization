@@ -191,7 +191,8 @@ class Calendar:
         }
 
 
-def at(day: date, minute_of_day: int) -> datetime:
+def local_datetime(day: date, minute_of_day: int) -> datetime:
+    """The moment `minute_of_day` minutes after midnight of `day`, in Barcelona time."""
     return datetime.combine(day, time()).replace(tzinfo=LOCAL_TZ) + timedelta(minutes=minute_of_day)
 
 
@@ -305,11 +306,11 @@ def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str,
                     "weight_kg": weight,
                     "wave": wave.value,
                     "window_type": window_type.value,
-                    "window_start": at(service_date, start),
-                    "window_end": at(service_date, end),
+                    "window_start": local_datetime(service_date, start),
+                    "window_end": local_datetime(service_date, end),
                     "notes": None,  # delivery notes are attached by issue #25
                     "source": SOURCE_ID,
-                    "event_time": at(registered_on, minute_of_day) + timedelta(seconds=second),
+                    "event_time": local_datetime(registered_on, minute_of_day) + timedelta(seconds=second),
                 }
             )
 

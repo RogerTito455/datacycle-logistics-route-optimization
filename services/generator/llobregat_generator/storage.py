@@ -17,8 +17,10 @@ CONTENT_TYPES = {".csv": "text/csv", ".zip": "application/zip", ".parquet": "app
 
 
 class Bucket:
-    def __init__(self, settings: Settings, name: str = BRONZE_BUCKET):
-        self.name = name
+    """The bronze bucket."""
+
+    def __init__(self, settings: Settings):
+        self.name = BRONZE_BUCKET
         self.client = boto3.client(
             "s3",
             endpoint_url=settings.s3_endpoint,

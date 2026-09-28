@@ -19,9 +19,7 @@ from llobregat_generator.seeds import Seeds
 from llobregat_generator.zones import Polygon, in_polygons
 
 
-def summarise(
-    orders: Sequence[dict], company: dict, boundaries: dict[str, list[Polygon]] | None = None
-) -> dict[str, object]:
+def summarise(orders: Sequence[dict], company: dict, boundaries: dict[str, list[Polygon]]) -> dict[str, object]:
     """Figures a reviewer compares with company.json and demand.json.
 
     Shares are shares of parcels unless the name says orders.
@@ -37,7 +35,10 @@ def summarise(
     cutoff = minutes(company["hub"]["timetable"]["same_day_cutoff"])
     same_day = [o for o in orders if o["service_level"] == "same_day"]
     registered = [o["event_time"].astimezone(LOCAL_TZ) for o in same_day]
-    figures: dict[str, object] = {
+    inside = sum(
+        in_polygons(boundaries[o["destination_zone_id"]], o["destination_lon"], o["destination_lat"]) for o in orders
+    )
+    return {
         "orders": len(orders),
         "parcels": parcels,
         "parcels_per_stop": parcels / len(orders) if orders else 0.0,
@@ -52,14 +53,8 @@ def summarise(
         "size_mix": {size: share(lambda o, s=size: o["parcel_size"] == s) for size in SIZES},
         "window_types": dict(Counter(o["window_type"] for o in orders)),
         "zone_share": {z["zone_id"]: by_zone[z["zone_id"]] / parcels if parcels else 0.0 for z in company["zones"]},
+        "inside_zone_boundary": inside / len(orders) if orders else 0.0,
     }
-    if boundaries is not None:
-        inside = sum(
-            in_polygons(boundaries[o["destination_zone_id"]], o["destination_lon"], o["destination_lat"])
-            for o in orders
-        )
-        figures["inside_zone_boundary"] = inside / len(orders) if orders else 0.0
-    return figures
 
 
 def report(service_date: date, figures: dict, seeds: Seeds) -> str:
@@ -87,6 +82,5 @@ def report(service_date: date, figures: dict, seeds: Seeds) -> str:
         f"  zone shares        largest gap {worst}: {figures['zone_share'][worst]:.1%} "
         f"against {zone_share[worst]:.1%} in company.json"
     )
-    if "inside_zone_boundary" in figures:
-        lines.append(f"  inside the zone's official boundary: {figures['inside_zone_boundary']:.2%} of orders")
+    lines.append(f"  inside the zone's official boundary: {figures['inside_zone_boundary']:.2%} of orders")
     return "\n".join(lines)
