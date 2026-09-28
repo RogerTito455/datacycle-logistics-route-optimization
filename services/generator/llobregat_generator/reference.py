@@ -9,14 +9,15 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date
+from datetime import UTC, date, datetime
 from pathlib import Path
 from typing import NamedTuple
 
-import pyarrow as pa
+import psycopg
 
 from llobregat_generator import addresses, db
 from llobregat_generator.config import Settings
+from llobregat_generator.metadata import FileMetadata, parquet_table
 from llobregat_generator.rules import RELIEF_POOL, clock, span
 from llobregat_generator.seeds import Seeds
 from llobregat_generator.storage import Bucket
@@ -282,13 +283,14 @@ def address_tables(settings: Settings, zone_map: ZoneMap, bucket: Bucket) -> lis
     ]
 
 
-def seed_parquet(tables: list[Table], bucket: Bucket) -> list[str]:
+def seed_parquet(conn: psycopg.Connection, tables: list[Table], bucket: Bucket, ingested_at: datetime) -> list[str]:
     """The fleet register, driver roster and shipper list as Parquet files in the bronze bucket."""
-    return [
-        bucket.put_parquet(table.raw_object_key, pa.Table.from_pylist(table.rows))
-        for table in tables
-        if table.name in SEED_FILES
-    ]
+    keys = []
+    for table in tables:
+        if table.name in SEED_FILES:
+            metadata = FileMetadata.for_table(conn, table.name, table.source, ingested_at)
+            keys.append(bucket.put_parquet(table.raw_object_key, parquet_table(table.rows, metadata)))
+    return keys
 
 
 def load_reference(settings: Settings) -> dict[str, Loaded]:
@@ -296,16 +298,16 @@ def load_reference(settings: Settings) -> dict[str, Loaded]:
     seeds = Seeds.load(settings.seed_dir)
     zone_map = ZoneMap.from_company(seeds.company)
     bucket = Bucket(settings)
-    print("Reference files in the bronze bucket")
-    tables = seed_tables(seeds)
-    seed_parquet(tables, bucket)
-    tables += address_tables(settings, zone_map, bucket)
-    for table in tables:
-        if table.raw_object_key:
-            print(f"  {bucket.name}/{table.raw_object_key}")
+    tables = seed_tables(seeds) + address_tables(settings, zone_map, bucket)
     results = {}
-    with db.connect(settings) as conn, conn.transaction():
+    with db.connect(settings) as conn:
+        seed_parquet(conn, tables, bucket, datetime.now(UTC))
+        print("Reference files in the bronze bucket")
         for table in tables:
-            inserted = db.insert_new(conn, table.name, table.columns, table.rows_with_metadata())
-            results[table.name] = Loaded(len(table.rows), table.skipped, inserted, db.count(conn, table.name))
+            if table.raw_object_key:
+                print(f"  {bucket.name}/{table.raw_object_key}")
+        with conn.transaction():
+            for table in tables:
+                inserted = db.insert_new(conn, table.name, table.columns, table.rows_with_metadata())
+                results[table.name] = Loaded(len(table.rows), table.skipped, inserted, db.count(conn, table.name))
     return results

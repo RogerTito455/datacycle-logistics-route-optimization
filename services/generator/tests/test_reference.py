@@ -4,11 +4,13 @@ from __future__ import annotations
 
 import json
 import zipfile
+from datetime import UTC, datetime
 
 import jsonschema
 import pytest
 from llobregat_generator import addresses, reference
 from llobregat_generator.config import GENERATOR_DIR
+from llobregat_generator.metadata import FileMetadata, parquet_table
 from llobregat_generator.zones import ZoneMap
 
 
@@ -39,6 +41,21 @@ def test_seed_tables_match_the_seeds(seeds):
         from_file = table.name in ("bronze.vehicles", "bronze.drivers", "bronze.shippers")
         assert table.columns[-2:] == (["source", "raw_object_key"] if from_file else [table.columns[-2], "source"])
         assert (table.raw_object_key or "").endswith(".parquet") == from_file
+
+
+def test_seed_files_carry_source_ingested_at_owner_and_schema_version(seeds):
+    ingested_at = datetime(2026, 9, 29, 6, 30, tzinfo=UTC)
+    rows = reference.vehicles(seeds.fleet)
+    table = parquet_table(rows, FileMetadata("generator/fleet", "fleet", 4, ingested_at))
+    assert table.column_names == [*rows[0], "source", "ingested_at"]
+    assert set(table.column("source").to_pylist()) == {"generator/fleet"}
+    assert set(table.column("ingested_at").to_pylist()) == {ingested_at}
+    assert {k.decode(): v.decode() for k, v in table.schema.metadata.items()} == {
+        "source": "generator/fleet",
+        "owner": "fleet",
+        "schema_version": "4",
+        "ingested_at": "2026-09-29T06:30:00+00:00",
+    }
 
 
 def test_hub_and_shift_ids(seeds):

@@ -11,13 +11,14 @@ import copy
 import dataclasses
 import io
 from collections import Counter
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from statistics import mean, stdev
 
 import numpy as np
 import pyarrow.parquet as pq
 import pytest
 from conftest import MONDAY, SATURDAY, SEED
+from llobregat_generator.metadata import FileMetadata
 from llobregat_generator.orders import (
     LOCAL_TZ,
     SATURDAY_OPEN,
@@ -43,6 +44,7 @@ from llobregat_generator.rules import (
 from llobregat_generator.zones import in_polygons
 
 WINDOW = 120
+METADATA = FileMetadata("generator/orders", "operations", 3, datetime(2026, 9, 29, 6, 30, tzinfo=UTC))
 
 
 def parcels(orders, predicate=lambda o: True) -> int:
@@ -366,7 +368,7 @@ def test_same_date_and_seed_give_the_same_orders(seeds, pool, weekday):
 
     def parquet_bytes(day) -> bytes:
         buffer = io.BytesIO()
-        pq.write_table(orders_table(day), buffer)
+        pq.write_table(orders_table(day, METADATA), buffer)
         return buffer.getvalue()
 
     assert parquet_bytes(again) == parquet_bytes(weekday)
@@ -379,9 +381,20 @@ def test_another_seed_or_date_gives_other_orders(seeds, pool, weekday):
     assert [o["address_ref"] for o in next_monday.orders[:50]] != [o["address_ref"] for o in weekday.orders[:50]]
 
 
-def test_parquet_file_has_the_bronze_columns(weekday):
-    table = orders_table(weekday)
+def test_parquet_file_has_the_bronze_columns_and_metadata(weekday):
+    table = orders_table(weekday, METADATA)
     assert table.schema.names == ORDER_SCHEMA.names
     assert table.num_rows == len(weekday.orders)
-    assert table.schema.metadata[b"seed"] == str(SEED).encode()
+    metadata = {k.decode(): v.decode() for k, v in table.schema.metadata.items()}
+    assert metadata == {
+        "source": "generator/orders",
+        "owner": "operations",
+        "schema_version": "3",
+        "ingested_at": "2026-09-29T06:30:00+00:00",
+        "service_date": MONDAY.isoformat(),
+        "seed": str(SEED),
+        "generator": metadata["generator"],
+    }
+    assert set(table.column("source").to_pylist()) == {"generator/orders"}
+    assert set(table.column("ingested_at").to_pylist()) == {METADATA.ingested_at}
     assert table.column("notes").null_count == table.num_rows  # filled by issue #25

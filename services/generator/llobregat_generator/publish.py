@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, datetime
 
 import psycopg
 import pyarrow as pa
@@ -10,6 +10,7 @@ from psycopg import sql
 from psycopg.rows import dict_row
 
 from llobregat_generator import __version__, addresses, db
+from llobregat_generator.metadata import FileMetadata, parquet_table
 from llobregat_generator.orders import COLUMNS, SOURCE_ID, Day
 from llobregat_generator.storage import Bucket
 from llobregat_generator.zones import ZoneMap
@@ -43,9 +44,11 @@ ORDER_SCHEMA = pa.schema(
         ("notes", pa.string()),
         ("source", pa.string()),
         ("event_time", TIMESTAMP),
+        ("ingested_at", TIMESTAMP),
     ]
 )
-if tuple(ORDER_SCHEMA.names) != COLUMNS:
+# The generated columns, then ingested_at, which is set when the day is published.
+if tuple(ORDER_SCHEMA.names) != (*COLUMNS, "ingested_at"):
     raise RuntimeError(f"the Parquet schema and orders.COLUMNS disagree: {ORDER_SCHEMA.names} against {COLUMNS}")
 
 
@@ -53,31 +56,34 @@ def object_key(service_date: date) -> str:
     return f"orders/date={service_date.isoformat()}/orders.parquet"
 
 
-def orders_table(day: Day) -> pa.Table:
-    """The day's orders as an Arrow table; the file metadata records how they were generated."""
-    schema = ORDER_SCHEMA.with_metadata(
-        {
-            "source": SOURCE_ID,
-            "service_date": day.service_date.isoformat(),
-            "seed": str(day.seed),
-            "generator": f"llobregat-generator {__version__}",
-        }
+def orders_table(day: Day, metadata: FileMetadata) -> pa.Table:
+    """The day's orders as an Arrow table; the file metadata also records how they were generated."""
+    return parquet_table(
+        day.orders,
+        metadata,
+        ORDER_SCHEMA,
+        service_date=day.service_date.isoformat(),
+        seed=str(day.seed),
+        generator=f"llobregat-generator {__version__}",
     )
-    return pa.Table.from_pylist(day.orders, schema=schema)
 
 
-def publish_day(conn: psycopg.Connection, bucket: Bucket, day: Day) -> tuple[str, int, int]:
+def publish_day(conn: psycopg.Connection, bucket: Bucket, day: Day, ingested_at: datetime) -> tuple[str, int, int]:
     """Store the day's file and rows; a date generated before is replaced, not duplicated.
 
-    Returns the object key, the rows deleted (from an earlier run of the date) and the rows written.
+    File and rows get the same ingested_at. Returns the object key, the rows deleted (from an
+    earlier run of the date) and the rows written.
     """
-    key = bucket.put_parquet(object_key(day.service_date), orders_table(day))
+    metadata = FileMetadata.for_table(conn, "bronze.orders", SOURCE_ID, ingested_at)
+    table = orders_table(day, metadata)
+    key = bucket.put_parquet(object_key(day.service_date), table)
     with conn.transaction():
         deleted = conn.execute(
             "DELETE FROM bronze.orders WHERE service_date = %s AND source = %s", (day.service_date, SOURCE_ID)
         ).rowcount
-        db.copy_rows(conn, "bronze.orders", [*COLUMNS, "raw_object_key"], ([*o.values(), key] for o in day.orders))
-    return key, deleted, len(day.orders)
+        rows = ([*o.values(), metadata.ingested_at, key] for o in day.orders)
+        db.copy_rows(conn, "bronze.orders", [*table.column_names, "raw_object_key"], rows)
+    return key, deleted, table.num_rows
 
 
 def read_pool(conn: psycopg.Connection, zone_map: ZoneMap) -> dict[str, list[addresses.Address]]:

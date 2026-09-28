@@ -21,6 +21,18 @@ def connect(settings: Settings) -> psycopg.Connection:
     )
 
 
+def table_metadata(conn: psycopg.Connection, table: str) -> tuple[str, int]:
+    """Owner and schema version of a table, from its JSON comment through ops.table_metadata."""
+    schema, name = table.split(".")
+    row = conn.execute(
+        "SELECT owner, schema_version FROM ops.table_metadata WHERE schema_name = %s AND table_name = %s",
+        (schema, name),
+    ).fetchone()
+    if row is None or None in row:
+        raise RuntimeError(f"{table} has no owner and schema_version in ops.table_metadata; run make migrate")
+    return row[0], row[1]
+
+
 def count(conn: psycopg.Connection, table: str) -> int:
     schema, name = table.split(".")
     return conn.execute(sql.SQL("SELECT count(*) FROM {}").format(sql.Identifier(schema, name))).fetchone()[0]

@@ -32,6 +32,11 @@ The owner is a function of Llobregat Express that answers for the data: `operati
 zones, drivers, orders, routes), `fleet` (vehicles and their sensors) or `platform` (external
 feeds and bookkeeping).
 
+Decision 20 covers files too. The Parquet files the generator writes to the `bronze` bucket carry
+`source` and `ingested_at` columns, like the rows loaded from them, and the four elements as
+file-level key-value metadata: `source`, `owner`, `schema_version` and `ingested_at`. `owner` and
+`schema_version` are those of the table the file is loaded into, read from `ops.table_metadata`.
+
 Rows that come from a file or an API response also keep `raw_object_key`, the key of that payload
 in the RustFS `bronze` bucket, so each row can be traced back to the bytes it was parsed from.
 

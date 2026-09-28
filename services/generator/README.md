@@ -48,7 +48,11 @@ the zone boundaries and 560 sample addresses for the tests
 ## Outputs
 
 Every row names its origin in `source` and gets `ingested_at` when it is written; orders also have
-`event_time`, the moment the shipper registered them (ADR 0001, decision 20).
+`event_time`, the moment the shipper registered them (ADR 0001, decision 20). The Parquet files the
+generator writes carry the same `source` and `ingested_at` columns, and their file metadata holds
+`source`, `owner`, `schema_version` and `ingested_at`: decision 20 asks for them on every file too.
+`owner` and `schema_version` are those of the bronze table the file is loaded into, read from
+`ops.table_metadata`, and a day's orders file and its rows share one `ingested_at`.
 
 | Table | Rows | `source` | File in the `bronze` bucket |
 |---|---|---|---|

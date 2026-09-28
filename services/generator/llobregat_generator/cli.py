@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 
 import psycopg
 
@@ -40,7 +40,7 @@ def cmd_orders(settings: Settings, args: argparse.Namespace) -> int:
     with db.connect(settings) as conn:
         pool = publish.read_pool(conn, ZoneMap.from_company(seeds.company))
         day = generate_day(args.date, args.seed, seeds, pool)
-        key, deleted, written = publish.publish_day(conn, Bucket(settings), day)
+        key, deleted, written = publish.publish_day(conn, Bucket(settings), day, datetime.now(UTC))
     print(f"bronze/{key}: {written} orders, {day.parcels} parcels (seed {args.seed})")
     print(
         f"bronze.orders: {written} rows written" + (f", {deleted} rows of an earlier run replaced" if deleted else "")
