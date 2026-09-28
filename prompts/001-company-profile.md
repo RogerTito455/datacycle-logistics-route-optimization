@@ -10,8 +10,8 @@
 
 ## Why this prompt looks the way it does
 
-- **Fixed facts first.** The name, the hub location and the fleet size are decisions the team
-  already took (ADR 0001). The model fills in everything else.
+- **Fixed facts first.** The name and the hub location come from ADR 0001; the fleet of 30
+  vehicles was sized by the team for the simulation. The model fills in everything else.
 - **Realism is spelled out.** Barcelona has specific delivery constraints (the ZBE low emission
   zone, superblocks, DUM loading zones, access control in Ciutat Vella). Naming them makes the
   model reason about them instead of producing a generic city.
@@ -150,7 +150,7 @@ check that its JSON parsed.
 | Layer | Checks | Result |
 |---|---|---|
 | Structure | Every field and type against `company.schema.json` | pass |
-| Consistency | Zone shares sum to 1.000; 30 vehicles; fleet capacity 4,195 parcels for a 3,500 mean; 83% zero-emission; routes fit the shifts; KPI target below baseline | pass |
+| Consistency | Zone shares sum to 1.000; 30 vehicles; one full-fleet load of 4,195 parcels for a 3,500 mean; 83% zero-emission; the 390-minute maximum route fits the shortest shift; KPI target below baseline | pass |
 | Geography | Hub and all 14 centroids fall in the district or municipality they claim (OpenStreetMap reverse geocoding) and within 300 m of a drivable road | pass |
 | Road distances | Distance from the hub claimed by the model against a real route computed by OSRM | 1 warning |
 
@@ -159,6 +159,14 @@ are shorter than the route OSRM computes on the real network, the median one by 
 and Sants-Montjuïc is claimed at 4.8 km where the route is 8.0 km. The field stays as generated,
 and nothing downstream uses it: the simulator and the optimizer take every distance and travel
 time from OSRM.
+
+**An arithmetic slip the validator does not catch.** Review found one error in the model's KPI
+rationale. It says that, with every route under the 390-minute maximum, morning routes leaving
+at about 07:40 finish by about 13:10 and afternoon routes leaving at about 14:40 finish by about
+20:10. But 07:40 + 390 min is 14:10 and 14:40 + 390 min is 21:10, both past the end of their
+delivery waves; 13:10 and 20:10 are what the 330-minute target gives. The rationale is kept as
+generated and the error is noted here; the [phase 1 document](../docs/phases/1-case.md) gives
+the corrected times.
 
 ## History
 
