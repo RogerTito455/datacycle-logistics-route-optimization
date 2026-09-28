@@ -1,0 +1,123 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RogerTito455/datacycle-logistics-route-optimization/services/generator/seed/drivers.schema.json",
+  "title": "Llobregat Express driver roster",
+  "description": "Structure of the AI-generated driver roster (prompt 003): one record per fictional driver. Shift sizes, zone coverage and hiring years are checked against company.json by validate_seeds.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_for",
+    "drivers"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "generated_for": {
+      "const": "Llobregat Express driver roster"
+    },
+    "drivers": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "driver_id",
+          "first_name",
+          "last_names",
+          "shift",
+          "contract",
+          "hired_year",
+          "years_driving_professionally",
+          "home_municipality",
+          "languages",
+          "zone_knowledge",
+          "qualified_vehicle_types",
+          "planning_note"
+        ],
+        "properties": {
+          "driver_id": {
+            "type": "string",
+            "pattern": "^D-\\d{3}$"
+          },
+          "first_name": {
+            "type": "string",
+            "minLength": 1
+          },
+          "last_names": {
+            "type": "string",
+            "minLength": 1
+          },
+          "shift": {
+            "enum": [
+              "Morning wave",
+              "Afternoon-evening wave",
+              "Relief pool"
+            ]
+          },
+          "contract": {
+            "enum": [
+              "permanent full-time",
+              "permanent part-time",
+              "temporary"
+            ]
+          },
+          "hired_year": {
+            "type": "integer"
+          },
+          "years_driving_professionally": {
+            "type": "integer",
+            "minimum": 0
+          },
+          "home_municipality": {
+            "type": "string",
+            "minLength": 1
+          },
+          "languages": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "zone_knowledge": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^Z\\d{2}$"
+            },
+            "minItems": 1,
+            "maxItems": 4,
+            "uniqueItems": true
+          },
+          "qualified_vehicle_types": {
+            "type": "array",
+            "items": {
+              "enum": [
+                "EV-L",
+                "EV-M",
+                "EV-S",
+                "EV-Q",
+                "CNG-L",
+                "DSL-L"
+              ]
+            },
+            "minItems": 1,
+            "uniqueItems": true
+          },
+          "planning_note": {
+            "type": [
+              "string",
+              "null"
+            ],
+            "minLength": 1
+          }
+        }
+      }
+    }
+  }
+}
