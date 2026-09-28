@@ -15,7 +15,7 @@ CREATE SCHEMA IF NOT EXISTS ops;
 COMMENT ON SCHEMA bronze IS 'Raw data exactly as it arrived. Write-once.';
 COMMENT ON SCHEMA silver IS 'Cleaned and typed data, built by dbt staging models.';
 COMMENT ON SCHEMA gold   IS 'Business marts and KPIs. The only layer Grafana reads for analysis.';
-COMMENT ON SCHEMA ops    IS 'Platform bookkeeping: health checks, pipeline runs.';
+COMMENT ON SCHEMA ops    IS 'Platform bookkeeping: data source registry, migration ledger, table metadata and service health checks.';
 
 -- Platform health, written by the Dagster platform_health asset.
 CREATE TABLE IF NOT EXISTS ops.service_health (

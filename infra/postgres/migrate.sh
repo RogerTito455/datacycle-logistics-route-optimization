@@ -6,7 +6,10 @@
 # Rules for migration files:
 #   - named NNN_description.sql, applied in NNN order, each in a single transaction;
 #   - never edited once applied: the checksum is recorded and a changed file stops the run.
-#     Fix a mistake with a new migration.
+#     Fix a mistake with a new migration;
+#   - one number per migration: a file whose number is recorded under another name stops the run.
+# Two runs at the same time (make migrate during docker compose up) take turns on an advisory
+# lock, so the second one finds everything applied instead of failing.
 set -euo pipefail
 
 MIGRATIONS_DIR="${MIGRATIONS_DIR:-/migrations}"
@@ -23,16 +26,34 @@ for attempt in $(seq 1 60); do
   sleep 2
 done
 
+# Hold a session-level advisory lock for the whole run. The locking session is a background psql
+# that lives as long as this script: when the script exits, its input closes and the lock goes.
+coproc LOCK_SESSION { "${PSQL[@]}" -tA; }
+echo "SELECT pg_advisory_lock(hashtext('llobregat.migrate')); SELECT 'locked';" >&"${LOCK_SESSION[1]}"
+locked=false
+while read -r line <&"${LOCK_SESSION[0]}"; do
+  [[ "$line" == locked ]] && { locked=true; break; }
+done
+$locked || { echo "could not take the migration lock" >&2; exit 1; }
+
+# The ledger is created in its first shape here; later migrations evolve it (007 adds source and
+# ingested_at), so the comment is only written when the table is created.
 "${PSQL[@]}" <<'SQL'
-CREATE TABLE IF NOT EXISTS ops.schema_migrations (
-    version      integer PRIMARY KEY,
-    name         text NOT NULL,
-    checksum     text NOT NULL,
-    applied_at   timestamptz NOT NULL DEFAULT now(),
-    applied_by   text NOT NULL DEFAULT current_user,
-    duration_ms  integer
-);
-COMMENT ON TABLE ops.schema_migrations IS '{"owner": "platform", "schema_version": 1}';
+DO $$
+BEGIN
+    IF to_regclass('ops.schema_migrations') IS NULL THEN
+        CREATE TABLE ops.schema_migrations (
+            version      integer PRIMARY KEY,
+            name         text NOT NULL,
+            checksum     text NOT NULL,
+            applied_at   timestamptz NOT NULL DEFAULT now(),
+            applied_by   text NOT NULL DEFAULT current_user,
+            duration_ms  integer
+        );
+        COMMENT ON TABLE ops.schema_migrations IS '{"owner": "platform", "schema_version": 1}';
+    END IF;
+END
+$$;
 SQL
 
 applied=0; skipped=0
@@ -42,10 +63,16 @@ for file in "$MIGRATIONS_DIR"/[0-9][0-9][0-9]_*.sql; do
   [[ "$name" =~ ^[0-9]{3}_[a-z0-9_]+$ ]] || { echo "bad migration name: $name" >&2; exit 1; }
   version=$((10#${name:0:3}))
   checksum=$(sha256sum "$file" | cut -d' ' -f1)
-  recorded=$("${PSQL[@]}" -tAc "SELECT checksum FROM ops.schema_migrations WHERE version = $version")
+  recorded=$("${PSQL[@]}" -tA -F ' ' -c "SELECT name, checksum FROM ops.schema_migrations WHERE version = $version")
 
   if [[ -n "$recorded" ]]; then
-    if [[ "$recorded" != "$checksum" ]]; then
+    read -r recorded_name recorded_checksum <<<"$recorded"
+    if [[ "$recorded_name" != "$name" ]]; then
+      echo "migration number ${name:0:3} is recorded as $recorded_name, not $name; two files share a number" \
+           "or an applied file was renamed" >&2
+      exit 1
+    fi
+    if [[ "$recorded_checksum" != "$checksum" ]]; then
       echo "migration $name was changed after it was applied; add a new migration instead" >&2
       exit 1
     fi

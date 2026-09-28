@@ -45,7 +45,9 @@ Customer segments:
 ### Fleet
 
 Thirty vehicles, 25 of them zero-emission (DGT label 0), all allowed inside Barcelona's low
-emission zone. Together they carry 4,195 parcels per wave, above the weekday mean of 3,500.
+emission zone. One full-fleet load is 4,195 parcels, above the weekday mean of 3,500. Only the
+morning wave uses the whole fleet; the afternoon-evening wave runs 10 vehicles, one per driver on
+that shift.
 
 | Type | Vehicle class | Units | Energy | DGT label | Parcels | Payload | Cargo volume | Consumption | Range |
 |---|---|---|---|---|---|---|---|---|---|
@@ -107,15 +109,18 @@ The target takes 31 minutes off that baseline, a reduction of 8.6%:
 | Staggered departures that avoid the Ronda Litoral and Ronda de Dalt peak | −5 |
 | Small vehicles in Ciutat Vella, Gràcia and the hill zones | −4 |
 
-With the 390-minute maximum, morning routes that leave at about 07:40 finish by about 13:10 and
-afternoon routes that leave at about 14:40 finish by about 20:10, inside their delivery waves.
+At the 330-minute target, morning routes that leave at about 07:40 finish by about 13:10 and
+afternoon routes that leave at about 14:40 finish by about 20:10, inside their delivery waves. A
+route that used the whole 390-minute maximum would finish at 14:10 or 21:10, after its wave ends.
+The profile's own rationale attaches the earlier times to the maximum; the
+[prompt record](../../prompts/001-company-profile.md#post-processing) notes that slip.
 
 ## The problem
 
 Before each delivery wave the planners build one route per van: which stops, in which order. An
 hour later that plan is out of date. A lorry blocks a loading zone in Gràcia, the Ronda Litoral
-jams after an accident, rain slows everything down, a customer is not home and the driver has to
-come back.
+jams after an accident, rain slows everything down, a customer is not home and the parcel goes
+back to the hub for another attempt on another day.
 Each delay pushes every later stop further back, so a route that was planned for six hours
 finishes in seven, drivers go into overtime and parcels miss their promised window.
 
@@ -126,8 +131,8 @@ what the weather is doing. The KPI tells the company whether it is working.
 ## The KPI
 
 **Average Delivery Time per Route.** For every route, the time from the van leaving the hub to
-the last delivery on that route being completed. The KPI is the average of that duration over
-the routes that finished in a time window.
+the last stop on that route being completed, delivered or failed. The KPI is the average of that
+duration over the routes that finished in a time window.
 
 ```text
 route_duration(r) = completed_at(last stop of r) − departed_at(r)
@@ -140,7 +145,7 @@ avg_delivery_time_per_route(window) = average of route_duration(r)
 |---|---|
 | `departed_at` | First GPS ping of the van outside the hub's geofence on that route |
 | `completed_at` | The final status event of the route's last stop: `delivered`, or `failed` when nobody was there to receive it. A failed attempt still ends the route, as the baseline in the targets above is measured |
-| window | A day by default; the dashboard also shows the last hour, rolling |
+| window | A day by default; the live dashboard shows today so far and the current wave. Routes finish in two bunches, around 13:00–14:10 and 20:00–21:10, so a window of the last hour would be empty most of the day |
 
 The KPI is segmented by **zone**, **hour of departure**, **vehicle type** and **weather**, because
 a long route in Ciutat Vella at noon in the rain and a long route in El Prat at 8:00 have
@@ -165,10 +170,10 @@ categories; they extend the list and replace nothing.
 | # | Assignment data type | Dataset in the platform | Origin | Produced by | Arrives | Role in the KPI |
 |---|---|---|---|---|---|---|
 | 1 | Vehicle GPS location (real time) | topic `gps.pings` → `bronze.gps_pings` | Simulated on real roads | GPS simulator moving each van along its OSRM route, slowed by the live traffic state | Stream, one ping per van every 5 s | Marks when a van leaves the hub and how long every leg takes |
-| 2 | Orders (origin, destination, priority) | `bronze.orders`, plus topic `delivery.events` for status changes | AI-generated, with real Barcelona addresses | Order generator seeded by prompts 002–004 and the Open Data BCN address table; status events from the driver's simulated handheld | Orders in a daily batch, status events as a stream | Defines the stops of each route; the last `delivered` or `failed` event ends the route |
-| 3 | Road traffic data (external API) | `bronze.traffic_state` | Real: Open Data BCN traffic state (AI-generated fallback, prompt 005) | Loader polling the `itineraris` and `trams` feeds | Every 5 minutes | Explains slow legs and triggers re-optimization |
+| 2 | Orders (origin, destination, priority) | `bronze.orders`, plus topic `delivery.events` for status changes | AI-generated, with real Barcelona addresses | Order generator driven by the demand model (prompt 004) and the Open Data BCN address table; status events from the driver's simulated handheld | Orders through the day in micro-batches (next-day orders in a nightly batch), status events as a stream | Defines the stops of each route; the last `delivered` or `failed` event ends the route |
+| 3 | Road traffic data (external API) | `bronze.traffic_state` | Real: Open Data BCN traffic state, which covers Barcelona city only. The SCT incidents feed (DATEX II on the DGT National Access Point) covers the ring roads and the Llobregat bridges and is planned in issue #9. AI-generated fallback, prompt 005 | Loader polling the `itineraris` and `trams` feeds | Every 5 minutes | Explains slow legs and triggers re-optimization |
 | 4 | Route history | `bronze.route_history` | AI-generated | Generator seeded by a history prompt: 90 days of past routes | Nightly batch | Gives the KPI its baseline and the patterns the optimizer learns from |
-| 5 | Fuel consumption | `bronze.fuel_consumption`, `bronze.fuel_prices` | Derived from telemetry; prices are real (MINETUR) | Consumption aggregated per vehicle and route from telemetry; loader for prices | Per completed route; prices hourly | Cost side of every re-plan |
+| 5 | Fuel consumption | `bronze.fuel_consumption`, `bronze.fuel_prices` | Derived from telemetry. Diesel and CNG prices are real (MINETUR); electricity is priced at a documented fixed tariff, an assumption (issue #9) | Consumption aggregated per vehicle and route from telemetry; loader for prices | Per completed route; prices polled hourly, updated daily by MINETUR | Cost side of every re-plan |
 | 6 | Vehicle status (sensor data) | topic `vehicle.telemetry` → `bronze.vehicle_telemetry` | Simulated | Simulator emitting battery or fuel level, ignition, cargo door and speed | Stream, every 30 s | Cargo-door events measure time at each stop; battery level limits re-planning |
 | 7 | Weather conditions | `bronze.weather` | Real: Open-Meteo (AI-generated fallback, prompt 006) | Loader | Hourly | Rain slows legs; the KPI is segmented by weather |
 | + | Delivery notes | `notes` column on `bronze.orders` | AI-generated (prompt 008) | Order generator | With the orders | Explains long or failed stops; unstructured text |
@@ -179,7 +184,11 @@ Reference data that every dataset above depends on:
 | Dataset | Origin | Used for |
 |---|---|---|
 | Company profile (`services/generator/seed/company.json`) | AI-generated, prompt 001 | Hub, zones, fleet, shifts, service promise, KPI targets |
+| Fleet register | AI-generated, prompt 002 (issue #3) | One row per van: plate, vehicle type, home zone |
+| Driver roster | AI-generated, prompt 003 (issue #3) | One row per driver: shift, home zone |
+| Demand model | AI-generated, prompt 004 (issue #3) | How the order generator spreads orders over zones, hours, parcel sizes and priorities |
 | Postal addresses (Open Data BCN `taula-direle`) | Real | Delivery stops at real doors |
+| Traffic sections (Open Data BCN `transit-relacio-trams`) | Real | Street geometry of every section in the traffic feed |
 | Road network (OpenStreetMap, Catalonia extract) | Real | Routes, travel times and the optimizer's distance matrix |
 
 ## Real, generated and simulated
@@ -204,7 +213,7 @@ external feed is down.
 
 | Phase | Uses from this document |
 |---|---|
-| [2 · Classification](2-classification.md) | The nine datasets of the inventory |
-| [3 · DIKW](3-dikw.md) | The GPS ping, dataset 1 |
-| [4 · Lifecycle](4-lifecycle.md) | Origins and arrival patterns: stream, 5-minute polls, daily and nightly batches |
-| [5 · Metadata and lineage](5-metadata-lineage.md) | The KPI definition and the sources it joins |
+| 2 · Classification (`2-classification.md`, not written yet) | The nine rows of the inventory (eleven datasets) and the seven reference datasets |
+| 3 · DIKW (`3-dikw.md`, not written yet) | The GPS ping, dataset 1 |
+| 4 · Lifecycle (`4-lifecycle.md`, not written yet) | Origins and arrival patterns: stream, 5-minute polls, micro-batches, daily and nightly batches |
+| 5 · Metadata and lineage (`5-metadata-lineage.md`, not written yet) | The KPI definition and the sources it joins |
