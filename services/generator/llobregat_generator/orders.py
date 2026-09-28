@@ -35,12 +35,20 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from llobregat_generator.addresses import Address
+from llobregat_generator.rules import (
+    MIDDAY_INJECTION,
+    business_window_starts,
+    business_zone_weights,
+    delivery_waves,
+    hours_category,
+    minutes,
+    zone_shares,
+)
 
 SOURCE_ID = "generator/orders"
 LOCAL_TZ = ZoneInfo("Europe/Madrid")
 DAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
 SIZES = ("small", "medium", "large")
-MIDDAY = "midday injection"
 
 # Rules the demand model states in its assumptions, in prose rather than in fields:
 # a "4+" stop gets 4 parcels plus a geometric extra with this mean.
@@ -48,20 +56,10 @@ FOUR_PLUS_EXTRA_MEAN = {"B2C": 0.4, "B2B": 1.5}
 # On Saturday most offices, factories and clinics are closed; shops and pharmacies are open.
 SATURDAY_OPEN = frozenset({"shops", "healthcare"})
 
-# Rules of this generator, where the demand model says nothing:
-# the opening hours a business recipient keeps, by the segment of its shipper. The business
-# recipients of mixed shippers (partner networks, e-commerce, marketplace) count as offices.
-SEGMENT_HOURS = {
-    "retail replenishment": "shops",
-    "healthcare distributor": "healthcare",
-    "office supplies and services": "offices",
-    "industrial distributor": "industry",
-}
-DEFAULT_HOURS = "offices"
-# Weight of one parcel, uniform within its size class.
+# Rules of this generator, where the demand model says nothing (the opening hours of business
+# recipients are in rules.py, which the seed validator shares):
+# the weight of one parcel, uniform within its size class.
 WEIGHT_KG = {"small": (0.1, 2.0), "medium": (2.0, 8.0), "large": (8.0, 25.0)}
-# Business windows start on the half hour.
-WINDOW_STEP_MIN = 30
 # Monday's next-day orders were registered on Saturday or Sunday, with equal odds.
 MONDAY_SATURDAY_ODDS = 0.5
 
@@ -117,11 +115,6 @@ class Day:
     orders: list[dict]
 
 
-def minutes(hhmm: str) -> int:
-    hours, mins = hhmm.split(":")
-    return int(hours) * 60 + int(mins)
-
-
 def cdf(weights: Sequence[float]) -> np.ndarray:
     """Cumulative distribution of non-negative weights, ending exactly at 1."""
     cumulative = np.cumsum(np.asarray(weights, dtype=float))
@@ -162,7 +155,7 @@ def day_streams(service_date: date, demand: dict) -> list[Stream]:
         share, business = shipper["share_of_daily_parcels"], shipper["business_share"]
         if business < 1:
             streams.append(Stream(shipper, "B2C", share * (1 - business), None))
-        hours = SEGMENT_HOURS.get(shipper["segment"], DEFAULT_HOURS)
+        hours = hours_category(shipper)
         if business > 0 and (not saturday or hours in SATURDAY_OPEN):
             streams.append(Stream(shipper, "B2B", share * business, hours))
     if saturday:  # scale consumer parcels up so the shares still sum to 1
@@ -175,38 +168,21 @@ def day_streams(service_date: date, demand: dict) -> list[Stream]:
     return streams
 
 
-def opening_ranges(hours: dict) -> list[tuple[int, int]]:
-    """Open periods of a business in minutes after midnight, the lunch break taken out."""
-    start, end = minutes(hours["open"]), minutes(hours["close"])
-    if not hours["lunch_break"]:
-        return [(start, end)]
-    lunch_start, lunch_end = (minutes(t) for t in hours["lunch_break"].split("-"))
-    return [(start, lunch_start), (lunch_end, end)]
-
-
 class Calendar:
     """Waves, slots and business windows of the service promise, in minutes after midnight."""
 
     def __init__(self, company: dict, demand: dict):
         promise = company["service_promise"]
         self.window = promise["promised_window_minutes"]
-        morning, afternoon = sorted(promise["delivery_windows"], key=lambda w: minutes(w["start"]))
-        self.waves = {
-            "morning": (minutes(morning["start"]), minutes(morning["end"])),
-            "afternoon": (minutes(afternoon["start"]), minutes(afternoon["end"])),
-        }
+        self.waves = delivery_waves(company)
         self.slots = {
             wave: list(range(start, end - self.window + 1, self.window)) for wave, (start, end) in self.waves.items()
         }
-        self.business_starts: dict[tuple[str, str], list[int]] = {}
-        for category, hours in demand["business_opening_hours"].items():
-            for wave, (wave_start, wave_end) in self.waves.items():
-                starts = []
-                for open_start, open_end in opening_ranges(hours):
-                    first, last = max(open_start, wave_start), min(open_end, wave_end) - self.window
-                    first += -first % WINDOW_STEP_MIN
-                    starts += range(first, last + 1, WINDOW_STEP_MIN)
-                self.business_starts[category, wave] = starts
+        self.business_starts = {
+            (category, wave): business_window_starts(hours, span, self.window)
+            for category, hours in demand["business_opening_hours"].items()
+            for wave, span in self.waves.items()
+        }
 
 
 def at(day: date, minute_of_day: int) -> datetime:
@@ -222,7 +198,7 @@ def generate_day(
     streams = day_streams(service_date, demand)
     counts = apportion(total, [s.share for s in streams])
 
-    zone_share = {z["zone_id"]: z["share_of_daily_parcels"] for z in company["zones"]}
+    zone_share = zone_shares(company)
     missing = sorted(z for z in zone_share if not pool.get(z))
     if missing:
         raise ValueError(f"no addresses for zones {missing}; run load-reference first")
@@ -232,11 +208,10 @@ def generate_day(
     business_expected = dict.fromkeys(zone_share, 0.0)
     for stream, count in zip(streams, counts, strict=True):
         if stream.customer_type == "B2B":
-            zones = stream.shipper["business_recipient_zones"]
-            weights = [zone_share[z] for z in zones]
-            business_zones[stream.shipper["shipper_id"]] = (zones, cdf(weights))
-            for zone, weight in zip(zones, weights, strict=True):
-                business_expected[zone] += count * weight / sum(weights)
+            weights = business_zone_weights(stream.shipper, zone_share)
+            business_zones[stream.shipper["shipper_id"]] = (list(weights), cdf(list(weights.values())))
+            for zone, weight in weights.items():
+                business_expected[zone] += count * weight / sum(weights.values())
     consumer_left = [max(0.0, zone_share[z] * total - business_expected[z]) for z in zone_share]
     consumer_zones = (list(zone_share), cdf(consumer_left if sum(consumer_left) > 0 else list(zone_share.values())))
 
@@ -258,7 +233,7 @@ def generate_day(
     for stream, count in zip(streams, counts, strict=True):
         shipper, kind = stream.shipper, stream.customer_type
         size_cdf = cdf([shipper["parcel_mix"][size] for size in SIZES])
-        midday = shipper["arrives_at_hub"] == MIDDAY
+        midday = shipper["arrives_at_hub"] == MIDDAY_INJECTION
         same_day_odds = shipper["same_day_share"] / before_cutoff if midday else 0.0
         left = count
         while left > 0:

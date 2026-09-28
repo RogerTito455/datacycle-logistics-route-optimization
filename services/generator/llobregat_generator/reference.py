@@ -10,13 +10,14 @@ from __future__ import annotations
 import re
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date
 from pathlib import Path
 
 import pyarrow as pa
 
 from llobregat_generator import addresses, db
 from llobregat_generator.config import Settings
+from llobregat_generator.rules import RELIEF_POOL, clock, span
 from llobregat_generator.seeds import Seeds
 from llobregat_generator.storage import Bucket
 from llobregat_generator.zones import ZoneMap
@@ -25,7 +26,6 @@ COMPANY = "generator/company-profile"
 FLEET = "generator/fleet"
 DRIVERS = "generator/drivers"
 DEMAND = "generator/demand-model"
-RELIEF_POOL = "Relief pool"
 
 
 @dataclass
@@ -48,15 +48,6 @@ class Table:
             yield [*row.values(), *extra]
 
 
-def hhmm(value: str) -> time:
-    return datetime.strptime(value, "%H:%M").time()
-
-
-def span(value: str) -> tuple[time, time]:
-    start, end = value.split("-")
-    return hhmm(start), hhmm(end)
-
-
 def hub_id(hub: dict) -> str:
     """The code in brackets at the end of the hub's name: "... Zona Franca (BCN-ZF)" gives BCN-ZF."""
     match = re.search(r"\(([^)]+)\)\s*$", hub["name"])
@@ -72,7 +63,8 @@ def shift_id(name: str) -> str:
 
 def hubs(company: dict) -> list[dict]:
     hub, timetable = company["hub"], company["hub"]["timetable"]
-    inbound, sorting = span(timetable["inbound_trucks_arrive"]), span(timetable["sorting"])
+    inbound = [clock(t) for t in span(timetable["inbound_trucks_arrive"])]
+    sorting = [clock(t) for t in span(timetable["sorting"])]
     # geofence_radius_m is left out, so the table default of migration 007 applies (400 m).
     return [
         {
@@ -89,9 +81,9 @@ def hubs(company: dict) -> list[dict]:
             "inbound_to": inbound[1],
             "sorting_from": sorting[0],
             "sorting_to": sorting[1],
-            "first_departure": hhmm(timetable["first_departure"]),
-            "last_departure": hhmm(timetable["last_departure"]),
-            "same_day_cutoff": hhmm(timetable["same_day_cutoff"]),
+            "first_departure": clock(timetable["first_departure"]),
+            "last_departure": clock(timetable["last_departure"]),
+            "same_day_cutoff": clock(timetable["same_day_cutoff"]),
         }
     ]
 
@@ -122,8 +114,8 @@ def shifts(company: dict) -> list[dict]:
         {
             "shift_id": shift_id(s["name"]),
             "name": s["name"],
-            "start_time": hhmm(s["start"]),
-            "end_time": hhmm(s["end"]),
+            "start_time": clock(s["start"]),
+            "end_time": clock(s["end"]),
             "break_minutes": s["break_minutes"],
             "drivers": s["drivers"],
         }

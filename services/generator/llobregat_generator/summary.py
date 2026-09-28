@@ -6,7 +6,8 @@ from collections import Counter
 from collections.abc import Sequence
 from datetime import date
 
-from llobregat_generator.orders import LOCAL_TZ, SIZES, minutes
+from llobregat_generator.orders import LOCAL_TZ, SIZES
+from llobregat_generator.rules import minutes, weekday_business_share, weekday_same_day_share, zone_shares
 from llobregat_generator.zones import Polygon, in_polygons
 
 
@@ -56,8 +57,8 @@ def summarise(
 def report(service_date: date, figures: dict, company: dict, demand: dict) -> str:
     """The figures as text, each next to what the seeds say."""
     volume = company["daily_volume"]
-    b2b_model = sum(s["share_of_daily_parcels"] * s["business_share"] for s in demand["shippers"])
-    same_day_model = sum(s["share_of_daily_parcels"] * s["same_day_share"] for s in demand["shippers"])
+    b2b_model = weekday_business_share(demand)
+    same_day_model = weekday_same_day_share(demand)
     mix = figures["size_mix"]
     lines = [
         f"{service_date} ({service_date:%A}): {figures['orders']} orders, {figures['parcels']} parcels, "
@@ -71,7 +72,7 @@ def report(service_date: date, figures: dict, company: dict, demand: dict) -> st
         f"{volume['parcel_mix']['large_pct']:.0f}%)",
         "  windows            " + ", ".join(f"{k} {v}" for k, v in sorted(figures["window_types"].items())),
     ]
-    zone_share = {z["zone_id"]: z["share_of_daily_parcels"] for z in company["zones"]}
+    zone_share = zone_shares(company)
     worst = max(zone_share, key=lambda z: abs(figures["zone_share"][z] - zone_share[z]))
     lines.append(
         f"  zone shares        largest gap {worst}: {figures['zone_share'][worst]:.1%} "

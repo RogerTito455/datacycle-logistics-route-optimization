@@ -10,7 +10,7 @@ Three layers of checks, so a plausible-looking but wrong generation cannot slip 
      matches a real route (OSRM from the running stack).
 
 Usage:
-    uv run --with jsonschema python services/generator/validate_company.py [--offline]
+    uv run --project services/generator --frozen python services/generator/validate_company.py [--offline]
 """
 
 from __future__ import annotations
@@ -27,6 +27,7 @@ from pathlib import Path
 from typing import NamedTuple
 
 import jsonschema
+from llobregat_generator.rules import minutes
 
 SEED_DIR = Path(__file__).parent / "seed"
 OSRM_URL = os.environ.get("OSRM_URL", "http://localhost:5000")
@@ -95,11 +96,6 @@ def check(passed: bool, msg: str, *, warn_only: bool = False) -> bool:
     else:
         error(msg)
     return passed
-
-
-def minutes(hhmm: str) -> int:
-    hours, mins = hhmm.split(":")
-    return int(hours) * 60 + int(mins)
 
 
 def norm(text: str) -> str:

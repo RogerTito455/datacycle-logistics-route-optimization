@@ -18,9 +18,21 @@ import sys
 from collections import Counter
 
 import jsonschema
+from llobregat_generator.rules import (
+    MIDDAY_INJECTION,
+    RELIEF_POOL,
+    business_parcels_by_zone,
+    business_window_starts,
+    delivery_waves,
+    minutes,
+    weekday_business_share,
+    weekday_same_day_share,
+    zone_shares,
+)
+from llobregat_generator.seeds import Seeds
 
 # Shared helpers: every check prints one line and failures are counted in the same lists.
-from validate_company import SEED_DIR, check, error, errors, minutes, ok, read_json, warnings
+from validate_company import SEED_DIR, check, error, errors, ok, read_json, warnings
 
 # Spanish plates since 2000: four digits and three consonants, never a vowel, Ñ or Q.
 PLATE_RE = re.compile(r"^\d{4} [BCDFGHJKLMNPRSTVWXYZ]{3}$")
@@ -128,7 +140,7 @@ def check_drivers(roster: dict, company: dict) -> None:
     check(duplicates(ids) == "none", f"duplicated driver ids: {duplicates(ids)}")
 
     by_shift = Counter(d["shift"] for d in drivers)
-    expected = {**shifts, "Relief pool": headcount - sum(shifts.values())}
+    expected = {**shifts, RELIEF_POOL: headcount - sum(shifts.values())}
     summary = ", ".join(f"{name} {by_shift.get(name, 0)}" for name in expected)
     check(
         dict(by_shift) == expected,
@@ -175,22 +187,6 @@ def check_drivers(roster: dict, company: dict) -> None:
     check(not contact, f"phone numbers or e-mail addresses: {sorted(set(contact)) or 'none'}")
 
 
-def business_parcels_by_zone(demand: dict, company: dict) -> dict[str, float]:
-    """Share of the day's parcels that go to business recipients in each zone.
-
-    As the demand model's assumptions say: a shipper's business parcels are spread across its
-    listed zones in proportion to each zone's share of daily parcels.
-    """
-    zone_share = {z["zone_id"]: z["share_of_daily_parcels"] for z in company["zones"]}
-    business = dict.fromkeys(zone_share, 0.0)
-    for shipper in demand["shippers"]:
-        listed = [z for z in shipper["business_recipient_zones"] if z in zone_share]
-        weight = sum(zone_share[z] for z in listed)
-        for zone in listed:
-            business[zone] += shipper["share_of_daily_parcels"] * shipper["business_share"] * zone_share[zone] / weight
-    return business
-
-
 def expected_first_attempt_failure(demand: dict, company: dict, business: dict[str, float]) -> dict[str, float]:
     """Expected share of parcels that fail at the first attempt, by recipient type and overall."""
     zones = {z["zone_id"]: z for z in company["zones"]}
@@ -203,7 +199,7 @@ def expected_first_attempt_failure(demand: dict, company: dict, business: dict[s
     parcels = {"consumer": 0.0, "business": 0.0}
     for shipper in demand["shippers"]:
         share, b = shipper["share_of_daily_parcels"], shipper["business_share"]
-        evening_share = 1.0 if shipper["arrives_at_hub"] == "midday injection" else choice["afternoon_evening_wave"]
+        evening_share = 1.0 if shipper["arrives_at_hub"] == MIDDAY_INJECTION else choice["afternoon_evening_wave"]
         factor = (1 - evening_share) + evening_share * fail["evening_window_factor"]
         for zone_id, left in consumer_left.items():
             p = fail["consumer"][zones[zone_id]["delivery_difficulty"]] * factor
@@ -220,8 +216,9 @@ def expected_first_attempt_failure(demand: dict, company: dict, business: dict[s
     }
 
 
-def check_demand(demand: dict, company: dict) -> None:
+def check_demand(seeds: Seeds) -> None:
     print("Demand model (prompt 004)")
+    demand, company = seeds.demand, seeds.company
     shippers = demand["shippers"]
     volume = company["daily_volume"]
     zone_ids = {z["zone_id"] for z in company["zones"]}
@@ -248,7 +245,7 @@ def check_demand(demand: dict, company: dict) -> None:
         f"(company.json: {fixed['small_pct']:.0f}/{fixed['medium_pct']:.0f}/{fixed['large_pct']:.0f}%, "
         f"off by {off:.2f} pp, tolerance {FIXED_TOTAL_TOLERANCE_PP} pp)",
     )
-    b2b = 100 * sum(s["share_of_daily_parcels"] * s["business_share"] for s in shippers) / total
+    b2b = 100 * weekday_business_share(demand) / total
     check(
         abs(b2b - volume["b2b_share_pct"]) <= FIXED_TOTAL_TOLERANCE_PP,
         f"weighted B2B share {b2b:.1f}% (company.json: {volume['b2b_share_pct']:.0f}%, "
@@ -282,7 +279,7 @@ def check_demand(demand: dict, company: dict) -> None:
     )
 
     same_day_wrong = [
-        s["shipper_id"] for s in shippers if s["same_day_share"] > 0 and s["arrives_at_hub"] != "midday injection"
+        s["shipper_id"] for s in shippers if s["same_day_share"] > 0 and s["arrives_at_hub"] != MIDDAY_INJECTION
     ]
     check(not same_day_wrong, f"same-day only for midday-injection shippers; wrong: {same_day_wrong or 'none'}")
     too_high = [s["shipper_id"] for s in shippers if s["same_day_share"] > before_cutoff]
@@ -292,7 +289,7 @@ def check_demand(demand: dict, company: dict) -> None:
         f"(the generator's probability same_day_share / {before_cutoff:.3f} stays at or below 1); "
         f"above: {too_high or 'none'}",
     )
-    same_day = sum(s["share_of_daily_parcels"] * s["same_day_share"] for s in shippers)
+    same_day = weekday_same_day_share(demand)
     mean = volume["weekday_parcels_mean"]
     print(f"  info   same-day parcels {same_day:.1%} of the day, {same_day * mean:.0f} on a mean weekday")
 
@@ -315,26 +312,14 @@ def check_demand(demand: dict, company: dict) -> None:
     waves = choice["morning_wave"] + choice["afternoon_evening_wave"]
     check(abs(waves - 1) <= DIST_TOLERANCE, f"consumer window choice sums to {waves:.3f} across the two waves")
 
-    windows = company["service_promise"]["delivery_windows"]
+    waves = delivery_waves(company)
+    window = company["service_promise"]["promised_window_minutes"]
     for name, hours in demand["business_opening_hours"].items():
-        open_ranges = opening_ranges(hours)
-        fits = [
-            w["name"].split(" (")[0]
-            for w in windows
-            if any(
-                min(end, minutes(w["end"])) - max(start, minutes(w["start"]))
-                >= company["service_promise"]["promised_window_minutes"]
-                for start, end in open_ranges
-            )
-        ]
-        check(
-            bool(fits),
-            f"{name} opening hours hold a {company['service_promise']['promised_window_minutes']}-minute window in: "
-            f"{', '.join(fits) or 'no wave'}",
-        )
+        fits = [wave for wave, span in waves.items() if business_window_starts(hours, span, window)]
+        check(bool(fits), f"{name} opening hours hold a {window}-minute window in: {', '.join(fits) or 'no wave'}")
 
-    business = business_parcels_by_zone(demand, company)
-    zone_share = {z["zone_id"]: z["share_of_daily_parcels"] for z in company["zones"]}
+    business = business_parcels_by_zone(seeds)
+    zone_share = zone_shares(company)
     over = [z for z in zone_share if business[z] > zone_share[z]]
     check(
         not over,
@@ -353,15 +338,6 @@ def check_demand(demand: dict, company: dict) -> None:
     )
 
 
-def opening_ranges(hours: dict) -> list[tuple[int, int]]:
-    """Open periods of a business in minutes after midnight, with the lunch break taken out."""
-    start, end = minutes(hours["open"]), minutes(hours["close"])
-    if not hours["lunch_break"]:
-        return [(start, end)]
-    lunch_start, lunch_end = (minutes(t) for t in hours["lunch_break"].split("-"))
-    return [(start, lunch_start), (lunch_end, end)]
-
-
 def main() -> int:
     company = read_json(SEED_DIR / "company.json")
     seeds = {name: read_json(SEED_DIR / f"{name}.json") for name in ("fleet", "drivers", "demand")}
@@ -371,7 +347,7 @@ def main() -> int:
         return 1
     check_fleet(seeds["fleet"], company)
     check_drivers(seeds["drivers"], company)
-    check_demand(seeds["demand"], company)
+    check_demand(Seeds(company=company, **seeds))
     print(f"\n{len(errors)} errors, {len(warnings)} warnings")
     return 1 if errors else 0
 
