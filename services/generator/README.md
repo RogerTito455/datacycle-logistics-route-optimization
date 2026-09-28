@@ -177,4 +177,7 @@ Other tests cover the ICGC reading with its conversion to WGS84, the file metada
 the reference files and the refusal of future dates. The figures the seeds must satisfy on their
 own are the seed validators' job, not the tests'.
 
-CI runs the tests and the seed validators on every pull request.
+CI runs the tests and the seed validators on every pull request. Its compose smoke job also loads
+the reference data into a fresh stack twice, generates a past Monday twice and checks bronze with
+SQL: row counts, metadata filled, nothing written by the second load, and the same orders after the
+second run of the date. `make test-generator-db` runs the same checks on your stack.
