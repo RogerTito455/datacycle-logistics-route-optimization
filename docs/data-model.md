@@ -154,9 +154,11 @@ erDiagram
     numeric energy_used
     timestamptz event_time
   }
-  traffic_sections {
+  traffic_section_points {
     integer section_id PK
-    text coordinates
+    smallint point_seq PK
+    float8 lon
+    float8 lat
   }
   traffic_state {
     text feed PK
@@ -201,7 +203,7 @@ erDiagram
   route_plans ||--o| fuel_consumption : "consumes"
   vehicles ||--o{ route_history : "drove"
   zones ||--o{ route_history : "was served by"
-  traffic_sections ||--o{ traffic_state : "has state, trams feed only"
+  traffic_section_points }|..o{ traffic_state : "section_id = feed_item_id, trams feed only"
   zones ||--o{ weather : "has weather at its centroid"
   hubs ||--o{ weather : "has weather"
   data_sources ||--o{ orders : "is the source of every row"
@@ -215,8 +217,8 @@ was loaded late. Those joins, `orders.address_ref` to `addresses` among them, ar
 relationship tests in silver (issue #10).
 
 `traffic_state.feed_item_id` means a street section for the `trams` feed and an itinerary for the
-`itineraris` feed. Only `trams` rows join `traffic_sections`; the city publishes no geometry table
-for itineraries.
+`itineraris` feed. Only `trams` rows join `traffic_section_points`, on `section_id`; the city
+publishes no geometry table for itineraries.
 
 ### What each table holds
 
@@ -230,7 +232,7 @@ Reference data, loaded in batch:
 | `vehicle_types` | The six vehicle classes of the fleet: energy, DGT label, capacity, consumption, sensors | Company profile, `company.json` (prompt 001) |
 | `vehicles` | One row per van, with plate, type and home zone | AI-generated fleet, expanded from the vehicle types |
 | `drivers` | One row per driver, with shift and home zone. Names are fictional | AI-generated drivers, sized by the shifts |
-| `traffic_sections` | Description and polyline of every street section of the `trams` traffic feed | Open Data BCN `transit-relacio-trams`, CSV loaded once |
+| `traffic_section_points` | One row per point of every street section of the `trams` traffic feed: section, position along it, description, longitude and latitude | Open Data BCN `transit-relacio-trams`, the long-format CSV, loaded once |
 | `addresses` | Every postal address of Barcelona: street code, number and letter, district, neighbourhood, census section, and coordinates in ED50, ETRS89 and WGS84. `address_ref` is the value `orders.address_ref` points to | Open Data BCN `taula-direle`, CSV loaded with the generator (issue #3) |
 
 Events and measurements:
@@ -351,6 +353,7 @@ same migration.
 | 005 | Traffic, weather and fuel prices |
 | 006 | Access for `grafana_reader` |
 | 007 | Raw bronze without value checks or retention, `source` and `ingested_at` on the ops tables, hub geofence, fuel consumption derived from telemetry, `traffic_state.feed_item_id`, `addresses` |
+| 008 | `traffic_section_points`, the long CSV format, replaces `traffic_sections` and its packed polyline |
 
 ## Silver and gold (dbt, issue #10)
 
@@ -364,7 +367,7 @@ Planned models, built by dbt from the bronze tables above:
 | `silver.dim_address` | One row per postal address | `addresses` |
 | `silver.fct_route` | One row per route: departure from the hub geofence (`hubs.geofence_radius_m`), completion, planned duration | `gps_pings`, `delivery_events`, `route_plans`, `route_history`, `hubs` |
 | `silver.fct_delivery` | One row per order: final status, time in window, proof-of-delivery photo | `orders`, `delivery_events` |
-| `silver.fct_traffic`, `silver.fct_weather` | One row per section or location and time | `traffic_state`, `traffic_sections`, `weather` |
+| `silver.fct_traffic`, `silver.fct_weather` | One row per section or location and time | `traffic_state`, `traffic_section_points`, `weather` |
 | `gold.kpi_route_duration` | Average delivery time per route by day, zone, hour of departure, vehicle type and weather | `fct_route` and dimensions |
 | `gold.kpi_delay_and_on_time` | Average delay against plan and on-time share | `fct_route`, `fct_delivery` |
 | `gold.fct_deliveries` | One row per order for the dashboards, with the key of the proof-of-delivery photo (issue #25) | `fct_delivery` and dimensions |
