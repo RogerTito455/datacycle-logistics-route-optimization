@@ -3,6 +3,18 @@
   "$id": "https://github.com/RogerTito455/datacycle-logistics-route-optimization/services/generator/seed/company.schema.json",
   "title": "Llobregat Express company profile",
   "description": "Structure of the AI-generated company profile (prompt 001). Coordinates are bounded to the Barcelona metropolitan area.",
+  "$defs": {
+    "hhmm": {
+      "description": "Local time of day, 24-hour HH:MM.",
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+    },
+    "hhmm_range": {
+      "description": "Local time range, HH:MM-HH:MM.",
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d-([01]\\d|2[0-3]):[0-5]\\d$"
+    }
+  },
   "type": "object",
   "additionalProperties": false,
   "required": [
@@ -126,24 +138,19 @@
           ],
           "properties": {
             "inbound_trucks_arrive": {
-              "type": "string",
-              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d-([01]\\d|2[0-3]):[0-5]\\d$"
+              "$ref": "#/$defs/hhmm_range"
             },
             "sorting": {
-              "type": "string",
-              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d-([01]\\d|2[0-3]):[0-5]\\d$"
+              "$ref": "#/$defs/hhmm_range"
             },
             "first_departure": {
-              "type": "string",
-              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              "$ref": "#/$defs/hhmm"
             },
             "last_departure": {
-              "type": "string",
-              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              "$ref": "#/$defs/hhmm"
             },
             "same_day_cutoff": {
-              "type": "string",
-              "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+              "$ref": "#/$defs/hhmm"
             }
           }
         }
@@ -176,12 +183,10 @@
                 "type": "string"
               },
               "start": {
-                "type": "string",
-                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                "$ref": "#/$defs/hhmm"
               },
               "end": {
-                "type": "string",
-                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                "$ref": "#/$defs/hhmm"
               }
             }
           }
@@ -538,12 +543,10 @@
                 "type": "string"
               },
               "start": {
-                "type": "string",
-                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                "$ref": "#/$defs/hhmm"
               },
               "end": {
-                "type": "string",
-                "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+                "$ref": "#/$defs/hhmm"
               },
               "break_minutes": {
                 "type": "integer",
