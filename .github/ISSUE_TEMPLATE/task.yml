@@ -1,0 +1,16 @@
+name: Task
+description: A unit of work for the project
+labels: ["task"]
+body:
+  - type: textarea
+    id: goal
+    attributes:
+      label: Goal
+      description: What is done when this is closed?
+    validations:
+      required: true
+  - type: textarea
+    id: notes
+    attributes:
+      label: Notes
+      description: Context, links, constraints.

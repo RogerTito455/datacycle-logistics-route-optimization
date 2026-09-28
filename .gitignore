@@ -1,0 +1,36 @@
+# Secrets and local config
+.env
+*.local
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+.ruff_cache/
+.pytest_cache/
+.mypy_cache/
+
+# Node / Astro
+node_modules/
+site/dist/
+site/.astro/
+
+# dbt
+dbt/target/
+dbt/dbt_packages/
+dbt/logs/
+
+# Dagster
+.dagster/
+dagster_home/
+
+# Docker volumes and local data
+data/
+volumes/
+*.osm.pbf
+*.osrm*
+
+# Editors and OS
+.vscode/
+.idea/
+.DS_Store
