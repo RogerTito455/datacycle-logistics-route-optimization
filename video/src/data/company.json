@@ -1,0 +1,204 @@
+{
+ "about": "Copied from services/generator/seed/company.json (AI-generated with prompt 001, validated against OpenStreetMap and OSRM). Only the fields the video uses. Do not edit here: change the seed and copy again.",
+ "name": "Llobregat Express",
+ "hub": {
+  "name": "Llobregat Express Hub Zona Franca (BCN-ZF)",
+  "address": "Carrer 4, 18-24, Sector C, Polígon Industrial de la Zona Franca, 08040 Barcelona",
+  "lat": 41.3395,
+  "lon": 2.1365,
+  "loading_docks": 36,
+  "first_departure": "07:30"
+ },
+ "zones": [
+  {
+   "id": "Z01",
+   "name": "Ciutat Vella",
+   "lat": 41.3822,
+   "lon": 2.1755,
+   "distance_from_hub_km": 7.5,
+   "share": 0.06,
+   "stops_per_route": 55,
+   "minutes_per_stop": 4.6
+  },
+  {
+   "id": "Z02",
+   "name": "Eixample",
+   "lat": 41.391,
+   "lon": 2.163,
+   "distance_from_hub_km": 8.0,
+   "share": 0.17,
+   "stops_per_route": 78,
+   "minutes_per_stop": 3.0
+  },
+  {
+   "id": "Z03",
+   "name": "Sants-Montjuïc",
+   "lat": 41.3718,
+   "lon": 2.1415,
+   "distance_from_hub_km": 4.8,
+   "share": 0.08,
+   "stops_per_route": 80,
+   "minutes_per_stop": 3.0
+  },
+  {
+   "id": "Z04",
+   "name": "Les Corts",
+   "lat": 41.386,
+   "lon": 2.13,
+   "distance_from_hub_km": 7.0,
+   "share": 0.05,
+   "stops_per_route": 84,
+   "minutes_per_stop": 2.8
+  },
+  {
+   "id": "Z05",
+   "name": "Sarrià-Sant Gervasi",
+   "lat": 41.4005,
+   "lon": 2.1345,
+   "distance_from_hub_km": 9.5,
+   "share": 0.07,
+   "stops_per_route": 64,
+   "minutes_per_stop": 3.5
+  },
+  {
+   "id": "Z06",
+   "name": "Gràcia",
+   "lat": 41.403,
+   "lon": 2.1565,
+   "distance_from_hub_km": 9.8,
+   "share": 0.06,
+   "stops_per_route": 66,
+   "minutes_per_stop": 3.7
+  },
+  {
+   "id": "Z07",
+   "name": "Horta-Guinardó",
+   "lat": 41.42,
+   "lon": 2.166,
+   "distance_from_hub_km": 13.0,
+   "share": 0.06,
+   "stops_per_route": 60,
+   "minutes_per_stop": 3.6
+  },
+  {
+   "id": "Z08",
+   "name": "Nou Barris i Sant Andreu",
+   "lat": 41.4385,
+   "lon": 2.1775,
+   "distance_from_hub_km": 16.0,
+   "share": 0.09,
+   "stops_per_route": 66,
+   "minutes_per_stop": 3.2
+  },
+  {
+   "id": "Z09",
+   "name": "Sant Martí",
+   "lat": 41.4045,
+   "lon": 2.1975,
+   "distance_from_hub_km": 11.0,
+   "share": 0.11,
+   "stops_per_route": 80,
+   "minutes_per_stop": 2.9
+  },
+  {
+   "id": "Z10",
+   "name": "L'Hospitalet de Llobregat",
+   "lat": 41.361,
+   "lon": 2.1105,
+   "distance_from_hub_km": 5.0,
+   "share": 0.11,
+   "stops_per_route": 80,
+   "minutes_per_stop": 3.1
+  },
+  {
+   "id": "Z11",
+   "name": "El Prat de Llobregat",
+   "lat": 41.3262,
+   "lon": 2.0948,
+   "distance_from_hub_km": 7.0,
+   "share": 0.04,
+   "stops_per_route": 84,
+   "minutes_per_stop": 2.7
+  },
+  {
+   "id": "Z12",
+   "name": "Cornellà de Llobregat",
+   "lat": 41.3555,
+   "lon": 2.0735,
+   "distance_from_hub_km": 8.5,
+   "share": 0.04,
+   "stops_per_route": 78,
+   "minutes_per_stop": 2.8
+  },
+  {
+   "id": "Z13",
+   "name": "Esplugues de Llobregat",
+   "lat": 41.377,
+   "lon": 2.088,
+   "distance_from_hub_km": 9.0,
+   "share": 0.02,
+   "stops_per_route": 68,
+   "minutes_per_stop": 3.2
+  },
+  {
+   "id": "Z14",
+   "name": "Sant Boi de Llobregat",
+   "lat": 41.3436,
+   "lon": 2.0366,
+   "distance_from_hub_km": 12.5,
+   "share": 0.04,
+   "stops_per_route": 74,
+   "minutes_per_stop": 2.8
+  }
+ ],
+ "fleet": [
+  {
+   "type": "EV-L",
+   "count": 7,
+   "parcels": 190
+  },
+  {
+   "type": "EV-M",
+   "count": 11,
+   "parcels": 120
+  },
+  {
+   "type": "EV-S",
+   "count": 5,
+   "parcels": 85
+  },
+  {
+   "type": "EV-Q",
+   "count": 2,
+   "parcels": 70
+  },
+  {
+   "type": "CNG-L",
+   "count": 3,
+   "parcels": 180
+  },
+  {
+   "type": "DSL-L",
+   "count": 2,
+   "parcels": 220
+  }
+ ],
+ "weekday_parcels": 3500,
+ "morning_routes": 30,
+ "promised_window_minutes": 120,
+ "kpi": {
+  "avg_delivery_time_per_route_min": {
+   "baseline": 361.0,
+   "target": 330.0
+  },
+  "avg_delay_vs_plan_min": {
+   "baseline": 22.0,
+   "target": 8.0
+  },
+  "on_time_share_pct": {
+   "baseline": 87.5,
+   "target": 95.0
+  }
+ },
+ "risk_ronda_litoral": "Morning congestion on the Ronda Litoral (B-10) and Ronda de Dalt (B-20), especially at the Nus del Llobregat and Nus de la Trinitat, between 07:30 and 09:30"
+}
