@@ -111,7 +111,7 @@ orders; `numpy` is pinned for that reason.
 
 | Step | Rule | From |
 |---|---|---|
-| Day total | Normal draw with mean 3,500 and standard deviation 350 parcels, times the weekday multiplier and the month's seasonal peak. No orders on Sunday | `company.json`, `weekday_multipliers` |
+| Day total | Normal draw with mean 3,500 and standard deviation 350 parcels, times the weekday multiplier and the seasonal peak (below). No orders on Sunday | `company.json`, `weekday_multipliers` |
 | Shippers | The total is split by `share_of_daily_parcels`, then into consumer and business parcels by `business_share` | `shippers` |
 | Saturday | Business parcels only for shops and healthcare (pharmacies); consumer parcels are scaled up to keep the total | assumptions |
 | Stops | Parcels are grouped into orders by `parcels_per_stop`; a "4+" stop gets 4 parcels plus a geometric extra with mean 0.4 (consumer) or 1.5 (business). One order is one stop: one shipper, one address, one size | `parcels_per_stop`, assumptions |
@@ -125,6 +125,11 @@ orders; `numpy` is pinned for that reason.
 
 Where the seeds say nothing, the generator decides, and these rules are its own:
 
+- `company.json` names the November peak "Black Friday and Cyber Monday week" and gives it a
+  month. Its ×1.55 applies from the Monday before Black Friday, the fourth Friday of November, to
+  Cyber Monday, the Monday after it: eight days, which end on 1 December when Black Friday is on
+  28 November. The rest of November has no peak (×1.0). The other peaks apply to their whole month:
+  December ×1.4, January ×1.2, September ×1.1.
 - The opening hours of a business recipient follow its shipper's segment: retail replenishment
   keeps shop hours, healthcare distributors healthcare hours, office suppliers office hours,
   industrial distributors industry hours. Business recipients of partner networks, e-commerce and

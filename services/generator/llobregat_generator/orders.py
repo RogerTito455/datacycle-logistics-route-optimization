@@ -4,7 +4,7 @@ The date is the service date, the day the parcels are delivered. The steps follo
 model's fields and its written assumptions:
 
 1. Day total: a normal draw with the weekday mean and standard deviation of company.json, times
-   the weekday multiplier and the seasonal peak of the month. No service on Sunday.
+   the weekday multiplier and the seasonal peak (seasonal_multiplier). No service on Sunday.
 2. The total is split by shipper share into consumer and business parcels (business_share). On
    Saturday only shops and healthcare receive business parcels, and consumer parcels are scaled up
    to keep the total.
@@ -71,6 +71,9 @@ SATURDAY_OPEN = frozenset({"shops", "healthcare"})
 WEIGHT_KG = {"small": (0.1, 2.0), "medium": (2.0, 8.0), "large": (8.0, 25.0)}
 # Monday's next-day orders were registered on Saturday or Sunday, with equal odds.
 MONDAY_SATURDAY_ODDS = 0.5
+# company.json names the November peak "Black Friday and Cyber Monday week": it applies from the
+# Monday before Black Friday to Cyber Monday, not to the whole month.
+BLACK_FRIDAY_MONTH = 11
 
 COLUMNS = (
     "order_id",
@@ -149,12 +152,34 @@ def apportion(total: int, weights: Sequence[float]) -> list[int]:
     return counts
 
 
+def black_friday(year: int) -> date:
+    """The fourth Friday of November."""
+    first = date(year, BLACK_FRIDAY_MONTH, 1)
+    return first + timedelta(days=(4 - first.weekday()) % 7, weeks=3)
+
+
+def seasonal_multiplier(service_date: date, peaks: Sequence[dict]) -> float:
+    """The seasonal peak of company.json that applies to the date, 1.0 outside every peak.
+
+    The November peak is the Black Friday and Cyber Monday week: from the Monday before Black
+    Friday to Cyber Monday, the Monday after it, eight days that may end on 1 December. The rest of
+    November has no peak. Every other peak applies to its whole month.
+    """
+    by_month = {p["month"]: p["multiplier"] for p in peaks}
+    friday = black_friday(service_date.year)
+    if friday - timedelta(days=4) <= service_date <= friday + timedelta(days=3):
+        return by_month.get(BLACK_FRIDAY_MONTH, 1.0)
+    if service_date.month == BLACK_FRIDAY_MONTH:
+        return 1.0
+    return by_month.get(service_date.month, 1.0)
+
+
 def day_total(rng: np.random.Generator, service_date: date, seeds: Seeds) -> int:
     volume = seeds.company["daily_volume"]
     day_name = DAY_NAMES[service_date.weekday()]
     if day_name == "Sun" and not volume["sunday_operates"]:
         raise NoServiceError(f"{service_date} is a Sunday; Llobregat Express does not deliver on Sundays")
-    season = {p["month"]: p["multiplier"] for p in volume["seasonal_peaks"]}.get(service_date.month, 1.0)
+    season = seasonal_multiplier(service_date, volume["seasonal_peaks"])
     base = rng.normal(volume["weekday_parcels_mean"], volume["weekday_parcels_stddev"])
     return max(0, round(base * seeds.demand["weekday_multipliers"][day_name] * season))
 

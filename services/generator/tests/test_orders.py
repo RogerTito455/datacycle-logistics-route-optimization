@@ -18,7 +18,15 @@ import numpy as np
 import pyarrow.parquet as pq
 import pytest
 from conftest import MONDAY, SATURDAY, SEED
-from llobregat_generator.orders import LOCAL_TZ, SATURDAY_OPEN, SIZES, NoServiceError, day_total, generate_day
+from llobregat_generator.orders import (
+    LOCAL_TZ,
+    SATURDAY_OPEN,
+    SIZES,
+    NoServiceError,
+    day_total,
+    generate_day,
+    seasonal_multiplier,
+)
 from llobregat_generator.publish import ORDER_SCHEMA, orders_table
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
@@ -75,7 +83,9 @@ def minute_of_day(ts) -> int:
     [
         (date(2026, 10, 6), 1.05),  # Tuesday, no peak
         (SATURDAY, 0.30),
+        (date(2026, 11, 16), 1.15),  # a Monday of November before the Black Friday week
         (date(2026, 11, 23), 1.15 * 1.55),  # Monday of the Black Friday week
+        (date(2026, 11, 30), 1.15 * 1.55),  # Cyber Monday
         (date(2026, 9, 25), 0.87 * 1.1),  # Friday, back to school
     ],
 )
@@ -88,6 +98,25 @@ def test_day_total_follows_mean_stddev_weekday_and_season(seeds, service_date, m
     expected_sd = volume["weekday_parcels_stddev"] * multiplier
     assert mean(totals) == pytest.approx(expected_mean, abs=4 * expected_sd / 400**0.5)
     assert stdev(totals) == pytest.approx(expected_sd, rel=0.15)
+
+
+@pytest.mark.parametrize(
+    ("service_date", "multiplier"),
+    [
+        (date(2025, 11, 21), 1.0),  # Friday a week before Black Friday, 28 November 2025
+        (date(2025, 11, 24), 1.55),  # Monday of the Black Friday week
+        (date(2025, 11, 28), 1.55),  # Black Friday
+        (date(2025, 12, 1), 1.55),  # Cyber Monday, in December that year
+        (date(2025, 12, 2), 1.4),  # Christmas gift season
+        (date(2026, 11, 20), 1.0),  # Black Friday 2026 is on the 27th
+        (date(2026, 11, 30), 1.55),
+        (date(2026, 12, 1), 1.4),
+        (date(2027, 1, 15), 1.2),
+        (date(2027, 3, 1), 1.0),
+    ],
+)
+def test_the_november_peak_is_the_black_friday_week(seeds, service_date, multiplier):
+    assert seasonal_multiplier(service_date, seeds.company["daily_volume"]["seasonal_peaks"]) == multiplier
 
 
 def test_saturday_mean_matches_company_profile(seeds):
