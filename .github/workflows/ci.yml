@@ -28,7 +28,11 @@ jobs:
       - name: ruff
         run: uvx ruff@0.16.9 check . && uvx ruff@0.16.9 format --check .
       - name: Validate AI-generated seed data (structure and consistency)
-        run: uv run --with jsonschema python services/generator/validate_company.py --offline
+        run: |
+          uv run --project services/generator --frozen python services/generator/validate_company.py --offline
+          uv run --project services/generator --frozen python services/generator/validate_seeds.py
+      - name: Generator tests (offline)
+        run: uv run --project services/generator --frozen pytest services/generator/tests
 
   compose-smoke:
     name: Compose smoke test

@@ -2,9 +2,13 @@
 
 COMPOSE := docker compose
 WAIT_TIMEOUT ?= 1800
+# The generator's pinned environment (services/generator/uv.lock); .env gives it the credentials.
+GENERATOR := uv run --project services/generator --frozen
+SEED ?= 0
 
 .DEFAULT_GOAL := help
-.PHONY: help up down restart ps logs smoke migrate validate-seeds config clean
+.PHONY: help up down restart ps logs smoke migrate validate-seeds test-generator load-reference generate \
+	config clean
 
 help:  ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-15s %s\n", $$1, $$2}'
@@ -41,7 +45,18 @@ migrate: .env  ## Apply pending database migrations (make up does it too)
 	$(COMPOSE) run --rm db-migrate
 
 validate-seeds:  ## Check the AI-generated seed data: structure, consistency, geography
-	uv run --with jsonschema python services/generator/validate_company.py
+	$(GENERATOR) python services/generator/validate_company.py
+	$(GENERATOR) python services/generator/validate_seeds.py
+
+test-generator:  ## Run the order generator's tests (offline)
+	$(GENERATOR) pytest services/generator/tests
+
+load-reference: .env  ## Load hub, zones, fleet, drivers, shippers and addresses into bronze
+	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator load-reference
+
+generate: .env  ## Generate one day of orders: make generate DATE=2026-10-05 [SEED=0]
+	@test -n "$(DATE)" || { echo "usage: make generate DATE=YYYY-MM-DD [SEED=0]"; exit 2; }
+	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator orders --date $(DATE) --seed $(SEED)
 
 config: .env  ## Validate docker-compose.yml
 	$(COMPOSE) config --quiet && echo "docker-compose.yml is valid"
