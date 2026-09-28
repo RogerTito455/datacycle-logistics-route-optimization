@@ -50,9 +50,11 @@ Truly real-time **and** free with no key: Open Data BCN `itineraris`/`trams` (ci
 | Nominatim | `nominatim.openstreetmap.org` | 1 req/s, real User-Agent, no bulk/autocomplete, cache results | ODbL |
 
 ## 5. Fuel prices
+
 **MINETUR/MITECO REST** – `https://sedeaplicaciones.minetur.gob.es/ServiciosRESTCarburantes/PreciosCarburantes/EstacionesTerrestres/FiltroProvincia/08` (Barcelona) → tested: HTTP 200, `application/json`, 850 KB, `Fecha`, station lat/long and prices as **comma-decimal strings**; also `/EstacionesTerrestresHist/…/{FECHA}` and `/Listados/*`. No auth; prices updated daily; CC BY 4.0 (MITECO catalogue). Poll hourly at most – 5-min polling is pointless.
 
 ## 6. Seed datasets (GPS traces / logistics)
+
 - **Amazon Last Mile Routing Research Challenge** – `s3://amazon-last-mile-challenges/` (`--no-sign-request`), 9,184 real 2018 routes, 5 US metros, obfuscated; **CC BY-NC 4.0**.
 - **Modena last-mile GPS dataset** (Zenodo 21717592, Jul 2026) – GPS traces + orders + time windows, CSV, CC BY 4.0. Closest real European analogue.
 - **LaDe** (Cainiao, 5 Chinese cities, 10.7 M packages, GPS) – Hugging Face, research use.
@@ -60,11 +62,13 @@ Truly real-time **and** free with no key: Open Data BCN `itineraris`/`trams` (ci
 - Spain-real time series: Open Data BCN monthly traffic CSVs (2017→) and Bicing monthly 7z archives.
 
 ## 7. Barcelona real-time stand-ins for "vehicle/IoT status"
+
 - **Bicing GBFS (public, no token)** – `https://barcelona.publicbikesystem.net/customer/gbfs/v2/gbfs.json` → `station_status`, `station_information`, `vehicle_types` (tested; `ttl: 0`). The Open Data BCN mirror (`estat-estacions-bicing`, "IMMEDIATA") **requires a free token** sent as `Authorization: <token>` after registering at `opendata-ajuntament.barcelona.cat/en/tokens`.
 - Other Open Data BCN "IMMEDIATA" feeds: `aparcaments-sota-superficie` (B:SM car-park occupancy, token), `informacio-rutes-autobus-estacio-del-nord`.
 - **TMB iBus / GTFS** – register at `developer.tmb.cat` (portal is behind login), `app_id`+`app_key`; GTFS weekly; rate limits not published.
 
 ## Recommended picks (Docker Compose on laptop + small VM)
+
 - **Traffic:** Open Data BCN `itineraris` (+`trams`, joined to `transit-relacio-trams`) every 5 min, plus SCT DATEX II from `nap.dgt.es` for the metro-area roads. No keys. TomTom optional (key, no card).
 - **Weather:** Open-Meteo, no key. AEMET as second source (free key).
 - **Routing:** self-hosted OSRM container built from `cataluna-latest.osm.pbf` (258 MB, ~2 GB RAM at build). ORS on `api.heigit.org` only as fallback (key).
