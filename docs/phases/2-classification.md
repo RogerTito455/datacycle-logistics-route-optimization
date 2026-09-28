@@ -54,7 +54,7 @@ Four rules settle the edge cases:
 | # | Dataset | Arrives as | On arrival | Stored for analysis as | At rest |
 |---|---|---|---|---|---|
 | 1 | Vehicle GPS location | JSON message on topic `gps.pings` | Semi-structured | Rows in the `bronze.gps_pings` hypertable | Structured |
-| 2 | Orders | Parquet files in the `bronze` bucket, one row per order: micro-batches through the day, next-day orders nightly | Structured | Rows in `bronze.orders` | Structured |
+| 2 | Orders | Parquet files in the `bronze` bucket, one per service date, one row per order | Structured | Rows in `bronze.orders` | Structured |
 | 2 | Order status changes | JSON message on topic `delivery.events` | Semi-structured | Rows in `bronze.delivery_events` | Structured |
 | 3 | Road traffic (Open Data BCN) | `#`-delimited text file, no header, every 5 min | Structured | Rows in the `bronze.traffic_state` hypertable, original line kept | Structured |
 | 4 | Route history | Nightly Parquet file in the `bronze` bucket, one row per route | Structured | Rows in `bronze.route_history` | Structured |
@@ -103,12 +103,14 @@ a row that can be aggregated.
 
 **Orders: structured. Status changes: semi-structured on the topic, structured in the table.**
 
-The order generator writes Parquet files to the RustFS `bronze` bucket: micro-batches through the
-day and a nightly batch of next-day orders. Every file has one row per order and the same columns:
-order id, shipper and origin, destination address and coordinates at a real Open Data BCN
-address, zone, priority, service level, parcel size and time window. A Parquet file stores its
-column names and types once, in its footer, and no value carries its own key, so it is a table:
-structured, and it loads one-to-one into `bronze.orders`.
+The order generator writes one Parquet file per service date to the RustFS `bronze` bucket. The
+registration times of its orders are spread through the day by the demand model's hourly curve;
+publishing them in micro-batches through the day is planned with Dagster (#11). Every file has
+one row per order and the same columns: order id, shipper and origin, destination address and
+coordinates at a real Open Data BCN or ICGC address, zone, priority, service level, parcel size
+and time window. A Parquet file stores its column names and types once, in its footer, and no
+value carries its own key, so it is a table: structured, and it loads one-to-one into
+`bronze.orders`.
 
 One field of the row differs: `notes`, the recipient's free text, classified on its own below.
 
