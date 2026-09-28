@@ -26,6 +26,13 @@ COMPANY = "generator/company-profile"
 FLEET = "generator/fleet"
 DRIVERS = "generator/drivers"
 DEMAND = "generator/demand-model"
+# The seeds with one record per row are also stored in the bronze bucket, one Parquet file per
+# table, and their rows keep its key. The company profile is one document spread over four tables.
+SEED_FILES = {
+    "bronze.vehicles": "reference/generator/fleet/vehicles.parquet",
+    "bronze.drivers": "reference/generator/drivers/drivers.parquet",
+    "bronze.shippers": "reference/generator/demand-model/shippers.parquet",
+}
 
 
 @dataclass
@@ -241,9 +248,9 @@ def seed_tables(seeds: Seeds) -> list[Table]:
         Table("bronze.vehicle_types", vehicle_types(company), COMPANY),
         Table("bronze.shifts", shifts(company), COMPANY),
         Table("bronze.hubs", hubs(company), COMPANY),
-        Table("bronze.vehicles", vehicles(seeds.fleet), FLEET),
-        Table("bronze.drivers", drivers(seeds.drivers, company), DRIVERS),
-        Table("bronze.shippers", shippers(seeds.demand), DEMAND),
+        Table("bronze.vehicles", vehicles(seeds.fleet), FLEET, SEED_FILES["bronze.vehicles"]),
+        Table("bronze.drivers", drivers(seeds.drivers, company), DRIVERS, SEED_FILES["bronze.drivers"]),
+        Table("bronze.shippers", shippers(seeds.demand), DEMAND, SEED_FILES["bronze.shippers"]),
     ]
 
 
@@ -275,14 +282,13 @@ def address_tables(settings: Settings, zone_map: ZoneMap, bucket: Bucket) -> lis
     ]
 
 
-def seed_parquet(seeds: Seeds, bucket: Bucket) -> list[str]:
+def seed_parquet(tables: list[Table], bucket: Bucket) -> list[str]:
     """The fleet register, driver roster and shipper list as Parquet files in the bronze bucket."""
-    files = {
-        "reference/generator/fleet/vehicles.parquet": vehicles(seeds.fleet),
-        "reference/generator/drivers/drivers.parquet": drivers(seeds.drivers, seeds.company),
-        "reference/generator/demand-model/shippers.parquet": shippers(seeds.demand),
-    }
-    return [bucket.put_parquet(key, pa.Table.from_pylist(rows)) for key, rows in files.items()]
+    return [
+        bucket.put_parquet(table.raw_object_key, pa.Table.from_pylist(table.rows))
+        for table in tables
+        if table.name in SEED_FILES
+    ]
 
 
 def load_reference(settings: Settings) -> dict[str, Loaded]:
@@ -291,9 +297,9 @@ def load_reference(settings: Settings) -> dict[str, Loaded]:
     zone_map = ZoneMap.from_company(seeds.company)
     bucket = Bucket(settings)
     print("Reference files in the bronze bucket")
-    for key in seed_parquet(seeds, bucket):
-        print(f"  {bucket.name}/{key}")
-    tables = seed_tables(seeds) + address_tables(settings, zone_map, bucket)
+    tables = seed_tables(seeds)
+    seed_parquet(tables, bucket)
+    tables += address_tables(settings, zone_map, bucket)
     for table in tables:
         if table.raw_object_key:
             print(f"  {bucket.name}/{table.raw_object_key}")

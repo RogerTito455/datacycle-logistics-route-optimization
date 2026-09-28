@@ -384,6 +384,7 @@ same migration.
 | 007 | Raw bronze without value checks or retention, `source` and `ingested_at` on the ops tables, hub geofence, fuel consumption derived from telemetry, `traffic_state.feed_item_id`, `addresses` |
 | 008 | `traffic_section_points`, the long CSV format, replaces `traffic_sections` and its packed polyline |
 | 009 | `shippers`, `streets` and `icgc_addresses`; the fields of the fleet register and the driver roster on `vehicles` and `drivers`; `shipper_id`, `wave` and `window_type` on `orders`; their data sources |
+| 010 | `raw_object_key` on `vehicles`, `drivers` and `shippers`, the key of the Parquet file each is loaded from |
 
 ## Silver and gold (dbt, issue #10)
 

@@ -64,8 +64,9 @@ Every row names its origin in `source` and gets `ingested_at` when it is written
 | `bronze.icgc_addresses` | 46,290 | `icgc/adreces-simplificat` | `reference/icgc/adreces-simplificat/<download date>/adreces-simplificat-v1r0-<version>.zip` |
 | `bronze.orders` | about 2,500 orders on a mean weekday | `generator/orders` | `orders/date=<service date>/orders.parquet` |
 
-Address rows keep `raw_object_key`, the key of the file they were parsed from. The orders file
-records the service date, the seed and the generator version in its Parquet metadata.
+Rows loaded from a file keep `raw_object_key`, the key of that file in the bucket: vehicles,
+drivers, shippers, streets, addresses and orders. The orders file records the service date, the
+seed and the generator version in its Parquet metadata.
 
 **Re-running.** Bronze is write-once, so `load-reference` inserts only the rows whose key is not in
 the table yet: a second run writes nothing. `generate` for a date that was generated before

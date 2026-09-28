@@ -34,9 +34,11 @@ def test_seed_tables_match_the_seeds(seeds):
         "generator/drivers",
         "generator/demand-model",
     }
-    for table in tables.values():  # every row has the same columns, and source is added last
+    for table in tables.values():  # every row has the same columns, then source and raw_object_key
         assert all(list(row) == list(table.rows[0]) for row in table.rows)
-        assert table.columns[-1] == "source"
+        from_file = table.name in ("bronze.vehicles", "bronze.drivers", "bronze.shippers")
+        assert table.columns[-2:] == (["source", "raw_object_key"] if from_file else [table.columns[-2], "source"])
+        assert (table.raw_object_key or "").endswith(".parquet") == from_file
 
 
 def test_hub_and_shift_ids(seeds):
