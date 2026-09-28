@@ -1,0 +1,134 @@
+{
+  "about": "What the video says, line by line. `pnpm voice` turns each line into one audio clip (ElevenLabs, with timestamps) and writes src/data/narration.json with its length and word timings, so the subtitles land on the word. `say`, when present, is the spelling the voice reads; the screen shows `text`, and both have the same number of words. Figures: hub, zones, fleet, stops per route and the KPI baseline (361 min) and target (330 min) come from the company profile, generated with AI from prompt 001 and validated against OpenStreetMap (services/generator/seed/company.json); they are a baseline and a target, not results. 5 s GPS, 5 min traffic and hourly weather are the platform's design (docs/phases/1-case.md). 1.8 GB for the nine services was measured on 28 September 2026 (README). The vans are simulated on real roads; the GPS simulator, the optimizer and the KPI dashboard arrive at milestones M2 (5 October) and M3 (8 October).",
+  "voices": {
+    "narrator": {
+      "id": "G17SuINrv2H9FC6nvetn",
+      "name": "Christopher",
+      "settings": {
+        "stability": 0.55,
+        "similarity_boost": 0.8,
+        "style": 0.1,
+        "use_speaker_boost": true,
+        "speed": 1.1
+      }
+    }
+  },
+  "scenes": [
+    {
+      "id": "open",
+      "lines": [
+        { "speaker": "narrator", "text": "Half past seven, Zona Franca." },
+        {
+          "speaker": "narrator",
+          "text": "Thirty vans leave the Llobregat Express hub with about seventy stops each, in a fixed order.",
+          "say": "Thirty vans leave the Yoo-bruh-gat Express hub with about seventy stops each, in a fixed order."
+        },
+        { "speaker": "narrator", "text": "By eleven, that order is wrong." }
+      ]
+    },
+    {
+      "id": "incidents",
+      "lines": [
+        {
+          "speaker": "narrator",
+          "text": "A car sits in the loading bay. The Ronda Litoral jams at Glòries. It starts to rain. Nobody answers the door in the Raval.",
+          "say": "A car sits in the loading bay. The Ronda Lee-to-rahl jams at Glo-ree-es. It starts to rain. Nobody answers the door in the Rah-vahl."
+        }
+      ]
+    },
+    {
+      "id": "cascade",
+      "lines": [
+        { "speaker": "narrator", "text": "Every delay pushes every later stop further back, and the plan made at dawn never finds out." }
+      ]
+    },
+    {
+      "id": "kpi",
+      "lines": [
+        { "speaker": "narrator", "text": "So we measure one thing, the way the company would: the average delivery time per route." },
+        { "speaker": "narrator", "text": "From the moment a van leaves the hub, to its last delivery." },
+        { "speaker": "narrator", "text": "The company's baseline is six hours and one minute. Its target is five and a half." }
+      ]
+    },
+    {
+      "id": "brand",
+      "lines": [
+        {
+          "speaker": "narrator",
+          "text": "Llobregat Express is the data platform behind that number, running end to end.",
+          "say": "Yoo-bruh-gat Express is the data platform behind that number, running end to end."
+        }
+      ]
+    },
+    {
+      "id": "pipeline",
+      "lines": [
+        { "speaker": "narrator", "text": "Every van sends its position every five seconds." },
+        { "speaker": "narrator", "text": "The city publishes the state of its roads every five minutes. The weather, every hour." },
+        {
+          "speaker": "narrator",
+          "text": "Fast signals stream through Redpanda; slow ones arrive in batches.",
+          "say": "Fast signals stream through Red-panda; slow ones arrive in batches."
+        },
+        {
+          "speaker": "narrator",
+          "text": "Both land in TimescaleDB, raw first, then cleaned by dbt, then shaped into the KPI.",
+          "say": "Both land in Timescale-D-B, raw first, then cleaned by D-B-T, then shaped into the K-P-I."
+        },
+        { "speaker": "narrator", "text": "Dagster runs the schedule, and Grafana shows it live." }
+      ]
+    },
+    {
+      "id": "ping",
+      "lines": [
+        {
+          "speaker": "narrator",
+          "text": "Here is one ping. Van seven, six kilometres an hour, on the Ronda Litoral.",
+          "say": "Here is one ping. Van seven, six kilometres an hour, on the Ronda Lee-to-rahl."
+        },
+        { "speaker": "narrator", "text": "Joined to the road, it becomes information: the van has been crawling for nine minutes." },
+        { "speaker": "narrator", "text": "Against the history, it becomes knowledge: this stretch jams on weekday mornings." },
+        { "speaker": "narrator", "text": "And then it becomes an action." },
+        { "speaker": "narrator", "text": "The optimizer re-orders the fourteen stops van seven has left, on real road times, before it reaches the jam." }
+      ]
+    },
+    {
+      "id": "compare",
+      "lines": [
+        { "speaker": "narrator", "text": "A navigation app finds the fastest way from one address to the next." },
+        { "speaker": "narrator", "text": "It does not decide which van carries which parcel, keep two-hour delivery windows, or move stops from a late van to an early one." },
+        { "speaker": "narrator", "text": "And it cannot tell you how long your routes really took yesterday. Only your own data can." },
+        { "speaker": "narrator", "text": "We plan the day of a fleet, not the trip of a driver, and we measure whether it worked." }
+      ]
+    },
+    {
+      "id": "lineage",
+      "lines": [
+        { "speaker": "narrator", "text": "Every number traces back to its source, with who owns it and when it arrived." }
+      ]
+    },
+    {
+      "id": "origins",
+      "lines": [
+        { "speaker": "narrator", "text": "Traffic, weather and roads are real, open data." },
+        { "speaker": "narrator", "text": "The company itself is generated with AI, and every prompt is published and checked against the real map." }
+      ]
+    },
+    {
+      "id": "smoke",
+      "lines": [
+        { "speaker": "narrator", "text": "The whole platform starts with one command, in under two gigabytes of memory, and every change is tested by booting it from scratch." }
+      ]
+    },
+    {
+      "id": "close",
+      "lines": [
+        {
+          "speaker": "narrator",
+          "text": "Llobregat Express. Thirty vans, one city that keeps changing, and routes that change with it.",
+          "say": "Yoo-bruh-gat Express. Thirty vans, one city that keeps changing, and routes that change with it."
+        }
+      ]
+    }
+  ]
+}
