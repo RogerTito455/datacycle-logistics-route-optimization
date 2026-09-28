@@ -5,7 +5,7 @@ the PDF for the school platform, and together they form the write-up on the docs
 
 | File | Phase | Status |
 |---|---|---|
-| `1-case.md` | Practical case: company, context, data inventory | pending |
+| `1-case.md` | Practical case: company, context, data inventory | done |
 | `2-classification.md` | Structured / semi-structured / unstructured, with justification | pending |
 | `3-dikw.md` | DIKW hierarchy for the GPS ping | pending |
 | `4-lifecycle.md` | Complete pipeline: generation to archiving | pending |
