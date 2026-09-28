@@ -9,6 +9,21 @@ is at this corner", can be a line of delimited text, a JSON message or a row in 
 of those is a different category. That is why the classification is given twice: as the data
 arrives, and as it is stored for analysis.
 
+## Terms used in this document
+
+| Term | Meaning |
+|---|---|
+| Bronze, silver, gold | The three layers of the platform's database. Bronze holds every record as it arrived, parsed into rows but not cleaned; silver holds cleaned and joined data; gold holds the KPI and what the dashboards read. See the [data model](../data-model.md) |
+| Hypertable | A TimescaleDB table split by time into chunks, used for data that grows all day: GPS pings, telemetry, traffic |
+| Redpanda, topic | Redpanda is the platform's message broker. It speaks the Kafka protocol, so any Kafka client can write to it or read from it. A topic is a named, ordered log of messages, such as `gps.pings` |
+| RustFS, bucket | The platform's S3-compatible object storage. The `bronze` bucket keeps batch files, API responses and photos as they arrived |
+| Parquet | A columnar file format for tables. The file stores its column names and types once, in its footer, like a typed CSV header |
+| DIKW | Data, information, knowledge, wisdom: the hierarchy that phase 3 applies to the GPS ping |
+| PBF | Protocolbuffer Binary Format, the compressed binary format of OpenStreetMap extracts |
+| MINETUR | The Spanish ministry that publishes the price of every fuel at every service station through an open REST API (today part of MITECO) |
+| WMO code | The World Meteorological Organization's weather code, a number from 0 to 99 (3 is overcast, 61 is light rain) |
+| SCT, DATEX II | The Servei Català de Trànsit, Catalonia's traffic authority, and DATEX II, the European XML standard it uses to publish road incidents |
+
 ## How to tell
 
 Three questions decide the category. They are applied in order to the bytes as they arrive.
@@ -19,43 +34,46 @@ Three questions decide the category. They are applied in order to the bytes as t
 | Do all records have the same fields? | Yes, same fields in the same order, one value each | Not necessarily: fields can be optional, repeated, nested or depend on the record type | Not applicable |
 | How do you get one value out? | Read the column | Parse the document and walk to the key or tag | Interpret the content: a person, text analysis or image recognition |
 
-Three rules settle the edge cases:
+Four rules settle the edge cases:
 
 1. **The container does not decide.** Free text stored in a `text` column is still unstructured
    content, and a JSON document stored in a `jsonb` column is still semi-structured. The category
    belongs to the value, not to the database that holds it.
 2. **A published schema does not make a document structured.** `company.json` is checked against
-   a JSON Schema, and DATEX II has an XML schema, but both stay hierarchical, self-describing
-   documents with nested and optional parts. Having a schema makes them *validated*, not *flat*.
+   a JSON Schema, but it stays a hierarchical, self-describing document with nested and optional
+   parts. Having a schema makes it *validated*, not *flat*.
 3. **Text is not the same as unstructured.** A `#`-delimited text file with a fixed column order
    is structured: it is a table written as text. What makes data unstructured is the absence of
    fields, not the use of characters.
+4. **One category per dataset and stage.** A dataset takes the category of its overall shape.
+   When one part of it differs, such as a free-text field in a table, that part is named in the
+   justification and, where it matters, classified on its own.
 
 ## Summary
 
 | # | Dataset | Arrives as | On arrival | Stored for analysis as | At rest |
 |---|---|---|---|---|---|
 | 1 | Vehicle GPS location | JSON message on topic `gps.pings` | Semi-structured | Rows in the `bronze.gps_pings` hypertable | Structured |
-| 2 | Orders | Daily batch file with one row per order | Structured | Rows in `bronze.orders` | Structured |
+| 2 | Orders | Parquet files in the `bronze` bucket, one row per order: micro-batches through the day, next-day orders nightly | Structured | Rows in `bronze.orders` | Structured |
 | 2 | Order status changes | JSON message on topic `delivery.events` | Semi-structured | Rows in `bronze.delivery_events` | Structured |
 | 3 | Road traffic (Open Data BCN) | `#`-delimited text file, no header, every 5 min | Structured | Rows in the `bronze.traffic_state` hypertable, original line kept | Structured |
-| 4 | Route history | Nightly batch file with one row per route | Structured | Rows in `bronze.route_history` | Structured |
-| 5 | Fuel consumption | JSON trip report at the end of each route | Semi-structured | One row per route in `bronze.fuel_consumption` | Structured |
+| 4 | Route history | Nightly Parquet file in the `bronze` bucket, one row per route | Structured | Rows in `bronze.route_history` | Structured |
+| 5 | Fuel consumption | Computed by the platform from the vehicle status rows when a route ends | Structured | One row per route in `bronze.fuel_consumption` | Structured |
 | 5 | Fuel prices (MINETUR) | JSON document from a REST API | Semi-structured | Rows in the `bronze.fuel_prices` hypertable | Structured |
-| 6 | Vehicle status (sensors) | JSON message on topic `vehicle.telemetry`, keys vary by vehicle type | Semi-structured | Rows in `bronze.vehicle_telemetry`, type-specific sensors in a `jsonb` column | Structured, with a semi-structured column |
+| 6 | Vehicle status (sensors) | JSON message on topic `vehicle.telemetry`, keys vary by vehicle type | Semi-structured | Rows in `bronze.vehicle_telemetry`, type-specific sensors in a `jsonb` column | Structured |
 | 7 | Weather (Open-Meteo) | JSON document from a REST API | Semi-structured | Rows in `bronze.weather` | Structured |
 | + | Delivery notes | Free text inside each order | Unstructured | `notes` column of `bronze.orders` | Unstructured |
-| + | Proof-of-delivery photos | JPEG image per delivered parcel | Unstructured | Object in the RustFS `bronze` bucket, key in `bronze.delivery_events` | Unstructured, with structured metadata |
+| + | Proof-of-delivery photos | JPEG image per delivered parcel | Unstructured | Object in the RustFS `bronze` bucket, key in `bronze.delivery_events` | Unstructured |
 | R | Company profile | One nested JSON document, `company.json` | Semi-structured | `bronze.hubs`, `zones`, `shifts`, `vehicle_types` | Structured |
-| R | Vehicles and drivers | Batch files with one row per vehicle or driver | Structured | `bronze.vehicles`, `bronze.drivers` | Structured |
-| R | Postal addresses (Open Data BCN) | CSV with a header row | Structured | Input file of the order generator; each order keeps the address id in `address_ref` | Structured |
-| R | Traffic sections (Open Data BCN) | CSV with a header row; the geometry is a coordinate list inside one field | Structured, with a packed list | `bronze.traffic_sections`, polyline kept as text | Structured |
-| R | Road network (OpenStreetMap) | Binary PBF file of nodes, ways and free-form tags | Semi-structured | Routing graph built by OSRM | Structured (a graph) |
+| R | Fleet register and driver roster | Parquet files in the `bronze` bucket, one row per vehicle or driver | Structured | `bronze.vehicles`, `bronze.drivers` | Structured |
+| R | Demand model | JSON document of the order generator's parameters | Semi-structured | Read by the order generator, not loaded into tables | Semi-structured |
+| R | Postal addresses (Open Data BCN) | CSV with a header row | Structured | Rows in `bronze.addresses` | Structured |
+| R | Traffic sections (Open Data BCN) | Long-format CSV with a header row, one row per point of a section | Structured | Rows in `bronze.traffic_section_points` | Structured |
+| R | Road network (OpenStreetMap) | PBF file of nodes, ways and relations with free-form tags | Semi-structured | The PBF file, compiled by OSRM into its own routing files | Semi-structured |
 
-Across the lifecycle the platform does one thing consistently: it keeps the original payload in
-object storage in its original category, and it lands a structured version in the database. What
-starts structured stays structured, most semi-structured data becomes structured at ingestion,
-and unstructured data stays unstructured, reached through structured references.
+`#` is the row of the phase 1 inventory; `+` marks the two unstructured datasets added to it and
+`R` the reference data. The AI-generated fallbacks of the external feeds (issue #9) are generated
+in the same format as the real feed they replace, so each has the same category as that feed.
 
 ## The seven data types of the case
 
@@ -73,33 +91,33 @@ The GPS simulator publishes one JSON message per van every five seconds to the R
 
 Each value travels with its key, the key order does not matter, and `route_id` is simply absent
 while the van waits at the hub. Nothing outside the message says what it contains: that is
-semi-structured. Kafka itself sees only bytes, so any producer could add a field tomorrow.
+semi-structured. The broker itself sees only bytes, so any producer could add a field tomorrow.
 
-The stream consumer validates each message and writes it into `bronze.gps_pings`, a table with a
-fixed column for every field, a type for every column and checks on the values (coordinates
-inside Catalonia, heading between 0 and 359). From that moment the ping is structured: the same
-columns in every row, queryable by column name, partitioned by time. The GPS ping is also the
-raw element of the DIKW hierarchy in phase 3; this is the step where it becomes a row that can be
-aggregated.
+The stream consumer parses each message and writes it into `bronze.gps_pings`, a table with a
+fixed column for every field and a type for every column. From that moment the ping is
+structured: the same columns in every row, queryable by column name, partitioned by time. The GPS
+ping is also the raw element of the DIKW hierarchy in phase 3; this is the step where it becomes
+a row that can be aggregated.
 
 ### 2 · Orders (origin, destination, priority)
 
-**Structured, with one unstructured field. Status changes: semi-structured on the topic,
-structured in the table.**
+**Orders: structured. Status changes: semi-structured on the topic, structured in the table.**
 
-The order generator writes one batch file per day with one row per order and the same columns in
-every row: order id, shipper and origin, destination address and coordinates at a real Open Data
-BCN address, zone, priority, service level, parcel size and time window. A tabular file with a
-fixed header is structured, and it loads one-to-one into `bronze.orders`.
+The order generator writes Parquet files to the RustFS `bronze` bucket: micro-batches through the
+day and a nightly batch of next-day orders. Every file has one row per order and the same columns:
+order id, shipper and origin, destination address and coordinates at a real Open Data BCN
+address, zone, priority, service level, parcel size and time window. A Parquet file stores its
+column names and types once, in its footer, and no value carries its own key, so it is a table:
+structured, and it loads one-to-one into `bronze.orders`.
 
-The exception inside the row is the `notes` field, which is classified on its own below.
+One field of the row differs: `notes`, the recipient's free text, classified on its own below.
 
 As the parcels move, the driver's handheld emits status events (`loaded`, `arrived`,
-`delivered`, `failed`, `returned`) as JSON messages on `delivery.events`. Like GPS pings, they
-are semi-structured in transit: a failed attempt carries a `failure_reason` key and a delivery
-carries a `pod_object_key`, so the fields depend on the status. The consumer lands them in
-`bronze.delivery_events`, where those fields are nullable columns and checks enforce the rules
-(a failed attempt must have a reason). At rest they are structured.
+`delivered`, `failed`, `returned`) as JSON messages on the topic `delivery.events`, which is
+created together with the simulator that produces them (issue #7). Like GPS pings, they are
+semi-structured in transit: a failed attempt carries a `failure_reason` key and a delivery carries
+a `pod_object_key`, so the fields depend on the status. The consumer lands them in
+`bronze.delivery_events`, where those fields are nullable columns. At rest they are structured.
 
 ### 3 · Road traffic data (external API)
 
@@ -125,24 +143,22 @@ published by the city. The loader splits each line into typed columns of
 `bronze.traffic_state`. It also keeps the original line in `raw_line`, so a field that is not
 parsed yet is never lost.
 
-A contrast shows why the format matters more than the topic. The Catalan traffic service (SCT)
-publishes road incidents as DATEX II XML, the second traffic source recommended in the
-[research](../research/open-data-sources.md). The same kind of information there is
-semi-structured: nested elements, and a `situationRecord` whose `xsi:type`
-(`MaintenanceWorks`, `Accident`, ...) decides which child elements follow. Its RSS version is
-semi-structured on the outside and packs a pipe-delimited string inside each item
-(`A-2 | BRUC | Sentit Oest cap a LLEIDA | Punt km. 570-586 | 08:22`).
+Open Data BCN covers Barcelona city only. For the ring roads and the Llobregat bridges a second
+source is planned: the SCT incidents feed in DATEX II on the DGT National Access Point
+(issue #9). When it arrives it will be semi-structured: nested XML elements, and a
+`situationRecord` whose `xsi:type` (`MaintenanceWorks`, `Accident`, ...) decides which child
+elements follow.
 
 ### 4 · Route history
 
 **Structured.**
 
-The route history is generated as a nightly batch file with one row per completed route over the
-last ninety days: route, date, wave, zone, vehicle, driver, departure from the hub, time of the
-last delivered or failed stop, planned duration, stops delivered and failed, distance. Every row
-has the same columns, so the file is structured and loads directly into `bronze.route_history`.
-It is batch data by nature: it describes the past and arrives once a night, which is why the
-assignment hints at batch processing for it.
+The route history is generated as a nightly Parquet file in the `bronze` bucket, with one row per
+completed route over the last ninety days: route, date, wave, zone, vehicle, driver, departure
+from the hub, time of the last delivered or failed stop, planned duration, stops delivered and
+failed, distance. Every row has the same columns, so the file is structured and loads directly
+into `bronze.route_history`. It is batch data by nature: it describes the past and arrives once a
+night, which is why the assignment hints at batch processing for it.
 
 The optimizer's live plans (`bronze.route_plans` and `bronze.route_plan_stops`) are the same kind
 of data for today's routes. The optimizer writes them as rows directly, so they are structured
@@ -150,14 +166,15 @@ from the moment they exist.
 
 ### 5 · Fuel consumption
 
-**Trip reports: semi-structured on arrival, structured at rest. Fuel prices: semi-structured on
-arrival, structured at rest.**
+**Consumption: structured. Fuel prices: semi-structured on arrival, structured at rest.**
 
-At the end of each route the van's telematics unit sends a trip report: distance, energy used
-and its unit, idle time. It is a small JSON message, semi-structured for the same reasons as the
-telemetry it summarises, and the unit depends on the vehicle (kWh for electric vans, litres for
-diesel, kilograms for natural gas). It lands as one structured row per route in
-`bronze.fuel_consumption`, where a computed column gives the consumption per 100 km.
+Fuel consumption is not received from outside; the platform derives it. When a route ends, it
+takes that van's vehicle status rows for the route (dataset 6, already structured in
+`bronze.vehicle_telemetry`) and computes the distance from the odometer and the energy used from
+the energy counter, in kWh, litres or kilograms depending on the vehicle. The result is one row
+per route in `bronze.fuel_consumption`, with the same columns every time: structured from the
+moment it exists. Its semi-structured origin is the telemetry message, classified under
+dataset 6.
 
 Fuel prices come from the MINETUR REST API as one JSON document for the province of Barcelona,
 800 stations on 28 September 2026. The real response, shortened to one station:
@@ -173,11 +190,13 @@ It is semi-structured: a header object wrapping an array of station objects, eve
 with its key. It also needs more than parsing to become usable data: prices and coordinates are
 strings with decimal commas, and a product the station does not sell is an empty string rather
 than a missing key. The loader converts the values, turns the 23 price keys into one row per
-station and product, and lands them in `bronze.fuel_prices`, which is structured.
+station and product, and lands them in `bronze.fuel_prices`, which is structured. MINETUR prices
+diesel and natural gas but not electricity, which most of the fleet uses; electricity is costed
+at a documented fixed tariff, a constant rather than a dataset (issue #9).
 
 ### 6 · Vehicle status (sensor data)
 
-**On the topic: semi-structured. In the table: structured, with one semi-structured column.**
+**On the topic: semi-structured. In the table: structured.**
 
 Every thirty seconds each van publishes its sensor readings to `vehicle.telemetry`. The company
 profile gives each vehicle type a different sensor list, so the messages genuinely differ:
@@ -195,10 +214,10 @@ engine speed. Same topic, same kind of message, different keys: this is the clea
 semi-structured dataset of the case.
 
 In `bronze.vehicle_telemetry` the readings every vehicle has (speed, odometer, ignition, energy
-level and counter, cargo door) become typed columns. The type-specific readings go into a
-`readings` column of type `jsonb`, as they arrived. The table is structured, but that column is
-deliberately semi-structured, because forcing every optional sensor into its own column would
-leave most of them empty for most vans.
+level and counter, cargo door) become typed columns, so the table is structured. The
+type-specific readings go into one `readings` column of type `jsonb`, as they arrived. By rule 1
+the values in that column are still semi-structured; they stay that way on purpose, because
+forcing every optional sensor into its own column would leave most of them empty for most vans.
 
 ### 7 · Weather conditions
 
@@ -239,14 +258,14 @@ in the `notes` column of `bronze.orders`.
 The column is structured; its content is not. There are no fields inside a note, the same
 instruction can be written in many ways, and in Barcelona in more than one language, and a
 program cannot answer "does this recipient authorise a neighbour?" without interpreting the
-language. That makes the notes unstructured, and they stay unstructured along the whole lifecycle. The only way
-to get structured facts out of them would be to extract them, for example by tagging notes that
-mention a neighbour, a concierge or a time limit. That extraction is exactly the step from data to
-information of phase 3.
+language. That makes the notes unstructured, and they stay unstructured along the whole
+lifecycle. The only way to get structured facts out of them would be to extract them, for
+example by tagging notes that mention a neighbour, a concierge or a time limit. That extraction is
+exactly the step from data to information of phase 3.
 
 ### Proof-of-delivery photos
 
-**Unstructured, with structured metadata.**
+**Unstructured.**
 
 When a parcel is delivered, the handheld takes a photo of it at the door. The image is stored as
 a JPEG object in the RustFS `bronze` bucket, under `pod/`, and the `delivered` event records the
@@ -256,31 +275,90 @@ The pixels have no fields at all: whether the photo shows a parcel in front of t
 only be answered by a person or by image recognition. The platform never tries to query them. It
 reaches them through structured metadata instead: the row in `bronze.delivery_events` (which
 order, when, where) and the object's own metadata in storage (size, content type, time written).
-This split, unstructured content addressed by structured references, is how the platform handles
-all binary data.
+The planned gold model `gold.fct_deliveries` carries the photo's key next to each delivery
+(issue #25), so a dashboard can link to the image without reading it. This split, unstructured
+content addressed by structured references, is how the platform handles all binary data.
 
 ## Reference data
 
-| Dataset | Class | Justification |
-|---|---|---|
-| Company profile, `company.json` | Semi-structured on arrival, structured at rest | One JSON document with nested objects (`hub.timetable`, `zones[].centroid`, `fleet.vehicle_types[].consumption`) and arrays of different lengths (`districts` has 1 value in Eixample and 13 in L'Hospitalet). A JSON Schema validates it, but it stays hierarchical. Loaded into the flat `hubs`, `zones`, `shifts` and `vehicle_types` tables. Its prose fields (`business_model`, `difficulty_factors`, `operational_risks`) are unstructured text inside it |
-| Vehicles and drivers | Structured | Generated as batch files with one row per vehicle or driver and fixed columns; they load directly into `bronze.vehicles` and `bronze.drivers` |
-| Postal addresses, Open Data BCN `taula-direle` | Structured | CSV with a header row and one address per row; its coordinates come in three reference systems (ED50, ETRS89 and WGS84), each in its own pair of columns |
-| Traffic sections, Open Data BCN `transit-relacio-trams` | Structured, with a packed list | CSV with a header and three columns, but the third holds a whole polyline, `"2.11203535639414,41.3841912394771,2.101502862881051,41.3816307921222"`, with between 2 and 38 points depending on the section. A variable-length list inside one field is a nested value the table cannot express as columns, so `bronze.traffic_sections` keeps it as text and silver splits it into points |
-| Road network, OpenStreetMap | Semi-structured on arrival, structured once built | The PBF file encodes nodes, ways and relations, each with free-form `key=value` tags (`highway=residential`, `maxspeed=30`, `oneway=yes`): any tag can appear on any element. OSRM compiles it into a routing graph with fixed attributes per edge, which is structured |
+### Company profile
+
+**On arrival: semi-structured. At rest: structured.**
+
+`company.json` is one JSON document with nested objects (`hub.timetable`, `zones[].centroid`,
+`fleet.vehicle_types[].consumption`) and arrays of different lengths (`districts` has 1 value in
+Eixample and 13 in L'Hospitalet). A JSON Schema validates it, but by rule 2 it stays
+hierarchical: semi-structured.
+
+It is loaded into `bronze.hubs`, `zones`, `shifts` and `vehicle_types`, which have fixed, typed
+columns: structured. Some of those columns hold lists of one declared type, `text[]` arrays with
+no keys or nesting (`zones.districts`, `zones.preferred_vehicle_type_ids`,
+`vehicle_types.telemetry_sensors`). The column type fixes their schema outside the data, so they
+stay within the structured category, and silver turns them into one row per element when it
+needs to join on them. One loaded field is prose: `zones.difficulty_factors` holds sentences, and
+by rule 1 its content is unstructured text inside a structured table, as the notes of an order
+are. The profile's other prose (`business_model`, `operational_risks`) is not loaded into tables.
+
+### Fleet register and driver roster
+
+**Structured.**
+
+Prompts 002 and 003 (issue #3) produce one row per vehicle and one row per driver, written as
+Parquet files to the `bronze` bucket with fixed columns. They load directly into `bronze.vehicles`
+and `bronze.drivers`.
+
+### Demand model
+
+**Semi-structured.**
+
+Prompt 004 (issue #3) produces the parameters the order generator uses to spread orders over
+zones, hours, parcel sizes and priorities. It is planned as a JSON document like the company
+profile, nested by zone and hour, so it is semi-structured. It is an input of the generator, not
+a table: it reaches the database only through the orders it shapes.
+
+### Postal addresses, Open Data BCN `taula-direle`
+
+**Structured.**
+
+A CSV with a header row and one address per row: street code, number and letter, district,
+neighbourhood, census section and postal district. Its coordinates come in three reference
+systems (ED50, ETRS89 and WGS84), each in its own pair of columns. It loads one-to-one into
+`bronze.addresses`, and each order keeps the key of its destination in `address_ref`.
+
+### Traffic sections, Open Data BCN `transit-relacio-trams`
+
+**Structured.**
+
+The city publishes the geometry of the traffic sections in two layouts. The first packs a whole
+polyline into one field, with between 2 and 38 points depending on the section: a variable-length
+list inside a value. The second, `transit_relacio_trams_format_long.csv`, has one row per point
+with five columns: section, position along the section, description, longitude and latitude. The
+platform loads the long format into `bronze.traffic_section_points`, so every value has its own
+column and the dataset is structured as it arrives.
+
+### Road network, OpenStreetMap
+
+**Semi-structured.**
+
+The Catalonia extract is a PBF file of nodes, ways and relations, each carrying free-form
+`key=value` tags (`highway=residential`, `maxspeed=30`, `oneway=yes`). Any tag can appear on any
+element, and two ways of the same road type can carry different tags: the schema lives inside
+the data, which makes it semi-structured. OSRM compiles the file into routing files in its own
+binary format. The platform never reads those files; it asks OSRM for routes and distance
+matrices instead, so the dataset it keeps is the PBF file, semi-structured.
 
 ## How the category changes along the lifecycle
 
 ```mermaid
 flowchart LR
   subgraph Arrives
-    J["JSON messages<br/>GPS · telemetry · scans · trip reports"]
+    J["JSON messages<br/>GPS · telemetry · scans"]
     A["JSON API responses<br/>Open-Meteo · MINETUR"]
-    T["Delimited text and CSV<br/>traffic · orders · history"]
+    T["Delimited text, CSV and Parquet<br/>traffic · orders · history · reference"]
     N["Free text and photos<br/>notes · proof of delivery"]
   end
   subgraph Stored
-    S3[("RustFS bronze bucket<br/>original payloads,<br/>original category")]
+    S3[("RustFS bronze bucket<br/>batch files, API responses,<br/>photos")]
     BR[("bronze tables<br/>structured rows")]
   end
   J -- "semi → structured<br/>stream consumer" --> BR
@@ -295,15 +373,17 @@ flowchart LR
 
 - **Ingestion is where most data changes category.** Stream messages and API responses are
   semi-structured in transit and become structured rows when the consumer or the loader parses
-  them. Validation happens at the same step: a message whose keys do not fit the columns is
-  rejected there, not discovered later in a dashboard.
-- **The original is kept.** Batch files and API responses are stored as they arrived in the
-  RustFS `bronze` bucket, so the semi-structured version survives next to the structured one and
-  a parsing mistake can be corrected by parsing again.
+  them. Parsing does not judge the values: bronze stores every row, and the checks on values run
+  in silver.
+- **Files and API responses are also kept as they arrived.** Batch files and API responses are
+  stored in the RustFS `bronze` bucket, so their original category survives next to the
+  structured rows. Stream messages are not stored there: the parsed row is their only copy, and
+  a topic keeps a message for 24 hours.
 - **Some semi-structure is kept on purpose.** Type-specific sensor readings stay as `jsonb`,
   because their shape differs by vehicle type.
 - **Unstructured data does not change category.** Notes and photos stay unstructured. The
   platform attaches structured references to them (the order row, the object key) and, where it
   needs facts from them, extracts those facts as new structured data.
-- **Silver and gold are fully structured.** The KPI, *Average Delivery Time per Route*, is a
-  number per route, zone and hour, computed only from structured rows.
+- **Silver and gold are fully structured.** The KPI, *Average Delivery Time per Route*, is
+  computed only from structured rows and reported by day, zone, hour of departure, vehicle type
+  and weather.
