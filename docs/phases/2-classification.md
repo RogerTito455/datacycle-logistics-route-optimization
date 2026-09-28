@@ -66,8 +66,8 @@ Four rules settle the edge cases:
 | + | Proof-of-delivery photos | JPEG image per delivered parcel | Unstructured | Object in the RustFS `bronze` bucket, key in `bronze.delivery_events` | Unstructured |
 | R | Company profile | One nested JSON document, `company.json` | Semi-structured | `bronze.hubs`, `zones`, `shifts`, `vehicle_types` | Structured |
 | R | Fleet register and driver roster | Parquet files in the `bronze` bucket, one row per vehicle or driver | Structured | `bronze.vehicles`, `bronze.drivers` | Structured |
-| R | Demand model | JSON document of the order generator's parameters | Semi-structured | Read by the order generator, not loaded into tables | Semi-structured |
-| R | Postal addresses (Open Data BCN) | CSV with a header row | Structured | Rows in `bronze.addresses` | Structured |
+| R | Demand model | JSON document of the order generator's parameters | Semi-structured | Shippers in `bronze.shippers`; the order generator reads the other parameters | Structured |
+| R | Postal addresses (Open Data BCN, ICGC) | CSV files with a header row | Structured | Rows in `bronze.addresses`, `bronze.streets`, `bronze.icgc_addresses` | Structured |
 | R | Traffic sections (Open Data BCN) | Long-format CSV with a header row, one row per point of a section | Structured | Rows in `bronze.traffic_section_points` | Structured |
 | R | Road network (OpenStreetMap) | PBF file of nodes, ways and relations with free-form tags | Semi-structured | The PBF file, compiled by OSRM into its own routing files | Semi-structured |
 
@@ -303,27 +303,39 @@ are. The profile's other prose (`business_model`, `operational_risks`) is not lo
 
 **Structured.**
 
-Prompts 002 and 003 (issue #3) produce one row per vehicle and one row per driver, written as
-Parquet files to the `bronze` bucket with fixed columns. They load directly into `bronze.vehicles`
-and `bronze.drivers`.
+Prompts 002 and 003 (issue #3) each produce a flat list with one record per vehicle or driver.
+The loader writes them to the `bronze` bucket as Parquet files with fixed columns and loads them
+directly into `bronze.vehicles` and `bronze.drivers`. Three roster fields are lists (languages,
+zones the driver knows, vehicle types the driver is cleared for); like the zone lists of the
+company profile they are `text[]` columns of one declared type, so the tables stay structured.
 
 ### Demand model
 
 **Semi-structured.**
 
-Prompt 004 (issue #3) produces the parameters the order generator uses to spread orders over
-zones, hours, parcel sizes and priorities. It is planned as a JSON document like the company
-profile, nested by zone and hour, so it is semi-structured. It is an input of the generator, not
-a table: it reaches the database only through the orders it shapes.
+Prompt 004 (issue #3) produces the parameters the order generator draws from: the shippers, the
+hourly registration curve, the weekday multipliers, the consumer window choice, parcels per stop
+and business opening hours. It is one JSON document with objects keyed by hour, weekday and
+recipient type, and a list of assumptions in plain words, so it is semi-structured. The shipper
+list is flat enough to load as a table with fixed columns, `bronze.shippers`: structured. The
+other parameters stay in the document and reach the database only through the orders they shape.
 
-### Postal addresses, Open Data BCN `taula-direle`
+### Postal addresses, Open Data BCN and ICGC
 
 **Structured.**
 
-A CSV with a header row and one address per row: street code, number and letter, district,
-neighbourhood, census section and postal district. Its coordinates come in three reference
-systems (ED50, ETRS89 and WGS84), each in its own pair of columns. It loads one-to-one into
-`bronze.addresses`, and each order keeps the key of its destination in `address_ref`.
+Open Data BCN `taula-direle` is a CSV with a header row and one address per row: street code,
+number and letter, district, neighbourhood, census section and postal district. Its coordinates
+come in three reference systems (ED50, ETRS89 and WGS84), each in its own pair of columns. It
+loads one-to-one into `bronze.addresses`, and each order keeps the key of its destination in
+`address_ref`. It identifies a street by its code only; the city's street register, `carrerer`,
+another CSV with a header row, gives the names and loads into `bronze.streets`.
+
+The five neighbouring municipalities are not in `taula-direle`. Their addresses come from the ICGC
+simplified address register of Catalonia: a zip of semicolon-delimited CSV files with header rows,
+one row per street number, with coordinates in ETRS89 UTM zone 31N only. The loader keeps the five
+municipalities and adds WGS84 coordinates converted from the published ones; the rows land in
+`bronze.icgc_addresses`. All three files are structured.
 
 ### Traffic sections, Open Data BCN `transit-relacio-trams`
 
