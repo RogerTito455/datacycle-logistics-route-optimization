@@ -65,23 +65,39 @@ migrations() {  # every migration file is recorded in ops.schema_migrations with
   local tables; tables=$(psql_admin -c "
     SELECT count(*) || ' bronze tables, ' || count(*) FILTER (WHERE is_hypertable) || ' hypertables, '
            || (SELECT count(*) FROM timescaledb_information.jobs
-               WHERE proc_name = 'policy_retention' AND hypertable_schema = 'bronze') || ' retention policies'
+               WHERE proc_name = 'policy_compression' AND hypertable_schema = 'bronze') || ' compression policies'
     FROM ops.table_metadata WHERE schema_name = 'bronze'")
   echo "${#files[@]}/${#files[@]} applied (latest ${name:0:3}); $tables"
 }
 
-metadata() {  # the three mandatory metadata elements on every bronze table (ADR 0001, decision 20)
+metadata() {  # the three mandatory metadata elements on every bronze and ops table (ADR 0001, decision 20)
   local r total bad names events
+  # Views carry owner and schema_version; tables also carry source and ingested_at.
   r=$(psql_admin -c "
-    SELECT count(*),
-           count(*) FILTER (WHERE owner IS NULL OR schema_version IS NULL OR NOT has_source OR NOT has_ingested_at),
-           coalesce(string_agg(table_name, ' ') FILTER (WHERE owner IS NULL OR schema_version IS NULL
-                                                         OR NOT has_source OR NOT has_ingested_at), ''),
+    WITH t AS (
+      SELECT schema_name || '.' || table_name AS name, has_event_time,
+             owner IS NULL OR schema_version IS NULL
+             OR (kind = 'table' AND NOT (has_source AND has_ingested_at)) AS missing
+      FROM ops.table_metadata WHERE schema_name IN ('bronze', 'ops'))
+    SELECT count(*), count(*) FILTER (WHERE missing),
+           coalesce(string_agg(name, ' ') FILTER (WHERE missing), ''),
            count(*) FILTER (WHERE has_event_time)
-    FROM ops.table_metadata WHERE schema_name = 'bronze'") || return 1
+    FROM t") || return 1
   IFS='|' read -r total bad names events <<<"$r"
   [[ "$total" -gt 0 && "$bad" -eq 0 ]] || { echo "missing metadata on: ${names:-every table, none found}"; return 1; }
-  echo "$total/$total with source, ingested_at, owner, schema_version; $events event tables with event_time"
+  echo "$total/$total in bronze and ops with owner, schema_version, source, ingested_at; $events with event_time"
+}
+
+bronze_raw() {  # bronze accepts every raw record and keeps it until it is archived
+  local r checks retention
+  r=$(psql_admin -c "
+    SELECT (SELECT count(*) FROM pg_constraint WHERE contype = 'c' AND connamespace = 'bronze'::regnamespace),
+           (SELECT count(*) FROM timescaledb_information.jobs
+            WHERE proc_name = 'policy_retention' AND hypertable_schema = 'bronze')") || return 1
+  IFS='|' read -r checks retention <<<"$r"
+  [[ "$checks" -eq 0 && "$retention" -eq 0 ]] \
+    || { echo "bronze has $checks CHECK constraints and $retention retention policies; both must be 0"; return 1; }
+  echo "no CHECK constraints and no retention policies in bronze"
 }
 
 db_access() {  # grafana_reader, the dashboards' role, reads gold and ops and nothing else
@@ -142,6 +158,7 @@ check redpanda-console console
 check timescaledb timescaledb
 check migrations migrations
 check metadata metadata
+check bronze-raw bronze_raw
 check db-access db_access
 check rustfs rustfs
 check grafana grafana
