@@ -1,0 +1,33 @@
+[project]
+name = "llobregat-generator"
+version = "0.1.0"
+description = "Loads the reference data and generates the daily orders of Llobregat Express"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+# Exact pins: the order generator must draw the same orders for the same date and seed, and
+# numpy only guarantees the same random stream within a version.
+dependencies = [
+  "boto3==1.43.104",
+  "jsonschema==4.26.0",
+  "numpy==2.5.3",
+  "psycopg[binary]==3.3.6",
+  "pyarrow==25.0.1",
+  "pyproj==3.8.0",
+]
+
+[project.scripts]
+llobregat-generator = "llobregat_generator.cli:main"
+
+[dependency-groups]
+dev = ["pytest==9.1.1"]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

@@ -34,3 +34,6 @@ volumes/
 .vscode/
 .idea/
 .DS_Store
+
+# Generator downloads (Open Data BCN, ICGC)
+services/generator/.cache/
