@@ -17,7 +17,7 @@ import psycopg
 
 from llobregat_generator import addresses, db
 from llobregat_generator.config import Settings
-from llobregat_generator.metadata import FileMetadata, parquet_table
+from llobregat_generator.metadata import FileMetadata, content_checksum, parquet_table
 from llobregat_generator.rules import RELIEF_POOL, clock, span
 from llobregat_generator.seeds import Seeds
 from llobregat_generator.storage import Bucket
@@ -283,14 +283,17 @@ def address_tables(settings: Settings, zone_map: ZoneMap, bucket: Bucket) -> lis
     ]
 
 
-def seed_parquet(conn: psycopg.Connection, tables: list[Table], bucket: Bucket, ingested_at: datetime) -> list[str]:
-    """The fleet register, driver roster and shipper list as Parquet files in the bronze bucket."""
-    keys = []
+def seed_parquet(conn: psycopg.Connection, tables: list[Table], bucket: Bucket, ingested_at: datetime) -> None:
+    """The fleet register, driver roster and shipper list as Parquet files in the bronze bucket.
+
+    A file whose content has not changed since the last load is not written again: the bucket
+    compares checksums, so its ingested_at stays that of the load that wrote it.
+    """
     for table in tables:
         if table.name in SEED_FILES:
             metadata = FileMetadata.for_table(conn, table.name, table.source, ingested_at)
-            keys.append(bucket.put_parquet(table.raw_object_key, parquet_table(table.rows, metadata)))
-    return keys
+            checksum = content_checksum(table.rows, metadata)
+            bucket.put_parquet(table.raw_object_key, parquet_table(table.rows, metadata), checksum)
 
 
 def load_reference(settings: Settings) -> dict[str, Loaded]:
@@ -305,7 +308,8 @@ def load_reference(settings: Settings) -> dict[str, Loaded]:
         print("Reference files in the bronze bucket")
         for table in tables:
             if table.raw_object_key:
-                print(f"  {bucket.name}/{table.raw_object_key}")
+                state = "written" if table.raw_object_key in bucket.written else "unchanged, not written"
+                print(f"  {bucket.name}/{table.raw_object_key} ({state})")
         with conn.transaction():
             for table in tables:
                 inserted = db.insert_new(conn, table.name, table.columns, table.rows_with_metadata())

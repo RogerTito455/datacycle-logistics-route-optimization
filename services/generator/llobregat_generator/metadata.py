@@ -8,6 +8,8 @@ into, read from ops.table_metadata, so file and table cannot disagree.
 
 from __future__ import annotations
 
+import hashlib
+import json
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -38,6 +40,16 @@ class FileMetadata:
             "schema_version": str(self.schema_version),
             "ingested_at": self.ingested_at.isoformat(),
         }
+
+
+def content_checksum(rows: Sequence[Mapping], metadata: FileMetadata) -> str:
+    """SHA-256 of the rows and the file metadata, without ingested_at, which changes on every run.
+
+    Two loads of the same seed give the same checksum, so the second one need not write the file.
+    """
+    described = {k: v for k, v in metadata.key_values().items() if k != "ingested_at"}
+    content = json.dumps({"metadata": described, "rows": list(rows)}, sort_keys=True, default=str)
+    return hashlib.sha256(content.encode()).hexdigest()
 
 
 def parquet_table(

@@ -73,7 +73,10 @@ drivers, shippers, streets, addresses and orders. The orders file records the se
 seed and the generator version in its Parquet metadata.
 
 **Re-running.** Bronze is write-once, so `load-reference` inserts only the rows whose key is not in
-the table yet: a second run writes nothing. `generate` for a date that was generated before
+the table yet, and uploads a file only when the bucket does not hold it yet: a download when its
+key holds no file of the same size, a fleet, driver or shipper file when the SHA-256 of its content
+(rows and metadata, without `ingested_at`) differs from the one stored with the object. A second
+run writes nothing, and its summary says so. `generate` for a date that was generated before
 deletes that date's rows and inserts the new ones in one transaction, and uploads the date's file
 inside that transaction, before the commit. If the database or the upload fails, the transaction
 rolls back and the date keeps its rows and its file. If the commit fails after the upload, the

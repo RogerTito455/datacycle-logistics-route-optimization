@@ -10,7 +10,7 @@ import jsonschema
 import pytest
 from llobregat_generator import addresses, reference
 from llobregat_generator.config import GENERATOR_DIR
-from llobregat_generator.metadata import FileMetadata, parquet_table
+from llobregat_generator.metadata import FileMetadata, content_checksum, parquet_table
 from llobregat_generator.zones import ZoneMap
 
 
@@ -56,6 +56,17 @@ def test_seed_files_carry_source_ingested_at_owner_and_schema_version(seeds):
         "schema_version": "4",
         "ingested_at": "2026-09-29T06:30:00+00:00",
     }
+
+
+def test_a_seed_file_is_written_again_only_when_its_content_changes(seeds):
+    rows = reference.shippers(seeds.demand)
+    first = FileMetadata("generator/demand-model", "operations", 2, datetime(2026, 9, 29, 6, 30, tzinfo=UTC))
+    later = FileMetadata("generator/demand-model", "operations", 2, datetime(2026, 9, 30, 7, 0, tzinfo=UTC))
+    assert content_checksum(rows, first) == content_checksum(rows, later)  # ingested_at left out
+    changed = [{**rows[0], "share_of_daily_parcels": 0.5}, *rows[1:]]
+    assert content_checksum(changed, later) != content_checksum(rows, later)
+    new_version = FileMetadata("generator/demand-model", "operations", 3, later.ingested_at)
+    assert content_checksum(rows, new_version) != content_checksum(rows, later)
 
 
 def test_hub_and_shift_ids(seeds):
