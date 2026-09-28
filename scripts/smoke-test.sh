@@ -85,7 +85,7 @@ metadata() {  # the three mandatory metadata elements on every bronze and ops ta
     FROM t") || return 1
   IFS='|' read -r total bad names events <<<"$r"
   [[ "$total" -gt 0 && "$bad" -eq 0 ]] || { echo "missing metadata on: ${names:-every table, none found}"; return 1; }
-  echo "$total/$total in bronze and ops with owner, schema_version, source, ingested_at; $events with event_time"
+  echo "$total/$total in bronze and ops have source, ingested_at, owner, version; $events event_time"
 }
 
 bronze_raw() {  # bronze accepts every raw record and keeps it until it is archived
