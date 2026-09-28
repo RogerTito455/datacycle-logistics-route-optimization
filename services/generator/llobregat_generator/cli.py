@@ -1,16 +1,16 @@
-"""Command line: llobregat-generator load-reference | orders --date D [--seed N] | summary --date D."""
+"""Command line: llobregat-generator load-reference | orders --date D [--seed N] [--allow-future] | summary --date D."""
 
 from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date
+from datetime import date, datetime
 
 import psycopg
 
 from llobregat_generator import db, publish
 from llobregat_generator.config import Settings
-from llobregat_generator.orders import NoServiceError, generate_day
+from llobregat_generator.orders import LOCAL_TZ, NoServiceError, generate_day
 from llobregat_generator.reference import load_reference
 from llobregat_generator.rules import SeedError
 from llobregat_generator.seeds import Seeds
@@ -28,6 +28,14 @@ def cmd_load_reference(settings: Settings, _: argparse.Namespace) -> int:
 
 
 def cmd_orders(settings: Settings, args: argparse.Namespace) -> int:
+    today = datetime.now(LOCAL_TZ).date()
+    if args.date > today and not args.allow_future:
+        print(
+            f"{args.date} is after today ({today}): its orders would be registered after they are ingested. "
+            "Pass --allow-future to generate it anyway.",
+            file=sys.stderr,
+        )
+        return 2
     seeds = Seeds.load(settings.seed_dir)
     with db.connect(settings) as conn:
         pool = publish.read_pool(conn, ZoneMap.from_company(seeds.company))
@@ -66,6 +74,11 @@ def main(argv: list[str] | None = None) -> int:
     orders = commands.add_parser("orders", help="generate the orders of one service date")
     orders.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")
     orders.add_argument("--seed", type=int, default=0, help="random seed (default 0)")
+    orders.add_argument(
+        "--allow-future",
+        action="store_true",
+        help="allow a date after today; its registration times (event_time) can then be later than ingested_at",
+    )
     orders.set_defaults(run=cmd_orders)
     summary = commands.add_parser("summary", help="sanity figures of a generated date, read from bronze.orders")
     summary.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")

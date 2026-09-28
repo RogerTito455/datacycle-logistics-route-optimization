@@ -54,9 +54,10 @@ test-generator:  ## Run the order generator's tests (offline)
 load-reference: .env  ## Load hub, zones, fleet, drivers, shippers and addresses into bronze
 	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator load-reference
 
-generate: .env  ## Generate one day of orders: make generate DATE=2026-10-05 [SEED=0]
-	@test -n "$(DATE)" || { echo "usage: make generate DATE=YYYY-MM-DD [SEED=0]"; exit 2; }
-	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator orders --date $(DATE) --seed $(SEED)
+generate: .env  ## Generate one day of orders: make generate DATE=2026-09-28 [SEED=0] [ALLOW_FUTURE=1]
+	@test -n "$(DATE)" || { echo "usage: make generate DATE=YYYY-MM-DD [SEED=0] [ALLOW_FUTURE=1]"; exit 2; }
+	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator orders --date $(DATE) --seed $(SEED) \
+		$(if $(ALLOW_FUTURE),--allow-future)
 
 config: .env  ## Validate docker-compose.yml
 	$(COMPOSE) config --quiet && echo "docker-compose.yml is valid"

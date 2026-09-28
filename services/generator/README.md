@@ -145,8 +145,10 @@ Where the seeds say nothing, the generator decides, and these rules are its own:
 - `recipient_name` stays empty: no AI-generated recipient names exist yet. `notes`, the free-text
   delivery notes, stays empty until issue #25 adds them.
 
-A generated date in the future gets registration times after `ingested_at`, so its pipeline delay
-(`ingested_at - event_time`) is negative. Generate past dates when the delay matters.
+`orders` refuses a service date after today (in Barcelona): its orders would be registered after
+they are ingested, a negative pipeline delay (`ingested_at - event_time`). `--allow-future`, or
+`ALLOW_FUTURE=1` with `make generate`, generates it anyway, for instance to show the days ahead in
+a demo; the `event_time` of such orders can then be later than their `ingested_at`.
 
 ## Tests
 
