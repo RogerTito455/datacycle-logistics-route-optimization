@@ -213,7 +213,7 @@ external feed is down.
 
 | Phase | Uses from this document |
 |---|---|
-| 2 · Classification (`2-classification.md`, not written yet) | The nine rows of the inventory (eleven datasets) and the seven reference datasets |
+| [2 · Classification](2-classification.md) | The nine rows of the inventory (eleven datasets) and the seven reference datasets |
 | 3 · DIKW (`3-dikw.md`, not written yet) | The GPS ping, dataset 1 |
 | 4 · Lifecycle (`4-lifecycle.md`, not written yet) | Origins and arrival patterns: stream, 5-minute polls, micro-batches, daily and nightly batches |
 | 5 · Metadata and lineage (`5-metadata-lineage.md`, not written yet) | The KPI definition and the sources it joins |
