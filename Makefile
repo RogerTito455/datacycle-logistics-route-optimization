@@ -4,7 +4,7 @@ COMPOSE := docker compose
 WAIT_TIMEOUT ?= 1800
 
 .DEFAULT_GOAL := help
-.PHONY: help up down restart ps logs smoke validate-seeds config clean
+.PHONY: help up down restart ps logs smoke migrate validate-seeds config clean
 
 help:  ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-15s %s\n", $$1, $$2}'
@@ -36,6 +36,9 @@ logs:  ## Follow the logs of every service (make logs s=grafana for one)
 
 smoke: .env  ## Check that every service answers and does its job
 	./scripts/smoke-test.sh
+
+migrate: .env  ## Apply pending database migrations (make up does it too)
+	$(COMPOSE) run --rm db-migrate
 
 validate-seeds:  ## Check the AI-generated seed data: structure, consistency, geography
 	uv run --with jsonschema python services/generator/validate_company.py

@@ -50,6 +50,56 @@ timescaledb() {
   echo "TimescaleDB $r"
 }
 
+psql_admin() { $COMPOSE exec -T timescaledb psql -X -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA "$@"; }
+sha256() { sha256sum "$1" 2>/dev/null | cut -d' ' -f1 || shasum -a 256 "$1" | cut -d' ' -f1; }
+
+migrations() {  # every migration file is recorded in ops.schema_migrations with the same checksum
+  local rows; rows=$(psql_admin -F ' ' -c "SELECT name, checksum FROM ops.schema_migrations") \
+    || { echo "ops.schema_migrations missing: db-migrate has not run"; return 1; }
+  local files=(infra/postgres/migrations/[0-9][0-9][0-9]_*.sql) missing=() f name
+  for f in "${files[@]}"; do
+    name=$(basename "$f" .sql)
+    grep -qx "$name $(sha256 "$f")" <<<"$rows" || missing+=("$name")
+  done
+  [[ ${#missing[@]} -eq 0 ]] || { echo "not applied or changed: ${missing[*]}"; return 1; }
+  local tables; tables=$(psql_admin -c "
+    SELECT count(*) || ' bronze tables, ' || count(*) FILTER (WHERE is_hypertable) || ' hypertables, '
+           || (SELECT count(*) FROM timescaledb_information.jobs
+               WHERE proc_name = 'policy_retention' AND hypertable_schema = 'bronze') || ' retention policies'
+    FROM ops.table_metadata WHERE schema_name = 'bronze'")
+  echo "${#files[@]}/${#files[@]} applied (latest ${name:0:3}); $tables"
+}
+
+metadata() {  # the three mandatory metadata elements on every bronze table (ADR 0001, decision 20)
+  local r total bad names events
+  r=$(psql_admin -c "
+    SELECT count(*),
+           count(*) FILTER (WHERE owner IS NULL OR schema_version IS NULL OR NOT has_source OR NOT has_ingested_at),
+           coalesce(string_agg(table_name, ' ') FILTER (WHERE owner IS NULL OR schema_version IS NULL
+                                                         OR NOT has_source OR NOT has_ingested_at), ''),
+           count(*) FILTER (WHERE has_event_time)
+    FROM ops.table_metadata WHERE schema_name = 'bronze'") || return 1
+  IFS='|' read -r total bad names events <<<"$r"
+  [[ "$total" -gt 0 && "$bad" -eq 0 ]] || { echo "missing metadata on: ${names:-every table, none found}"; return 1; }
+  echo "$total/$total with source, ingested_at, owner, schema_version; $events event tables with event_time"
+}
+
+db_access() {  # grafana_reader, the dashboards' role, reads gold and ops and nothing else
+  local reader=($COMPOSE exec -T -e PGPASSWORD="$GRAFANA_DB_PASSWORD" timescaledb
+                psql -X -h 127.0.0.1 -U grafana_reader -d "$POSTGRES_DB" -tA)
+  "${reader[@]}" -c "SELECT count(*) FROM ops.table_metadata" >/dev/null || { echo "cannot read ops"; return 1; }
+  local t
+  for t in bronze.orders bronze.gps_pings; do
+    ! "${reader[@]}" -c "SELECT 1 FROM $t LIMIT 1" >/dev/null 2>&1 || { echo "can read $t"; return 1; }
+  done
+  ! "${reader[@]}" -c "DELETE FROM ops.data_sources WHERE false" >/dev/null 2>&1 || { echo "can write to ops"; return 1; }
+  local schemas; schemas=$(psql_admin -c "
+    SELECT string_agg(n, ' ' ORDER BY n) FROM unnest(array['bronze', 'silver', 'gold', 'ops']) n
+    WHERE has_schema_privilege('grafana_reader', n, 'USAGE')")
+  [[ "$schemas" == "gold ops" ]] || { echo "grafana_reader can use schemas: $schemas"; return 1; }
+  echo "grafana_reader reads gold and ops only; bronze reads and ops writes denied"
+}
+
 rustfs() {
   curl -fsS -o /dev/null http://localhost:9000/health || { echo "health endpoint down"; return 1; }
   local buckets; buckets=$($COMPOSE run --rm --no-deps -T --entrypoint aws storage-init \
@@ -90,6 +140,9 @@ echo "Llobregat Express · smoke test"
 check redpanda redpanda
 check redpanda-console console
 check timescaledb timescaledb
+check migrations migrations
+check metadata metadata
+check db-access db_access
 check rustfs rustfs
 check grafana grafana
 check dagster dagster

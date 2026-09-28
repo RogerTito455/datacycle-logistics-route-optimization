@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
-# Runs once, the first time the TimescaleDB volume is created.
-# Business tables arrive with the data model (issue #4); this only prepares the ground.
+# Runs once, the first time the TimescaleDB volume is created: extension, schemas, roles and the
+# Dagster database. Tables are created by the versioned migrations in infra/postgres/migrations,
+# which the db-migrate service applies on every start, so they also reach an existing volume.
 set -euo pipefail
 
 psql -v ON_ERROR_STOP=1 --username "$POSTGRES_USER" --dbname "$POSTGRES_DB" <<EOSQL
