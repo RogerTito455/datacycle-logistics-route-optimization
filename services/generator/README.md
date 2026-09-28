@@ -180,4 +180,7 @@ own are the seed validators' job, not the tests'.
 CI runs the tests and the seed validators on every pull request. Its compose smoke job also loads
 the reference data into a fresh stack twice, generates a past Monday twice and checks bronze with
 SQL: row counts, metadata filled, nothing written by the second load, and the same orders after the
-second run of the date. `make test-generator-db` runs the same checks on your stack.
+second run of the date. It loads the sample addresses instead of the downloads
+([`scripts/sample_cache.py`](scripts/sample_cache.py) writes them as a download cache), so it needs
+no open-data portal. `make test-generator-db` runs the same checks on your stack with the full
+data, `SAMPLE=1` with the sample on a fresh one.

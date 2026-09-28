@@ -2,14 +2,23 @@
 # Integration test of the generator against the running stack: load the reference data, load it
 # again, generate one service date, generate it again, and check the bronze tables with SQL.
 #
-#   ./scripts/generator-db-test.sh [DATE]    DATE defaults to 2026-09-28, a past Monday
+#   ./scripts/generator-db-test.sh [--sample] [DATE]    DATE defaults to 2026-09-28, a past Monday
 #
 # The generator needs the platform (make up) and downloads about 70 MB of open data the first time.
+# --sample loads the 560 committed test addresses instead, offline, from a download cache built by
+# services/generator/scripts/sample_cache.py; CI uses it on a fresh stack.
 set -euo pipefail
 
 cd "$(dirname "$0")/.."
 set -a; source .env; set +a
 
+if [[ "${1:-}" == "--sample" ]]; then
+  shift
+  GENERATOR_CACHE_DIR=$(mktemp -d)
+  export GENERATOR_CACHE_DIR
+  trap 'rm -rf "$GENERATOR_CACHE_DIR"' EXIT
+  uv run --project services/generator --frozen python services/generator/scripts/sample_cache.py "$GENERATOR_CACHE_DIR"
+fi
 DATE="${1:-2026-09-28}"
 KEY="orders/date=${DATE}/orders.parquet"
 psql_admin() { docker compose exec -T timescaledb psql -X -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB" -tA "$@"; }

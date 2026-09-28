@@ -53,7 +53,7 @@ test-generator:  ## Run the order generator's tests (offline)
 	$(GENERATOR) pytest services/generator/tests
 
 test-generator-db: .env  ## Load the reference data and generate a past Monday twice, then check bronze with SQL
-	./scripts/generator-db-test.sh $(DATE)
+	./scripts/generator-db-test.sh $(if $(SAMPLE),--sample) $(DATE)
 
 load-reference: .env  ## Load hub, zones, fleet, drivers, shippers and addresses into bronze
 	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator load-reference
