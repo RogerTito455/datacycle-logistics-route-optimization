@@ -29,7 +29,7 @@ describes something that runs. The deadline is 11 October 2026, thirteen days fr
 | # | Decision | Alternatives considered | Rationale |
 |---|---|---|---|
 | 8 | **Redpanda** for streaming ingestion | Kafka + ZooKeeper; no broker | Kafka API and semantics in one container, with a web console for the demo |
-| 9 | **MinIO** for raw and archive layers, **PostgreSQL + TimescaleDB** for served layers (medallion: bronze / silver / gold) | Postgres only; data lake only | Archiving phase is solved with bucket retention; Grafana reads Postgres natively |
+| 9 | **MinIO** for raw and archive layers (replaced by RustFS, see [ADR 0003](0003-object-storage-rustfs.md)), **PostgreSQL + TimescaleDB** for served layers (medallion: bronze / silver / gold) | Postgres only; data lake only | Archiving phase is solved with bucket retention; Grafana reads Postgres natively |
 | 10 | **dbt** for batch transformations | pandas scripts; Spark | Auto-generated lineage graph and column-level documentation cover the metadata and lineage phase with a real tool |
 | 11 | **Dagster** for orchestration | cron; Airflow | Asset graph with run history and per-table metadata; native dbt integration. First component to cut if time runs short |
 | 12 | **Grafana** for the dashboard | Metabase; Streamlit | Real-time panels, maps, alerts, anonymous read-only access for the public URL |

@@ -1,0 +1,5 @@
+dagster==1.13.24
+dagster-webserver==1.13.24
+dagster-postgres==0.29.24
+# SQLAlchemy 2.1 defaults PostgreSQL URLs to the psycopg 3 driver, but dagster-postgres ships psycopg2.
+sqlalchemy==2.0.54

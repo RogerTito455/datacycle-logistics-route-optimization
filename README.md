@@ -30,7 +30,7 @@ flowchart LR
     BATCH[Batch loaders]
   end
   subgraph Storage["Storage · medallion"]
-    MINIO[(MinIO<br/>bronze / raw + archive)]
+    MINIO[(RustFS · S3<br/>bronze / raw + archive)]
     PG[(Postgres + TimescaleDB<br/>silver / gold)]
   end
   subgraph Processing
@@ -76,7 +76,7 @@ flowchart LR
 |---|---|---|
 | Streaming ingestion | Redpanda (Kafka API) | Full Kafka semantics in one container, with a web console |
 | Batch ingestion | Python loaders scheduled by Dagster | Nightly history, hourly external APIs |
-| Raw storage + archive | MinIO (S3 API) | Bronze layer and retention policies for the archiving phase |
+| Raw storage + archive | RustFS (S3 API) | Bronze layer and retention policies for the archiving phase (ADR 0003) |
 | Serving storage | PostgreSQL + TimescaleDB | Relational model plus time series for GPS |
 | Transformation | dbt | Silver/gold models and an auto-generated lineage graph |
 | Orchestration | Dagster | Asset graph, run history, metadata per table |
@@ -93,13 +93,37 @@ live in [`prompts/`](prompts/).
 
 ## Quick start
 
-> The runnable stack lands in milestone M2 (see [`docs/plan.md`](docs/plan.md)). Until then this
-> section is a placeholder.
+You need Docker with Compose v2 and about 4 GB of free RAM. On GitHub, **Code → Codespaces →
+Create codespace** gives you a machine with everything installed (ADR 0002).
 
 ```bash
-cp .env.example .env
-docker compose up -d
+make up      # creates .env from .env.example, builds and starts everything, waits until healthy
+make smoke   # checks that every service answers and does its job
+make ps      # services, health and URLs
+make down    # stop, keep the data
 ```
+
+The first `make up` downloads the Catalonia road network (258 MB) and builds the routing graph,
+which takes about ten minutes. Later starts take under a minute.
+
+Measured on 28 September 2026 with every service idle:
+
+| Resource | Use |
+|---|---|
+| RAM, nine running services | 1.8 GB |
+| RAM, one-off road-graph build | 1.5 GB peak on top, for about 10 minutes |
+| Disk, images | 1.6 GB |
+| Disk, volumes | 0.8 GB, of which 0.4 GB is the road graph |
+
+| Service | URL | What it is for |
+|---|---|---|
+| Grafana | <http://localhost:3000> | Dashboards. Viewers need no login; admin credentials are in `.env` |
+| Dagster | <http://localhost:3001> | Orchestration: asset graph, schedules, run history, metadata |
+| Redpanda Console | <http://localhost:8080> | Streaming topics and messages |
+| RustFS console | <http://localhost:9001> | Object storage buckets (`bronze`, `archive`) |
+| OSRM | <http://localhost:5000> | Routing engine over the real Catalonia road network |
+| TimescaleDB | `localhost:15432` | PostgreSQL 17 + TimescaleDB, database `logistics`, schemas `bronze` `silver` `gold` `ops` |
+| Redpanda (Kafka API) | `localhost:19092` | For producers and consumers running outside Docker |
 
 ## Documentation
 
