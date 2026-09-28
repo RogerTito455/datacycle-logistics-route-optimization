@@ -1,0 +1,561 @@
+address_ref,zone_id,street_address,postcode,municipality,lat,lon
+001400-0002,Z01,"Plaça de l'Acadèmia, 2",08003,Barcelona,41.3877464,2.1810188
+010809-0007,Z01,"Carrer de l'Almirall Barceló, 7",08003,Barcelona,41.380178,2.1915879
+011109-0009,Z01,"Carrer de Miquel Pedrola i Alegre, 9",08003,Barcelona,41.378686,2.1899998
+013400-0012,Z01,"Carrer de n'Amargós, 12",08002,Barcelona,41.3863189,2.1741728
+016408-0014,Z01,"Carrer dels Àngels, 14",08001,Barcelona,41.3824181,2.168221
+027007-0036,Z01,"Carrer dels Assaonadors, 36",08003,Barcelona,41.3862182,2.1812754
+027700-0029,Z01,"Carrer de l'Atlàntida, 29",08003,Barcelona,41.3807061,2.1895005
+028509-0004,Z01,"Carrer de l'Ave Maria, 4",08002,Barcelona,41.3824536,2.1746145
+061402-0007,Z01,"Carrer de la Canuda, 7",08002,Barcelona,41.3847168,2.1711879
+061402-0016,Z01,"Carrer de la Canuda, 16",08002,Barcelona,41.3847645,2.1726074
+090900-0018,Z01,"Carrer dels Corders, 18",08003,Barcelona,41.3857173,2.1798176
+094208-0003,Z01,"Pla de la Seu, 3",08002,Barcelona,41.3842667,2.1761522
+108608-0002,Z01,"Passatge d'Elisabets, 2",08001,Barcelona,41.3835,2.1690859
+112208-0046,Z01,"Carrer d'Escudellers, 46",08002,Barcelona,41.3803593,2.1774867
+153806-0005,Z01,"Passatge de Gutenberg, 5",08001,Barcelona,41.3770313,2.1745079
+167709-0058,Z01,"Carrer de Joaquín Costa, 58",08001,Barcelona,41.3834765,2.1648654
+194202-0030,Z01,"Carrer del Mar, 30",08003,Barcelona,41.3801949,2.187713
+198258-0007,Z01,"Carrer del Marquès de Barberà, 7",08001,Barcelona,41.3787898,2.1727123
+199206-0010,Z01,"Carrer del Marquès de la Mina, 10",08003,Barcelona,41.3815249,2.1900247
+210502-0005,Z01,"Carrer del Misser Ferrer, 5",08002,Barcelona,41.3856212,2.175586
+211006-0018,Z01,"Carrer de Miquel Boera, 18",08003,Barcelona,41.3798955,2.1921567
+216906-0010,Z01,"Carrer de Montalegre, 10",08001,Barcelona,41.384039,2.1668655
+218300-0007,Z01,"Carrer de Montsió, 7",08002,Barcelona,41.385837,2.1739789
+242407-0023,Z01,"Carrer de la Paloma, 23",08001,Barcelona,41.3817509,2.1639296
+254304-0021,Z01,"Carrer dels Petons, 21",08003,Barcelona,41.3885609,2.1811154
+254803-0004B,Z01,"Carrer del Peu de la Creu, 4B",08001,Barcelona,41.3819332,2.1679387
+258702-0011,Z01,"Carrer de Pizarro, 11",08003,Barcelona,41.3817155,2.1883664
+266904-0051,Z01,"Carrer de la Princesa, 51",08003,Barcelona,41.3865767,2.1819158
+282106-0064,Z01,"Carrer de la Riera Alta, 64",08001,Barcelona,41.3804062,2.1636695
+282208-0007,Z01,"Carrer de la Riera Baixa, 7",08001,Barcelona,41.3801735,2.1683249
+294874-0028,Z01,"Passeig de Salvat Papasseit, 28",08003,Barcelona,41.381018,2.1917327
+307808-0068,Z01,"Carrer de Sant Miquel, 68",08003,Barcelona,41.3783301,2.1888334
+307808-0108,Z01,"Carrer de Sant Miquel, 108",08003,Barcelona,41.3767284,2.1894665
+311408-0033,Z01,"Carrer de Sant Elm, 33",08003,Barcelona,41.3780514,2.1888575
+311408-0055,Z01,"Carrer de Sant Elm, 55",08003,Barcelona,41.3773523,2.1891366
+313006-0023,Z01,"Carrer de Santa Anna, 23",08002,Barcelona,41.3854204,2.1715657
+316707-0019,Z01,"Carrer de Santa Madrona, 19",08001,Barcelona,41.375367,2.1722355
+335803-0011,Z01,"Carrer del Tigre, 11",08001,Barcelona,41.382876,2.1650922
+354455-0010,Z01,"Carrer de l'Escar, 10",08039,Barcelona,41.3756714,2.1879902
+544643-0001C,Z01,"Moll de Pescadors, 1C",08039,Barcelona,41.3750725,2.1870123
+018505-0520,Z02,"Carrer d'Aragó, 520",08013,Barcelona,41.4052974,2.1827172
+023403-0118,Z02,"Carrer d'Aribau, 118",08036,Barcelona,41.3909957,2.1560817
+031300-0062,Z02,"Carrer de Bailèn, 62",08009,Barcelona,41.3952478,2.1730136
+031300-0130,Z02,"Carrer de Bailèn, 130",08009,Barcelona,41.3982045,2.1690976
+068900-0238,Z02,"Carrer de Cartagena, 238",08013,Barcelona,41.4073312,2.179587
+076807-0360,Z02,"Carrer de Sardenya, 360",08025,Barcelona,41.405463,2.1708918
+087009-0004,Z02,"Carrer del Comte Borrell, 4",08015,Barcelona,41.3756721,2.1650419
+087009-0119,Z02,"Carrer del Comte Borrell, 119",08015,Barcelona,41.3804753,2.1583291
+089004-0105,Z02,"Carrer del Consell de Cent, 105",08015,Barcelona,41.3808083,2.1518541
+089004-0245B,Z02,"Carrer del Consell de Cent, 245B",08011,Barcelona,41.3862337,2.1590568
+100800-0035,Z02,"Carrer de la Diputació, 35",08015,Barcelona,41.3792138,2.1519908
+100800-0104,Z02,"Carrer de la Diputació, 104",08015,Barcelona,41.3811027,2.1548722
+100800-0197,Z02,"Carrer de la Diputació, 197",08011,Barcelona,41.386033,2.1610596
+100800-0318I,Z02,"Carrer de la Diputació, 318I",08009,Barcelona,41.3941999,2.1728599
+100800-0335,Z02,"Carrer de la Diputació, 335",08009,Barcelona,41.3944941,2.172313
+109101-0014,Z02,"Carrer dels Enamorats, 14",08013,Barcelona,41.402521,2.1802909
+110803-0074,Z02,"Carrer d'Entença, 74",08015,Barcelona,41.3792191,2.1513238
+127704-0065,Z02,"Carrer de Floridablanca, 65",08015,Barcelona,41.3784287,2.1582297
+142300-0013,Z02,"Avinguda de Gaudí, 13",08025,Barcelona,41.405342,2.1742609
+161407-0151,Z02,"Carrer de la Indústria, 151",08025,Barcelona,41.4092821,2.1738672
+178308-0159,Z02,"Carrer de Lepant, 159",08013,Barcelona,41.399213,2.1833778
+197302-0166,Z02,"Carrer de la Marina, 166",08013,Barcelona,41.398685,2.1822504
+197302-0222,Z02,"Carrer de la Marina, 222",08013,Barcelona,41.402203,2.1778146
+208908-0014,Z02,"Passatge del Mercat, 14",08009,Barcelona,41.3961664,2.1686538
+225500-0120,Z02,"Carrer de Nàpols, 120",08013,Barcelona,41.3955094,2.1794282
+246000-0020,Z02,"Carrer del Parlament, 20",08015,Barcelona,41.3758642,2.1619886
+246000-0024,Z02,"Carrer del Parlament, 24",08015,Barcelona,41.3761931,2.1623945
+268003-0253,Z02,"Carrer de Provença, 253",08008,Barcelona,41.3943899,2.1608446
+268003-0368,Z02,"Carrer de Provença, 368",08037,Barcelona,41.3997048,2.1682708
+268003-0449,Z02,"Carrer de Provença, 449",08025,Barcelona,41.4049748,2.1749418
+286504-0210,Z02,"Carrer de Roger de Flor, 210",08013,Barcelona,41.3998515,2.1714432
+287201-0071,Z02,"Avinguda de Roma, 71",08029,Barcelona,41.3834939,2.1495569
+289105-0199,Z02,"Carrer del Rosselló, 199",08036,Barcelona,41.3923289,2.1558627
+289105-0264,Z02,"Carrer del Rosselló, 264",08037,Barcelona,41.3985341,2.1644451
+289105-0335,Z02,"Carrer del Rosselló, 335",08037,Barcelona,41.4004583,2.1666268
+308709-0049,Z02,"Ronda de Sant Pau, 49",08015,Barcelona,41.3772305,2.1647787
+325005-0237,Z02,"Carrer de Sicília, 237",08013,Barcelona,41.4022739,2.1723763
+335100-0027,Z02,"Plaça de Tetuan, 27",08010,Barcelona,41.3955482,2.1753281
+349706-0054,Z02,"Carrer del Comte d'Urgell, 54",08011,Barcelona,41.3815235,2.1596538
+349706-0137,Z02,"Carrer del Comte d'Urgell, 137",08036,Barcelona,41.386131,2.1530091
+007407-0097,Z03,"Carrer d'Alcolea, 97",08014,Barcelona,41.3786326,2.1355206
+007407-0129,Z03,"Carrer d'Alcolea, 129",08014,Barcelona,41.3796624,2.1350205
+037500-0015,Z03,"Carrer de la Begònia, 15",08004,Barcelona,41.3700548,2.1461275
+040300-0004B,Z03,"Carrer de Berlín, 4B",08014,Barcelona,41.382194,2.1369516
+050905-0060,Z03,"Carrer de Ventura Plaja, 60",08028,Barcelona,41.3737482,2.1245586
+051908-0061,Z03,"Carrer de Burgos, 61",08014,Barcelona,41.3730805,2.1356791
+060308-0003,Z03,"Carrer del Canonge Pibernat, 3",08028,Barcelona,41.3761955,2.1285192
+069302-0005,Z03,"Passeig de Cantunis, 5",08038,Barcelona,41.3544421,2.1606326
+089707-0104,Z03,"Carrer de la Constitució, 104",08014,Barcelona,41.3696369,2.1345573
+111205-0013,Z03,"Plaça d'Herenni, 13",08014,Barcelona,41.3762943,2.1436898
+135101-0043,Z03,"Carrer de la Font Florida, 43",08004,Barcelona,41.3685978,2.1435863
+172403-0039,Z03,"Carrer de Joan Güell, 39",08028,Barcelona,41.3776176,2.1336871
+173905-0067,Z03,"Carrer dels Jocs Florals, 67",08014,Barcelona,41.3733023,2.1349856
+195500-0031,Z03,"Carrer de Margarit, 31",08004,Barcelona,41.3731761,2.163473
+198702-0040,Z03,"Avinguda de Francesc Ferrer i Guàrdia, 40",08038,Barcelona,41.3677195,2.1449004
+201909-0002,Z03,"Passatge de Martras, 2",08004,Barcelona,41.3709449,2.1599103
+215903-0018,Z03,"Carrer dels Montfar, 18",08004,Barcelona,41.3707471,2.1488513
+230601-0062,Z03,"Carrer de la Mare de Déu de Port, 62",08038,Barcelona,41.3543682,2.1489944
+234001-0010,Z03,"Passeig Olímpic, 10",08038,Barcelona,41.3623751,2.1558871
+241404-0021,Z03,"Carrer de Palaudàries, 21",08004,Barcelona,41.372786,2.1722576
+312400-0117,Z03,"Carrer de Sants, 117",08028,Barcelona,41.3753337,2.1346276
+330504-0006,Z03,"Carrer de Tapioles, 6",08004,Barcelona,41.3744257,2.1648372
+337208-0005,Z03,"Passatge de Toledo, 5",08014,Barcelona,41.3703109,2.1355835
+341704-0012,Z03,"Carrer de Torres de Marina, 12",08038,Barcelona,41.3520996,2.1479131
+351300-0001,Z03,"Carrer de Valladolid, 1",08014,Barcelona,41.3774436,2.1354517
+353306-0007,Z03,"Carrer de Vallhonrat, 7",08004,Barcelona,41.3745379,2.1574515
+367901-0027,Z03,"Carrer de Watt, 27",08014,Barcelona,41.376542,2.1396078
+375706-0027,Z03,"Carrer Número 60 Zona Franca, 27",08040,Barcelona,41.3467141,2.1447166
+700025-0060,Z03,"Passeig de Josep Carner, 60",08038,Barcelona,41.3705977,2.1736054
+700130-0054,Z03,"Carrer Longitudinal 10, 54",08040,Barcelona,41.3332879,2.112406
+700685-0012,Z03,"Plaça de Margarida Xirgu, 12",08004,Barcelona,41.3709766,2.1577644
+700963-0009,Z03,"Passatge de Malacca, 9",08040,Barcelona,41.3227792,2.1414298
+701441-0030,Z03,"Avinguda del Parc Logístic, 30",08040,Barcelona,41.3410341,2.126219
+701476-0061,Z03,"Carrer Longitudinal 1, 61",08040,Barcelona,41.3294544,2.1161002
+701478-0077,Z03,"Carrer Longitudinal 3, 77",08040,Barcelona,41.3289018,2.1171127
+701489-0063,Z03,"Carrer Transversal 9, 63",08040,Barcelona,41.3293663,2.1190604
+701514-0007,Z03,"Carrer del Port de Lagos, 7",08039,Barcelona,41.330409,2.1545162
+701518-0011,Z03,"Carrer del Port de Rotterdam, 11",08039,Barcelona,41.3315677,2.1530235
+701523-0006,Z03,"Carrer del Port de Casablanca, 6",08039,Barcelona,41.3316025,2.1566553
+701694-0088,Z03,"Carrer de Cal Cisó, 88",08038,Barcelona,41.3516842,2.144653
+029104-0017,Z04,"Carrer de Jiménez i Iglesias, 17",08034,Barcelona,41.3899479,2.1216979
+038604-0026,Z04,"Carrer de Benavent, 26",08028,Barcelona,41.3785926,2.1249404
+062507-0004,Z04,"Carrer del Capità Arenas, 4",08034,Barcelona,41.3893088,2.1266699
+062507-0011,Z04,"Carrer del Capità Arenas, 11",08034,Barcelona,41.3902365,2.1259817
+065200-0041,Z04,"Carrer del Cardenal Reig, 41",08028,Barcelona,41.3789247,2.1169197
+087100-0031,Z04,"Carrer del Comte de Güell, 31",08028,Barcelona,41.3775044,2.1227999
+088001-0178,Z04,"Carrer dels Comtes de Bell-lloc, 178",08014,Barcelona,41.3830331,2.1357394
+092600-0009,Z04,"Carrer de les Corts, 9",08028,Barcelona,41.3847215,2.1288512
+097829-0003,Z04,"Carrer del Danubi, 3",08028,Barcelona,41.3765643,2.1186334
+100107-0103,Z04,"Carrer de Deu i Mata, 103",08029,Barcelona,41.3893556,2.137129
+101700-0028,Z04,"Carrer del Doctor Ferran, 28",08034,Barcelona,41.3908744,2.124137
+102500-0008,Z04,"Carrer del Doctor Joaquín Albarrán, 8",08034,Barcelona,41.3902193,2.1074539
+102500-0011,Z04,"Carrer del Doctor Joaquín Albarrán, 11",08034,Barcelona,41.3900897,2.1073739
+118306-0005,Z04,"Carrer d'Europa, 5",08028,Barcelona,41.3868478,2.1282714
+142708-0002C,Z04,"Carrer de Gelabert, 2C",08029,Barcelona,41.3872225,2.1410157
+144601-0629,Z04,"Avinguda Diagonal, 629",08028,Barcelona,41.387408,2.1255155
+162002-0149,Z04,"Avinguda de Josep Tarradellas, 149",08029,Barcelona,41.391269,2.1435496
+162603-0011,Z04,"Carrer de Juan Miguel Gervilla Valladolid, 11",08028,Barcelona,41.385369,2.1276757
+172403-0155,Z04,"Carrer de Joan Güell, 155",08028,Barcelona,41.3829532,2.1312827
+199400-0011,Z04,"Carrer del Marquès de Mulhacén, 11",08034,Barcelona,41.3911251,2.1198211
+199909-0016,Z04,"Carrer del Marquès de Sentmenat, 16",08014,Barcelona,41.3846391,2.1349789
+199909-0019,Z04,"Carrer del Marquès de Sentmenat, 19",08014,Barcelona,41.3848556,2.1352666
+207202-0055,Z04,"Carrer de Mejía Lequerica, 55",08028,Barcelona,41.384298,2.126307
+227800-0092,Z04,"Carrer de Nicaragua, 92",08029,Barcelona,41.3850955,2.1391972
+227800-0138,Z04,"Carrer de Nicaragua, 138",08029,Barcelona,41.3870288,2.1370734
+231502-0049,Z04,"Carrer de Numància, 49",08029,Barcelona,41.3835385,2.1385032
+248200-0022,Z04,"Passatge de Pearson, 22",08034,Barcelona,41.3956844,2.103302
+278903-0023B,Z04,"Carrer del Remei, 23B",08028,Barcelona,41.385968,2.1307694
+283404-0005,Z04,"Carrer de Rita Bonnat, 5",08029,Barcelona,41.3892371,2.1425692
+310507-0010,Z04,"Avinguda de Sant Ramon Nonat, 10",08028,Barcelona,41.3763698,2.1172475
+322754-0008,Z04,"Carrer del Sena, 8",08028,Barcelona,41.3775052,2.116948
+327102-0041,Z04,"Carrer de Solà, 41",08014,Barcelona,41.3878026,2.1337547
+330708-0016,Z04,"Carrer del Taquígraf Garriga, 16",08014,Barcelona,41.3859743,2.1321368
+330708-0075,Z04,"Carrer del Taquígraf Garriga, 75",08029,Barcelona,41.3880349,2.1355987
+330708-0173,Z04,"Carrer del Taquígraf Garriga, 173",08029,Barcelona,41.3903889,2.1397408
+336001-0010E,Z04,"Passeig dels Til·lers, 10E",08034,Barcelona,41.3896918,2.1174792
+343903-0069,Z04,"Travessera de les Corts, 69",08028,Barcelona,41.3784672,2.1219561
+343903-0194,Z04,"Travessera de les Corts, 194",08028,Barcelona,41.3828374,2.1290961
+700087-0007,Z04,"Carrer dels Doctors Trias i Pujol, 7",08034,Barcelona,41.390068,2.1234611
+701748-0013,Z04,"Carrer de Francesc Pedra, 13",08014,Barcelona,41.3883585,2.1325832
+003508-0090,Z05,"Carretera de les Aigües, 90",08017,Barcelona,41.4065854,2.1076531
+013909-0059,Z05,"Carrer d'Amigó, 59",08021,Barcelona,41.3962268,2.1431443
+027404-0033,Z05,"Drecera de Vallvidrera, 33",08017,Barcelona,41.4124557,2.1068399
+028000-0055,Z05,"Via Augusta, 55",08006,Barcelona,41.3982773,2.1532256
+054906-0088,Z05,"Carrer de Calatrava, 88",08017,Barcelona,41.402172,2.1277536
+058543-0041,Z05,"Carrer de Can Basseda, 41",08017,Barcelona,41.416692,2.1091752
+095608-0067,Z05,"Carrer de la Costa, 67",08023,Barcelona,41.4104975,2.1444786
+095700-0007,Z05,"Passatge de la Costa del Putxet, 7",08023,Barcelona,41.4103167,2.1452021
+095732-0013,Z05,"Costa del Bruc, 13",08017,Barcelona,41.4306311,2.0941689
+097308-0032,Z05,"Carrer de Dalmases, 32",08017,Barcelona,41.4017839,2.12689
+104709-0014,Z05,"Carrer dels Dominics, 14",08022,Barcelona,41.4102845,2.1330104
+107300-0024,Z05,"Carrer d'Eduardo Conde, 24",08034,Barcelona,41.3936287,2.1215081
+107853-0010,Z05,"Carrer de la Menta, 10",08017,Barcelona,41.4260605,2.1010133
+120308-0018,Z05,"Carrer de Francesc Carbonell, 18",08034,Barcelona,41.3920297,2.1240406
+143904-0008,Z05,"Ronda del General Mitre, 8",08017,Barcelona,41.3929128,2.1311021
+149707-0041,Z05,"Carrer de Gratallops, 41",08017,Barcelona,41.4122823,2.1105082
+160007-0030,Z05,"Carretera de l'Església, 30",08017,Barcelona,41.416863,2.1039624
+160007-0061,Z05,"Carretera de l'Església, 61",08017,Barcelona,41.4185925,2.1067106
+180150-0002,Z05,"Carrer de Lohengrin, 2",08017,Barcelona,41.4269095,2.0950422
+187105-0035,Z05,"Carrer dels Madrazo, 35",08006,Barcelona,41.400377,2.1493348
+187105-0095,Z05,"Carrer dels Madrazo, 95",08006,Barcelona,41.3987234,2.1471662
+192900-0018,Z05,"Carrer de Manuel Angelon, 18",08006,Barcelona,41.4034562,2.1439399
+193006-0013,Z05,"Carrer de Manuel Arnús, 13",08035,Barcelona,41.4170677,2.1320418
+196106-0015,Z05,"Carrer de Maria Auxiliadora, 15",08017,Barcelona,41.3951019,2.1292632
+206505-0073,Z05,"Carrer Major de Sarrià, 73",08017,Barcelona,41.3986283,2.1222122
+226706-0038B,Z05,"Passatge del Negociant, 38B",08017,Barcelona,41.411955,2.0991295
+227200-0032,Z05,"Carrer de la Nena Casas, 32",08017,Barcelona,41.3952723,2.1314995
+240208-0078,Z05,"Carrer de Pàdua, 78",08006,Barcelona,41.4047847,2.144496
+259909-0046,Z05,"Carrer de Plantada, 46",08017,Barcelona,41.4094679,2.118047
+280100-0021,Z05,"Carrer de Reus, 21",08022,Barcelona,41.4051225,2.1347245
+299903-0003,Z05,"Carrer de Sant Eusebi, 3",08006,Barcelona,41.4020277,2.1502797
+314406-0212,Z05,"Carretera de Santa Creu d'Olorda a Sarrià, 212",08017,Barcelona,41.4093526,2.0821483
+332204-0021,Z05,"Carrer de Tavern, 21",08006,Barcelona,41.3996779,2.1434078
+332204-0043,Z05,"Carrer de Tavern, 43",08006,Barcelona,41.4005127,2.1424135
+339203-0003,Z05,"Carrer de Torras i Pujalt, 3",08022,Barcelona,41.4006703,2.1347821
+339203-0018,Z05,"Carrer de Torras i Pujalt, 18",08022,Barcelona,41.4012492,2.1344755
+700059-0020,Z05,"Carretera de Vallvidrera a les Planes, 20",08017,Barcelona,41.4214847,2.0954765
+700656-0005I,Z05,"Camí del Fredolic, 5I",08017,Barcelona,41.418465,2.0970233
+700800-0032,Z05,"Camí del Salze, 32",08017,Barcelona,41.4210228,2.1051529
+701352-0059,Z05,"Carrer de Gaziel, 59",08017,Barcelona,41.4111662,2.1225353
+032007-0030,Z06,"Carrer de Balcells, 30",08024,Barcelona,41.4105822,2.1601863
+034807-0029,Z06,"Carrer del Baró de la Barre, 29",08023,Barcelona,41.4159904,2.1427709
+037703-0059,Z06,"Carrer de Betlem, 59",08012,Barcelona,41.405628,2.1539223
+038502-0003,Z06,"Carrer de Bellver, 3",08012,Barcelona,41.405819,2.1533162
+090502-0321,Z06,"Carrer de Còrsega, 321",08008,Barcelona,41.3969867,2.1597624
+090502-0519,Z06,"Carrer de Còrsega, 519",08025,Barcelona,41.4048725,2.1702339
+103400-0019,Z06,"Carrer del Doctor Rizal, 19",08006,Barcelona,41.3973108,2.1556799
+116901-0017,Z06,"Carrer d'Esteve Terradas, 17",08023,Barcelona,41.4129052,2.1415549
+144306-0062,Z06,"Carrer de Pi i Margall, 62",08025,Barcelona,41.4083324,2.163948
+153704-0002,Z06,"Carrer de Gutenberg, 2",08035,Barcelona,41.4185606,2.1384376
+156101-0017,Z06,"Carrer d'Hipòlit Lázaro, 17",08025,Barcelona,41.4066469,2.1643267
+156101-0029,Z06,"Carrer d'Hipòlit Lázaro, 29",08025,Barcelona,41.4070377,2.1639026
+171604-0074,Z06,"Carrer de Joan Blanques, 74",08024,Barcelona,41.4068098,2.1589224
+187579-0019,Z06,"Carrer del Maduixer, 19",08035,Barcelona,41.4195233,2.1320579
+192207-0012,Z06,"Carrer de Manlleu, 12",08035,Barcelona,41.4200293,2.1445856
+219303-0022,Z06,"Passatge de Montornès, 22",08023,Barcelona,41.4185997,2.1433243
+220109-0033,Z06,"Carrer del Montseny, 33",08012,Barcelona,41.4023315,2.1553311
+226502-0007,Z06,"Carrer de Navata, 7",08035,Barcelona,41.4200646,2.1384071
+230000-0011,Z06,"Passeig de la Mare de Déu del Coll, 11",08023,Barcelona,41.4140172,2.1446274
+239209-0023,Z06,"Carrer del Pare Laínez, 23",08025,Barcelona,41.4068042,2.1649657
+239209-0047,Z06,"Carrer del Pare Laínez, 47",08025,Barcelona,41.4077407,2.1664744
+251102-0020,Z06,"Carrer del Perill, 20",08012,Barcelona,41.3995215,2.161719
+255908-0008,Z06,"Carrer de Pineda, 8",08023,Barcelona,41.4195913,2.1481022
+279407-0050,Z06,"Carrer del Repartidor, 50",08023,Barcelona,41.4125788,2.1478305
+282401-0052,Z06,"Carrer de la Riera de Sant Miquel, 52",08006,Barcelona,41.3983867,2.1558788
+286504-0269,Z06,"Carrer de Roger de Flor, 269",08025,Barcelona,41.4037402,2.1659355
+297001-0035,Z06,"Carrer de Sant Antoni Maria Claret, 35",08025,Barcelona,41.4047985,2.1656531
+301700-0014,Z06,"Carrer de Sant Gabriel, 14",08012,Barcelona,41.3990993,2.1540308
+306306-0041,Z06,"Carrer de Sant Lluís, 41",08012,Barcelona,41.4053496,2.1600297
+306306-0097,Z06,"Carrer de Sant Lluís, 97",08024,Barcelona,41.4071101,2.16276
+315307-0026,Z06,"Carrer de Santa Eulàlia, 26",08012,Barcelona,41.401105,2.1640425
+321605-0133,Z06,"Carrer de Pau Alsina, 133",08024,Barcelona,41.4121087,2.1600392
+341307-0015,Z06,"Carrer de Josep Torres, 15",08012,Barcelona,41.4009762,2.1616941
+344000-0060,Z06,"Travessera de Dalt, 60",08024,Barcelona,41.4096466,2.1555156
+348306-0047,Z06,"Passeig de Turull, 47",08023,Barcelona,41.4136912,2.1494296
+353000-0007,Z06,"Carrer de Vallfogona, 7",08012,Barcelona,41.4027952,2.1570113
+356803-0209,Z06,"Carrer de Verdi, 209",08024,Barcelona,41.4086801,2.1520713
+356803-0245,Z06,"Carrer de Verdi, 245",08024,Barcelona,41.4097931,2.1510558
+359506-0024,Z06,"Carrer de Vic, 24",08006,Barcelona,41.3991941,2.1547935
+365305-0002,Z06,"Carrer de la Mare de Déu dels Desemparats, 2",08012,Barcelona,41.4012714,2.1597428
+003508-0313I,Z07,"Carretera de les Aigües, 313I",08035,Barcelona,41.4214205,2.1272523
+004500-0013A,Z07,"Carrer d'Aiguafreda, 13A",08032,Barcelona,41.4270492,2.1603607
+014107-0180,Z07,"Carrer d'Amílcar, 180",08032,Barcelona,41.420867,2.1729198
+025205-0001,Z07,"Carrer de l'Arquitecte Martorell, 1",08035,Barcelona,41.4294533,2.1411271
+040800-0014,Z07,"Carrer de Bernat Bransi, 14",08032,Barcelona,41.4246915,2.1541825
+058102-0020,Z07,"Carrer de Campoamor, 20",08031,Barcelona,41.4335593,2.1570796
+076807-0548,Z07,"Carrer de Sardenya, 548",08024,Barcelona,41.413272,2.1616556
+101507-0009,Z07,"Carrer del Doctor Coll, 9",08032,Barcelona,41.4229467,2.1646447
+130607-0007,Z07,"Carrer dels Fontanet, 7",08032,Barcelona,41.4326874,2.1563077
+148409-0106,Z07,"Carretera de Sant Cugat, 106",08035,Barcelona,41.4250112,2.1348843
+149300-0010,Z07,"Carrer de Granollers, 10",08032,Barcelona,41.4281787,2.162342
+157308-0106,Z07,"Carretera d'Horta a Cerdanyola, 106",08035,Barcelona,41.4458872,2.1507023
+169103-0001,Z07,"Carrer de Jorge Manrique, 1",08035,Barcelona,41.4314775,2.1536155
+183002-0056,Z07,"Carrer de Lluís Sagnier, 56",08032,Barcelona,41.425267,2.1738328
+185303-0059,Z07,"Passatge de Llívia, 59",08041,Barcelona,41.420358,2.176584
+185303-0066,Z07,"Passatge de Llívia, 66",08041,Barcelona,41.4206336,2.1764433
+185507-0036,Z07,"Carrer de Llobet i Vall-llosera, 36",08032,Barcelona,41.4225741,2.1709597
+186102-0033,Z07,"Carrer de Llorens i Barba, 33",08025,Barcelona,41.4117643,2.1699835
+188200-0002,Z07,"Carrer del Mestre Dalmau, 2",08031,Barcelona,41.4331264,2.1628324
+194155-0028,Z07,"Parc Forestal de la Meca, 28",08035,Barcelona,41.4397162,2.1325273
+197608-0035,Z07,"Carrer del Torrent de Can Mariner, 35",08031,Barcelona,41.4326192,2.1621655
+224405-0037,Z07,"Carrer de la Murtra, 37",08032,Barcelona,41.4235744,2.1520522
+243909-0049,Z07,"Carrer del Pantà de Tremp, 49",08032,Barcelona,41.4259804,2.152492
+247309-0014,Z07,"Carrer de Pasteur, 14",08024,Barcelona,41.4173649,2.1592892
+260602-0041,Z07,"Carrer de Plutó, 41",08035,Barcelona,41.4235121,2.1476008
+288703-0049,Z07,"Carrer de Rosalía de Castro, 49",08025,Barcelona,41.4115692,2.172102
+297001-0087,Z07,"Carrer de Sant Antoni Maria Claret, 87",08025,Barcelona,41.4082136,2.1701734
+309100-0012,Z07,"Carrer de Sant Pere, 12",08041,Barcelona,41.4215385,2.1794222
+316208-0006,Z07,"Carrer de Santa Joana d'Arc, 6",08032,Barcelona,41.427045,2.1589829
+317903-0054,Z07,"Carrer de Santa Otília, 54",08032,Barcelona,41.4223924,2.1578973
+318305-0115,Z07,"Carrer de Santa Rosalia, 115",08032,Barcelona,41.4239383,2.1494669
+322200-0063,Z07,"Carrer de Segur, 63",08035,Barcelona,41.4235624,2.1448047
+324002-0028,Z07,"Carrer de Serrallonga, 28",08032,Barcelona,41.4275946,2.1543862
+339906-0086,Z07,"Carrer de la Torre dels Pardals, 86",08032,Barcelona,41.4235233,2.1733988
+344101-0355,Z07,"Travessera de Gràcia, 355",08025,Barcelona,41.4079979,2.168242
+352507-0153,Z07,"Passeig de la Vall d'Hebron, 153",08035,Barcelona,41.434365,2.1464121
+365702-0124,Z07,"Avinguda de la Mare de Déu de Montserrat, 124",08041,Barcelona,41.4159751,2.1699023
+366909-0029,Z07,"Carretera de Vista-rica, 29",08035,Barcelona,41.425393,2.1225601
+700833-0001,Z07,"Plaça de Joan Cornudella, 1",08035,Barcelona,41.4340185,2.1485822
+701333-0001,Z07,"Plaça de les Sibil·les, 1",08035,Barcelona,41.4323571,2.1484034
+001309-0025,Z08,"Carrer de les Acàcies, 25",08027,Barcelona,41.4245997,2.1781289
+004409-0047,Z08,"Carrer d'Aiguablava, 47",08042,Barcelona,41.448814,2.1816733
+025001-0027,Z08,"Carrer d'Arquímedes, 27",08030,Barcelona,41.4403323,2.1877334
+032404-0073,Z08,"Carrer de Baliarda, 73",08030,Barcelona,41.4370452,2.1860315
+053302-0016,Z08,"Carrer de Cabrera, 16",08030,Barcelona,41.4359478,2.1862353
+077107-0093,Z08,"Carrer del Turó de la Trinitat, 93",08033,Barcelona,41.4521683,2.191132
+099303-0013,Z08,"Carrer de Desfar, 13",08016,Barcelona,41.4291396,2.1762726
+111704-0057,Z08,"Carrer d'Escòcia, 57",08016,Barcelona,41.4285679,2.1805723
+111908-0091,Z08,"Avinguda d'Escolapi Càncer, 91",08033,Barcelona,41.4561345,2.1774073
+115603-0375,Z08,"Carrer d'Espronceda, 375",08027,Barcelona,41.4191403,2.1861227
+119003-0134,Z08,"Passeig de Fabra i Puig, 134",08016,Barcelona,41.4303432,2.1812692
+119003-0252B,Z08,"Passeig de Fabra i Puig, 252B",08016,Barcelona,41.4304225,2.1759289
+140804-0046,Z08,"Carrer de Garigliano, 46",08042,Barcelona,41.4460573,2.1740616
+161000-0008,Z08,"Carrer d'Inca, 8",08031,Barcelona,41.4319689,2.1720199
+168100-0019,Z08,"Passatge de Joaquim Rita, 19",08030,Barcelona,41.4315859,2.1848794
+168100-0021,Z08,"Passatge de Joaquim Rita, 21",08030,Barcelona,41.4315634,2.1848043
+168406-0023,Z08,"Carrer de Jorba, 23",08030,Barcelona,41.4360523,2.1865865
+176404-0023,Z08,"Carrer del Llenguadoc, 23",08030,Barcelona,41.4309527,2.1881117
+186408-0106,Z08,"Carrer de Llobera, 106",08042,Barcelona,41.4496095,2.1761495
+186408-0113,Z08,"Carrer de Llobera, 113",08042,Barcelona,41.4498582,2.1763405
+197200-0023,Z08,"Carrer de Marín, 23",08042,Barcelona,41.4441485,2.1746724
+199807-0019,Z08,"Carrer del Marquès de Santillana, 19",08030,Barcelona,41.4290155,2.1888196
+201807-0028,Z08,"Carrer de Martorelles, 28",08033,Barcelona,41.4576265,2.1838545
+229409-0028,Z08,"Carrer dels Nou Pins, 28",08016,Barcelona,41.4426413,2.1818433
+235809-0002,Z08,"Plaça d'Orfila, 2",08030,Barcelona,41.4362097,2.190942
+236506-0087,Z08,"Carrer d'Oristà, 87",08033,Barcelona,41.4670803,2.1862516
+255704-0003,Z08,"Carrer de Pinar del Río, 3",08027,Barcelona,41.4221947,2.1835555
+258509-0006,Z08,"Carrer de Pitàgores, 6",08031,Barcelona,41.4280491,2.1652619
+279203-0024,Z08,"Carrer de Renart, 24",08030,Barcelona,41.4341257,2.1850947
+296202-0123,Z08,"Carrer Gran de Sant Andreu, 123",08030,Barcelona,41.431192,2.1893102
+296257-0101,Z08,"Riera de Sant Andreu, 101",08030,Barcelona,41.4351862,2.1849896
+331700-0039,Z08,"Carrer de Tàrrega, 39",08030,Barcelona,41.4377419,2.2056242
+341409-0051,Z08,"Carrer de les Torres, 51",08042,Barcelona,41.4467906,2.1753483
+351708-0019,Z08,"Carrer de Pablo Iglesias, 19",08016,Barcelona,41.4431831,2.1811345
+358004-0045,Z08,"Carrer del Vesuvi, 45",08016,Barcelona,41.4457897,2.1861676
+359700-0023,Z08,"Carrer de Vidal i Guasch, 23",08042,Barcelona,41.4461142,2.1750703
+361202-0043,Z08,"Carrer de Viladecavalls, 43",08033,Barcelona,41.4551404,2.1805384
+701323-0007,Z08,"Carrer de Joan Comorera, 7",08030,Barcelona,41.4386669,2.1926925
+701334-0042,Z08,"Carrer de Fernando Pessoa, 42",08030,Barcelona,41.4416251,2.193314
+701356-0005,Z08,"Carrer de Mérida, 5",08030,Barcelona,41.4383504,2.1974811
+008705-0077B,Z09,"Carrer d'Alfons el Magnànim, 77B",08019,Barcelona,41.4161375,2.2144149
+030409-0126,Z09,"Carrer de Bac de Roda, 126",08020,Barcelona,41.4091564,2.2021072
+057802-0104,Z09,"Carrer del Camp Arriassa, 104",08020,Barcelona,41.4255612,2.2016927
+062609-0137,Z09,"Avinguda d'Icària, 137",08005,Barcelona,41.3905185,2.1958675
+071905-0009,Z09,"Carrer de Castanys, 9",08005,Barcelona,41.4004728,2.2053009
+073707-0058,Z09,"Carrer de Castella, 58",08018,Barcelona,41.4073641,2.1954395
+081603-0101,Z09,"Carrer del Clot, 101",08018,Barcelona,41.4095309,2.1888253
+083904-0063,Z09,"Carrer de Coll i Vehí, 63",08026,Barcelona,41.4137754,2.1827884
+083904-0108,Z09,"Carrer de Coll i Vehí, 108",08026,Barcelona,41.4154076,2.1839442
+086200-0072,Z09,"Carrer del Concili de Trento, 72",08018,Barcelona,41.4123209,2.1941652
+094300-0053,Z09,"Carrer de Cristóbal de Moura, 53",08019,Barcelona,41.4098942,2.2046514
+115603-0080,Z09,"Carrer d'Espronceda, 80",08005,Barcelona,41.4047406,2.2055943
+115603-0225,Z09,"Carrer d'Espronceda, 225",08018,Barcelona,41.4116662,2.196052
+131304-0005,Z09,"Passatge de Foret, 5",08019,Barcelona,41.4174017,2.209501
+134801-0071,Z09,"Carrer del Freser, 71",08026,Barcelona,41.4147319,2.1819644
+134801-0208,Z09,"Carrer del Freser, 208",08026,Barcelona,41.4155966,2.1825518
+138100-0026,Z09,"Carrer de Gabriel y Galán, 26",08026,Barcelona,41.4118866,2.187371
+150852-00040,Z09,"Grup Vivendes la Pau, 40",08020,Barcelona,41.4215802,2.2068709
+150852-0012,Z09,"Grup Vivendes la Pau, 12",08020,Barcelona,41.4221199,2.2063931
+183603-0047,Z09,"Carrer de la Llacuna, 47",08005,Barcelona,41.400135,2.2000328
+191204-0518,Z09,"Carrer de Mallorca, 518",08013,Barcelona,41.407817,2.1814132
+202209-0012A,Z09,"Passatge de Mas de Roda, 12A",08005,Barcelona,41.3964416,2.1996257
+208205-0055,Z09,"Carrer de Menorca, 55",08020,Barcelona,41.4230015,2.2018063
+217104-0123,Z09,"Carrer de la Muntanya, 123",08026,Barcelona,41.4129087,2.1825684
+242906-0138B,Z09,"Carrer de Pallars, 138B",08005,Barcelona,41.3977419,2.1933759
+242906-0438,Z09,"Carrer de Pallars, 438",08019,Barcelona,41.4112964,2.2114435
+244800-0009,Z09,"Carrer del Paraguai, 9",08020,Barcelona,41.416515,2.2065438
+249304-0286,Z09,"Carrer de Pere IV, 286",08005,Barcelona,41.4062506,2.2005899
+249304-0418,Z09,"Carrer de Pere IV, 418",08019,Barcelona,41.4125124,2.2052284
+253902-0236,Z09,"Carrer del Perú, 236",08020,Barcelona,41.4145528,2.2044686
+266405-0302,Z09,"Rambla de Prim, 302",08020,Barcelona,41.4279661,2.1978154
+270901-0069,Z09,"Carrer de Pujades, 69",08005,Barcelona,41.3969566,2.1942754
+346800-0114,Z09,"Rambla del Poblenou, 114",08005,Barcelona,41.4030487,2.1988441
+356202-0153,Z09,"Carrer de Veneçuela, 153",08019,Barcelona,41.4141134,2.2125505
+367504-0063,Z09,"Carrer del Doctor Trueta, 63",08005,Barcelona,41.3917938,2.1941699
+700661-0012,Z09,"Carrer de Joan Miró, 12",08005,Barcelona,41.389706,2.1961938
+700674-0007,Z09,"Carrer d'Amsterdam, 7",08005,Barcelona,41.3922428,2.1965095
+701278-0250,Z09,"Passeig del Taulat, 250",08019,Barcelona,41.4058431,2.2143307
+701869-0002,Z09,"Carrer d'Irena Sendler, 2",08018,Barcelona,41.4014109,2.1878806
+701911-0005,Z09,"Placeta Sense Nom (701911), 5",08019,Barcelona,41.4134935,2.2130273
+av1947484,Z10,"Carrer de l'Alhambra, 32",08902,L'Hospitalet de Llobregat,41.362083,2.1299621
+av1948745,Z10,"Carrer de les Bòbiles, 17",08905,L'Hospitalet de Llobregat,41.370062,2.112554
+av1949555,Z10,"Carrer de les Ciències, 39",08908,L'Hospitalet de Llobregat,41.3565941,2.1289016
+av1949808,Z10,"Carrer de Castellbò, 1",08906,L'Hospitalet de Llobregat,41.3684078,2.1000131
+av1950936,Z10,"Carrer de la Riera del Canyet, 78",08901,L'Hospitalet de Llobregat,41.362641,2.0958945
+av1951180,Z10,"Carrer de la Cultura, 24",08902,L'Hospitalet de Llobregat,41.3665734,2.1186089
+av1951485,Z10,"Carrer d'Enric Morera, 16",08902,L'Hospitalet de Llobregat,41.3622133,2.1275672
+av1952331,Z10,"Carrer de l'Estrella, 11",08901,L'Hospitalet de Llobregat,41.3628181,2.1079297
+av1952494,Z10,"Carrer de l'Ermita de Bellvitge, 32",08907,L'Hospitalet de Llobregat,41.3483072,2.1097195
+av1952640,Z10,"Carrer de l'Estrella, 38",08901,L'Hospitalet de Llobregat,41.3637509,2.1074398
+av1953066,Z10,"Carrer de Dolors Aleu, 8",08040,L'Hospitalet de Llobregat,41.3471861,2.1322356
+av1953702,Z10,"Carrer del Doctor Martí i Julià, 55",08903,L'Hospitalet de Llobregat,41.3738422,2.1222934
+av1953979,Z10,"Plaça de Francesc Macià i Llussà, 18",08902,L'Hospitalet de Llobregat,41.3643971,2.1279268
+av1954054,Z10,"Carrer de la Florida, 62",08905,L'Hospitalet de Llobregat,41.3702742,2.111849
+av1954370,Z10,"Carrer del Doctor Martí i Julià, 172",08903,L'Hospitalet de Llobregat,41.3702783,2.1261
+av1955042,Z10,"Carrer dels Joncs, 10",08902,L'Hospitalet de Llobregat,41.357837,2.1187732
+av1956264,Z10,"Carrer del Llobregat, 107",08904,L'Hospitalet de Llobregat,41.3718063,2.1205184
+av1956665,Z10,"Carrer de Juan de Toledo, 5",08901,L'Hospitalet de Llobregat,41.3647417,2.1069281
+av1956746,Z10,"Carrer de la Joventut, 20",08904,L'Hospitalet de Llobregat,41.3721738,2.1181912
+av1957360,Z10,"Carrer de Marcel·lí Esquius, 32",08906,L'Hospitalet de Llobregat,41.3708205,2.100576
+av1957627,Z10,"Carrer de Femades, 28",08907,L'Hospitalet de Llobregat,41.3510439,2.1009889
+av1957940,Z10,"Carrer de Martorell, 9",08904,L'Hospitalet de Llobregat,41.3708862,2.1177416
+av1958179,Z10,"Carretera del Mig, 154",08907,L'Hospitalet de Llobregat,41.3537305,2.1029361
+av1959009,Z10,"Carrer del Molí, 58",08906,L'Hospitalet de Llobregat,41.3707069,2.0999323
+av1960594,Z10,"Carrer de Pareto, 5",08902,L'Hospitalet de Llobregat,41.366688,2.127037
+av1960703,Z10,"Carrer Oriental, 3",08906,L'Hospitalet de Llobregat,41.3678161,2.0990835
+av1960709,Z10,"Carrer d'Orient, 21",08904,L'Hospitalet de Llobregat,41.3726654,2.1189029
+av1961781,Z10,"Carrer del Príncep de Bergara, 45",08901,L'Hospitalet de Llobregat,41.3569764,2.0999535
+av1962072,Z10,"Carrer de Provença, 55",08901,L'Hospitalet de Llobregat,41.3582296,2.1002649
+av1963735,Z10,"Carrer de Sant Carles, 21",08906,L'Hospitalet de Llobregat,41.3681314,2.0982186
+av1964515,Z10,"Carrer de Santa Rosa, 52",08901,L'Hospitalet de Llobregat,41.3566992,2.0986113
+av1964612,Z10,"Carrer de Santiago Apòstol, 70",08903,L'Hospitalet de Llobregat,41.3697096,2.1243761
+av1966166,Z10,"Carrer de l'Onze de Setembre, 8",08903,L'Hospitalet de Llobregat,41.3768724,2.121017
+av1966531,Z10,"Carrer de Vallparda, 120",08904,L'Hospitalet de Llobregat,41.3698856,2.1167165
+av1966596,Z10,"Carrer de la Vinyeta, 32",08904,L'Hospitalet de Llobregat,41.3710552,2.11511
+av1967495,Z10,"Carrer de les Arts i els Oficis, 20P",08901,L'Hospitalet de Llobregat,41.3598112,2.105409
+av1968080,Z10,"Carrer del General Manso, 6P",08906,L'Hospitalet de Llobregat,41.3757919,2.1048474
+av1968122,Z10,"Carrer d'Enric Prat de la Riba, 202J",08901,L'Hospitalet de Llobregat,41.361211,2.1056275
+av2587690,Z10,"Carrer de Hannah Arendt, 19",08908,L'Hospitalet de Llobregat,41.3586269,2.1323193
+av2587867,Z10,"Carrer de l'Aprestadora, 90P",08902,L'Hospitalet de Llobregat,41.3622146,2.1259806
+av2535439,Z11,"Passatge del Pintor Picasso, 34",08820,El Prat de Llobregat,41.325469,2.1018942
+av2613118,Z11,"Carrer de Lleida, 2B",08820,El Prat de Llobregat,41.3203269,2.0906475
+av2613163,Z11,"Carrer de l'Empordà, 86bis",08820,El Prat de Llobregat,41.3257231,2.089969
+av2613206,Z11,"Carrer de les Moreres, 89-91",08820,El Prat de Llobregat,41.3295448,2.1049642
+av2613439,Z11,"Carrer de Dolores Ibárruri, 35-37",08820,El Prat de Llobregat,41.3211372,2.086094
+av2613592,Z11,"Carrer de la Selva, 2",08820,El Prat de Llobregat,41.3183815,2.0735888
+av2613620,Z11,"Avinguda d'Apel·les Mestres, 109",08820,El Prat de Llobregat,41.3238761,2.0835017
+av510125,Z11,"Carrer de Manuel Bertrand, 30",08820,El Prat de Llobregat,41.3305614,2.0954423
+av510604,Z11,"Passeig de Ramon Codina, 54",08820,El Prat de Llobregat,41.3182108,2.0878841
+av511116,Z11,"Avinguda de la Verge de Montserrat, 4",08820,El Prat de Llobregat,41.3307974,2.1054949
+av511301,Z11,"Avinguda de la Verge de Montserrat, 185",08820,El Prat de Llobregat,41.3240453,2.0905292
+av511673,Z11,"Carrer de Jaume Casanovas, 224",08820,El Prat de Llobregat,41.3207309,2.0954079
+av511880,Z11,"Carrer de l'Empordà, 103",08820,El Prat de Llobregat,41.3251363,2.0904587
+av512092,Z11,"Carrer del Penedès, 123",08820,El Prat de Llobregat,41.3238157,2.0923618
+av512950,Z11,"Carrer de Lleida, 52",08820,El Prat de Llobregat,41.3212002,2.092796
+av513320,Z11,"Carrer de Sant Joaquim, 71",08820,El Prat de Llobregat,41.3311587,2.0987395
+av513369,Z11,"Carrer de Gavà, 34",08820,El Prat de Llobregat,41.3266764,2.0930319
+av513427,Z11,"Carrer de Pau Casals, 86",08820,El Prat de Llobregat,41.3275395,2.0970015
+av513681,Z11,"Carrer d'Enric Morera, 35",08820,El Prat de Llobregat,41.3275554,2.0976205
+av513794,Z11,"Carrer de Tarragona, 98",08820,El Prat de Llobregat,41.3234889,2.1031049
+av514032,Z11,"Carrer d'Enric Borràs, 12",08820,El Prat de Llobregat,41.332222,2.0972443
+av514662,Z11,"Carrer de Sant Pol de Mar, 4",08820,El Prat de Llobregat,41.3235798,2.1000233
+av515130,Z11,"Carrer Major, 8",08820,El Prat de Llobregat,41.3310449,2.0934525
+av515360,Z11,"Carrer del Mestre Vigo i Garreta, 30",08820,El Prat de Llobregat,41.3222392,2.0898458
+av515695,Z11,"Carrer del Doctor Robert, 10",08820,El Prat de Llobregat,41.3287307,2.0920246
+av516279,Z11,"Passatge del Mercat, 57",08820,El Prat de Llobregat,41.3320422,2.0971456
+av516326,Z11,"Carrer de Joaquim Maria Bartrina, 23",08820,El Prat de Llobregat,41.3270835,2.0963674
+av516504,Z11,"Carrer de Frederica Montseny, 41",08820,El Prat de Llobregat,41.3206604,2.0843576
+av516524,Z11,"Carrer de Mossèn Cinto Verdaguer, 25",08820,El Prat de Llobregat,41.3291476,2.0916262
+av517086,Z11,"Carrer del Pintor Isidre Nonell, 133",08820,El Prat de Llobregat,41.3318694,2.0994917
+av517435,Z11,"Carrer de Rigual, 24",08820,El Prat de Llobregat,41.3292734,2.0911302
+av517448,Z11,"Carrer del Riu Ebre, 13",08820,El Prat de Llobregat,41.3182803,2.0897515
+av517506,Z11,"Passatge de Salvador Espriu, 4",08820,El Prat de Llobregat,41.3274325,2.1001924
+av517557,Z11,"Carrer de la Vall d'Aran, 10",08820,El Prat de Llobregat,41.3290856,2.0884256
+av517720,Z11,"Plaça del Barri d'Orcasitas, 13",08820,El Prat de Llobregat,41.3185331,2.0854076
+av517987,Z11,"Passatge d'Urgell, 20",08820,El Prat de Llobregat,41.3254469,2.0895969
+av518005,Z11,"Carrer de Sarajevo, 6",08820,El Prat de Llobregat,41.3276331,2.1019487
+av518055,Z11,"Carrer de Pablo Iglesias, 7",08820,El Prat de Llobregat,41.3210398,2.0850604
+av518094,Z11,"Carrer de les Moreres, 109",08820,El Prat de Llobregat,41.3288015,2.1055588
+av518145,Z11,"Carrer de Pablo Neruda, 56",08820,El Prat de Llobregat,41.3254128,2.104658
+av1406930,Z12,"Carrer de l'Ametller, 14",08940,Cornellà de Llobregat,41.3547491,2.0694371
+av1407296,Z12,"Carrer de Gustavo Adolfo Bécquer, 10",08940,Cornellà de Llobregat,41.3533785,2.0703557
+av1407826,Z12,"Carrer del General Manso, 19",08940,Cornellà de Llobregat,41.351689,2.0762797
+av1407978,Z12,"Carrer d'Ermengol Goula, 54",08940,Cornellà de Llobregat,41.3620474,2.0773388
+av1408071,Z12,"Rambla d'Anselm Clavé, 22",08940,Cornellà de Llobregat,41.3546133,2.0721064
+av1408100,Z12,"Carretera d'Esplugues, 206",08940,Cornellà de Llobregat,41.3652527,2.0769338
+av1408319,Z12,"Carrer de Llinars, 44",08940,Cornellà de Llobregat,41.362683,2.0782858
+av1408532,Z12,"Carrer de Josep Masgrau, 47",08940,Cornellà de Llobregat,41.3639634,2.0742112
+av1408606,Z12,"Carrer de Marià Benlliure, 53",08940,Cornellà de Llobregat,41.3651462,2.0707919
+av1408715,Z12,"Carrer del Marquès de Cornellà, 51",08940,Cornellà de Llobregat,41.3543079,2.0671155
+av1408761,Z12,"Carrer del Marquès de Cornellà, 151",08940,Cornellà de Llobregat,41.3520363,2.0703652
+av1408941,Z12,"Carrer de Mossèn Jaume Soler i Puigvert, 30",08940,Cornellà de Llobregat,41.3617844,2.0758932
+av1409338,Z12,"Carrer de Ramón y Cajal, 30",08940,Cornellà de Llobregat,41.3519396,2.0719392
+av1409350,Z12,"Carrer de Ramón y Cajal, 23",08940,Cornellà de Llobregat,41.3521162,2.0717908
+av1409362,Z12,"Carrer de Ramon Sala, 14",08940,Cornellà de Llobregat,41.3517985,2.0733026
+av1409903,Z12,"Carrer de Dolors Almeda, 99",08940,Cornellà de Llobregat,41.3520457,2.0874184
+av1409927,Z12,"Carrer de Lluís Domènech i Montaner, 6-8",08940,Cornellà de Llobregat,41.3650149,2.0754815
+av1409951,Z12,"Carrer de la Dolçamara, 6",08940,Cornellà de Llobregat,41.3599781,2.0829956
+av1410052,Z12,"Carrer de Frederic Soler, 77",08940,Cornellà de Llobregat,41.3637642,2.0775727
+av1410132,Z12,"Passeig dels Ferrocarrils Catalans, 184",08940,Cornellà de Llobregat,41.3528566,2.0849248
+av1410257,Z12,"Carrer de la Miranda, 58",08940,Cornellà de Llobregat,41.3601478,2.0768892
+av1410348,Z12,"Carrer de Francesc Layret, 8",08940,Cornellà de Llobregat,41.3500835,2.0720221
+av1410431,Z12,"Carrer de la Florida, 6",08940,Cornellà de Llobregat,41.3584268,2.0742248
+av1410755,Z12,"Carrer de Frederic Soler, 56",08940,Cornellà de Llobregat,41.3618977,2.0767394
+av1410971,Z12,"Carrer de Rubió i Ors, 149",08940,Cornellà de Llobregat,41.3526222,2.0717651
+av1411415,Z12,"Rambla de les Solanes, 29",08940,Cornellà de Llobregat,41.3602504,2.0907923
+av1411486,Z12,"Carrer de Torras i Bages, 55",08940,Cornellà de Llobregat,41.3628749,2.0731465
+av1411583,Z12,"Avinguda de Salvador Allende, 49",08940,Cornellà de Llobregat,41.3611753,2.0858117
+av1411587,Z12,"Carrer de Can Rosés, 1-3",08940,Cornellà de Llobregat,41.3539767,2.0750962
+av1411705,Z12,"Carrer de Velàzquez, 4",08940,Cornellà de Llobregat,41.3531768,2.0706256
+av1411829,Z12,"Carrer de Vistalegre, 8",08940,Cornellà de Llobregat,41.3607874,2.074237
+av1411841,Z12,"Carrer de Vistalegre, 22",08940,Cornellà de Llobregat,41.3612321,2.0744143
+av2453990,Z12,"Carrer de Josep Duran i Campderrós, 10",08940,Cornellà de Llobregat,41.3548489,2.0752577
+av2640828,Z12,"Carrer de la Verge del Pilar, 18-22",08940,Cornellà de Llobregat,41.3550482,2.0721837
+av2640831,Z12,"Carrer de la Bonavista, 37",08940,Cornellà de Llobregat,41.3576708,2.0767768
+av2640836,Z12,"Passatge Villamill, 37",08940,Cornellà de Llobregat,41.3546696,2.0782013
+av2641127,Z12,"Passeig dels Ferrocarrils Catalans, 256",08940,Cornellà de Llobregat,41.3540103,2.0937914
+av2641152,Z12,"Carrer del Mercuri, 34-36",08940,Cornellà de Llobregat,41.3487781,2.0914607
+av2641291,Z12,"Plaça dels Rosers, 5",08940,Cornellà de Llobregat,41.3550876,2.0761807
+av2641795,Z12,"Carrer de Josep Fiter, 4",08940,Cornellà de Llobregat,41.3627352,2.0733554
+av1969883,Z13,"Carrer d'Àngel Guimerà, 153",08950,Esplugues de Llobregat,41.3742553,2.0789353
+av1969928,Z13,"Carrer d'August Font i Carreras, 38-40",08950,Esplugues de Llobregat,41.3846444,2.0892584
+av1970289,Z13,"Carrer de Milà i Pi, 38",08950,Esplugues de Llobregat,41.3736982,2.0810695
+av1970461,Z13,"Carrer dels Cedres, 23",08950,Esplugues de Llobregat,41.3746772,2.1001574
+av1970662,Z13,"Carrer de Miramar, 8",08950,Esplugues de Llobregat,41.3754357,2.0922843
+av1970721,Z13,"Carrer d'Eduard Toldrà, 25",08950,Esplugues de Llobregat,41.3756899,2.084022
+av1970758,Z13,"Carrer de la Lleialtat, 17",08950,Esplugues de Llobregat,41.3757749,2.0926187
+av1970791,Z13,"Carrer de Nostra Senyora de Lourdes, 15",08950,Esplugues de Llobregat,41.3840415,2.0833478
+av1970805,Z13,"Carrer de Pau Torres, 18-20",08950,Esplugues de Llobregat,41.3731788,2.0957064
+av1970887,Z13,"Carrer de Rovellat, 12-14",08950,Esplugues de Llobregat,41.3720292,2.0880117
+av1970939,Z13,"Carrer de Josep Anselm Clavé, 32-34",08950,Esplugues de Llobregat,41.3757737,2.0915413
+av1970956,Z13,"Passatge de Joan Brillas, 21",08950,Esplugues de Llobregat,41.3760635,2.0802138
+av1971054,Z13,"Carrer del Nord, 10",08950,Esplugues de Llobregat,41.3784593,2.08205
+av1971084,Z13,"Carrer de Llevant, 15",08950,Esplugues de Llobregat,41.368501,2.0984202
+av1971272,Z13,"Carrer de Sant Josep, 8-10",08950,Esplugues de Llobregat,41.3738161,2.0921467
+av1971286,Z13,"Carrer de Sant Jordi, 18",08950,Esplugues de Llobregat,41.3692225,2.087834
+av1971467,Z13,"Carrer de la Serra del Montsec, 19-21",08950,Esplugues de Llobregat,41.3706267,2.084328
+av1971500,Z13,"Carrer de Vidal i Ribas, 5",08950,Esplugues de Llobregat,41.3736632,2.0960287
+av1971557,Z13,"Carrer de Ferrer i Bassa, 5",08950,Esplugues de Llobregat,41.3850536,2.0922602
+av1971638,Z13,"Carrer de la Vallerona, 17",08950,Esplugues de Llobregat,41.3732947,2.0885251
+av1971684,Z13,"Carrer de l'Esmaragda, 9",08950,Esplugues de Llobregat,41.3705906,2.0893196
+av1971746,Z13,"Carrer de Santa Rosa, 15",08950,Esplugues de Llobregat,41.3848762,2.1011665
+av1971847,Z13,"Carrer de l'Est, 30",08950,Esplugues de Llobregat,41.3863004,2.0865971
+av1971863,Z13,"Carrer dels Eucaliptus, 33",08950,Esplugues de Llobregat,41.3743689,2.1001918
+av1971935,Z13,"Carrer d'Enric Morera, 43",08950,Esplugues de Llobregat,41.3726505,2.0774832
+av1971949,Z13,"Carrer de Santiago Rusiñol, 18-20",08950,Esplugues de Llobregat,41.375612,2.0845272
+av1971985,Z13,"Carrer de Juli Culebras i Barba, 24",08950,Esplugues de Llobregat,41.3806477,2.0882886
+av1972094,Z13,"Carrer dels Sometents, 46",08950,Esplugues de Llobregat,41.3790104,2.0918847
+av1972191,Z13,"Carrer de Severo Ochoa, 18",08950,Esplugues de Llobregat,41.3734452,2.0893043
+av1972245,Z13,"Carrer de Narcís Monturiol, 8-10",08950,Esplugues de Llobregat,41.3749017,2.0869051
+av1972358,Z13,"Carrer de Gaspar Fàbregas i Roses, 32",08950,Esplugues de Llobregat,41.374947,2.0810539
+av1972407,Z13,"Carrer del Frontó, 25",08950,Esplugues de Llobregat,41.3872999,2.0869477
+av1972461,Z13,"Carrer de Pere Galvany, 21",08950,Esplugues de Llobregat,41.3718367,2.0983651
+av1972576,Z13,"Carrer de la Tramuntana, 9",08950,Esplugues de Llobregat,41.387386,2.0862496
+av1972667,Z13,"Carrer del 8 de Març, 14",08950,Esplugues de Llobregat,41.3737139,2.0857518
+av1972670,Z13,"Carrer del 8 de Març, 21",08950,Esplugues de Llobregat,41.3735607,2.0859931
+av1972742,Z13,"Carrer del Doctor Gimeno, 84B",08950,Esplugues de Llobregat,41.38899,2.0875674
+av1972912,Z13,"Carrer del 8 de Març, 80",08950,Esplugues de Llobregat,41.3708397,2.0869128
+av2612632,Z13,"Carrer d'Ignasi Iglésias, 80-82",08950,Esplugues de Llobregat,41.3750053,2.0788079
+av2612634,Z13,"Carrer de Laureà Miró, 146-164",08950,Esplugues de Llobregat,41.3772562,2.0926221
+av1433939,Z14,"Carrer de les Alzines, 24",08830,Sant Boi de Llobregat,41.3488602,2.0204204
+av1435689,Z14,"Avinguda d'Aragó, 43",08830,Sant Boi de Llobregat,41.3339666,2.033502
+av1436012,Z14,"Rambla de Rafael Casanova, 2",08830,Sant Boi de Llobregat,41.3473697,2.0425685
+av1436105,Z14,"Carrer de Dídac Priu, 72",08830,Sant Boi de Llobregat,41.3376029,2.0419631
+av1436298,Z14,"Camí de Can Carreres, 14",08830,Sant Boi de Llobregat,41.3478145,2.0166101
+av1436575,Z14,"Carrer de Josep Marieges, 9",08830,Sant Boi de Llobregat,41.335396,2.0423478
+av1436627,Z14,"Carrer de l'Alou, 12",08830,Sant Boi de Llobregat,41.346971,2.0437129
+av1437002,Z14,"Carrer de Joan Bardina, 50",08830,Sant Boi de Llobregat,41.3461763,2.0415704
+av1437112,Z14,"Carrer de Joan Pagès, 8",08830,Sant Boi de Llobregat,41.3515687,2.0285706
+av1437161,Z14,"Grup Camps Blancs, 152",08830,Sant Boi de Llobregat,41.3381221,2.0316003
+av1437695,Z14,"Carrer d'Enric Prat de la Riba, 16",08830,Sant Boi de Llobregat,41.3282962,2.029489
+av1437741,Z14,"Carrer d'Eusebi Güell, 80",08830,Sant Boi de Llobregat,41.3474068,2.0318028
+av1438115,Z14,"Carrer del General O'Donnell, 21",08830,Sant Boi de Llobregat,41.3470086,2.0418345
+av1438137,Z14,"Carrer de Joan Martí, 32",08830,Sant Boi de Llobregat,41.3476982,2.0349198
+av1439409,Z14,"Carrer dels Eucaliptus, 52",08830,Sant Boi de Llobregat,41.3530452,2.0167439
+av1439496,Z14,"Carrer dels Lilàs, 20",08830,Sant Boi de Llobregat,41.3508858,2.019859
+av1439554,Z14,"Carrer dels Pollancres, 37",08830,Sant Boi de Llobregat,41.3539894,2.0217345
+av1440055,Z14,"Carrer de Francesc Pi i Margall, 56",08830,Sant Boi de Llobregat,41.3472396,2.037279
+av1440097,Z14,"Carrer de Francesc Pi i Margall, 151",08830,Sant Boi de Llobregat,41.346697,2.0323766
+av1440229,Z14,"Carrer de Pablo Picasso, 25",08830,Sant Boi de Llobregat,41.3515806,2.0338132
+av1440414,Z14,"Carrer de Marià Fortuny, 52",08830,Sant Boi de Llobregat,41.3415961,2.0391314
+av1441433,Z14,"Ronda de Sant Ramon, 89",08830,Sant Boi de Llobregat,41.3493128,2.0277539
+av1441505,Z14,"Carrer del Rosselló, 105",08830,Sant Boi de Llobregat,41.3471462,2.0249927
+av1441626,Z14,"Carrer d'Antoni Rubió i Lluch, 13",08830,Sant Boi de Llobregat,41.3475546,2.0242344
+av1441800,Z14,"Carrer d'Antoni Rubió i Lluch, 25",08830,Sant Boi de Llobregat,41.3484558,2.0240137
+av1441932,Z14,"Carrer de Sant Joan Bosco, 20",08830,Sant Boi de Llobregat,41.3421021,2.0440011
+av1442095,Z14,"Carrer de Tarragona, 8",08830,Sant Boi de Llobregat,41.3518714,2.0291046
+av1442306,Z14,"Carrer de la Torre Figueres, 36",08830,Sant Boi de Llobregat,41.34246,2.0386559
+av1442452,Z14,"Carrer de la Victòria, 12",08830,Sant Boi de Llobregat,41.350048,2.0337725
+av1442480,Z14,"Carrer de la Victòria, 76",08830,Sant Boi de Llobregat,41.3495176,2.0298136
+av1442687,Z14,"Carrer de les Muntanyes de Prades, 3",08830,Sant Boi de Llobregat,41.3449957,2.0205073
+av1443285,Z14,"Carrer del Cardener, 5",08830,Sant Boi de Llobregat,41.3388148,2.0261502
+av1443842,Z14,"Carrer de Josep Romeu i Torelló, 1",08830,Sant Boi de Llobregat,41.3524433,2.0291191
+av1444006,Z14,"Carrer dels Fusos, 14",08830,Sant Boi de Llobregat,41.3276238,2.0455504
+av1444175,Z14,"Carrer dels Tints, 16",08830,Sant Boi de Llobregat,41.3262541,2.0459563
+av2614253,Z14,"Carrer de Joan Salvat-Papasseit, 2A",08830,Sant Boi de Llobregat,41.3445088,2.0425904
+av2615027,Z14,"Carrer de Bonaventura Calopa, 5-7",08830,Sant Boi de Llobregat,41.3441667,2.0468156
+av2615032,Z14,"Carrer de Cristòfor Colom, 35-37",08830,Sant Boi de Llobregat,41.3348559,2.0433111
+av2615221,Z14,"Carrer de les Catalpes, 1-3",08830,Sant Boi de Llobregat,41.3504088,2.0171748
+av2615878,Z14,"Carrer de Sant Pere més Alt, 22B",08830,Sant Boi de Llobregat,41.3438362,2.044107

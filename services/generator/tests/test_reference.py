@@ -1,0 +1,145 @@
+"""Reference rows from the seeds, zone assignment and address formatting."""
+
+from __future__ import annotations
+
+import json
+
+import jsonschema
+import pytest
+from llobregat_generator import addresses, reference
+from llobregat_generator.config import GENERATOR_DIR
+from llobregat_generator.zones import ZoneMap
+
+
+@pytest.fixture(scope="module")
+def zone_map(seeds) -> ZoneMap:
+    return ZoneMap.from_company(seeds.company)
+
+
+def test_seed_tables_match_the_seeds(seeds):
+    tables = {t.name: t for t in reference.seed_tables(seeds)}
+    assert {name: len(t.rows) for name, t in tables.items()} == {
+        "bronze.zones": 14,
+        "bronze.vehicle_types": 6,
+        "bronze.shifts": 2,
+        "bronze.hubs": 1,
+        "bronze.vehicles": 30,
+        "bronze.drivers": 48,
+        "bronze.shippers": 40,
+    }
+    assert {t.source for t in tables.values()} == {
+        "generator/company-profile",
+        "generator/fleet",
+        "generator/drivers",
+        "generator/demand-model",
+    }
+    for table in tables.values():  # every row has the same columns, and source is added last
+        assert all(list(row) == list(table.rows[0]) for row in table.rows)
+        assert table.columns[-1] == "source"
+
+
+def test_hub_and_shift_ids(seeds):
+    hub = reference.hubs(seeds.company)[0]
+    assert hub["hub_id"] == "BCN-ZF"
+    assert "geofence_radius_m" not in hub  # the table default of migration 007 applies
+    assert [s["shift_id"] for s in reference.shifts(seeds.company)] == ["morning", "afternoon"]
+
+
+def test_driver_rows(seeds):
+    rows = {d["driver_id"]: d for d in reference.drivers(seeds.drivers, seeds.company)}
+    relief = [d for d in rows.values() if d["roster_group"] == "Relief pool"]
+    assert len(relief) == 8
+    assert all(d["shift_id"] is None and d["status"] == "reserve" for d in relief)
+    assert rows["D-001"]["full_name"] == "Manuel Cano Serrano"
+    assert rows["D-001"]["shift_id"] == "morning"
+
+
+def test_zone_map(zone_map):
+    assert zone_map.for_district("01") == "Z01"
+    assert zone_map.for_district("08") == zone_map.for_district("09") == "Z08"  # Nou Barris i Sant Andreu
+    assert zone_map.for_district("10") == "Z09"
+    assert zone_map.for_municipality("l'Hospitalet de Llobregat") == "Z10"  # ICGC spelling
+    assert zone_map.for_municipality("el Prat de Llobregat") == "Z11"
+    assert zone_map.for_municipality("Sant Boi de Lluçanès") is None
+    assert zone_map.municipality("Z10") == "L'Hospitalet de Llobregat"
+
+
+def test_barcelona_address(zone_map):
+    row = {
+        "street_code": "011200",
+        "street_number": "0044",
+        "number_letter": "B",
+        "district_code": "10",
+        "postal_district": "05",
+        "lat": "41.3950000",
+        "lon": "2.1850000",
+    }
+    address = addresses.barcelona_address(row, "Carrer dels Almogàvers", zone_map)
+    assert address.address_ref == "011200-0044B"
+    assert address.street_address == "Carrer dels Almogàvers, 44B"
+    assert (address.zone_id, address.postcode, address.municipality) == ("Z09", "08005", "Barcelona")
+    assert addresses.barcelona_address(row, None, zone_map) is None  # no street name, no delivery
+
+
+def icgc_row(**values) -> dict:
+    row = {
+        "address_id": "av1",
+        "municipality": "el Prat de Llobregat",
+        "street_type": "Carrer",
+        "street_article": "de l'",
+        "street_name": "Arquitecte Moragas",
+        "address_type": "vianum",
+        "number_from": "5",
+        "number_from_suffix": " ",
+        "number_to": "0",
+        "number_to_suffix": " ",
+        "postcode": "08820",
+        "lat": 41.32,
+        "lon": 2.09,
+    }
+    return {**row, **values}
+
+
+@pytest.mark.parametrize(
+    ("values", "street_address"),
+    [
+        ({}, "Carrer de l'Arquitecte Moragas, 5"),
+        ({"number_to": "7"}, "Carrer de l'Arquitecte Moragas, 5-7"),
+        (
+            {"street_article": "del", "street_name": "Riu Llobregat", "number_from_suffix": "B"},
+            "Carrer del Riu Llobregat, 5B",
+        ),
+        (
+            {"street_article": " ", "street_type": "Avinguda", "street_name": "Onze de Setembre"},
+            "Avinguda Onze de Setembre, 5",
+        ),
+        ({"number_from": "0"}, "Carrer de l'Arquitecte Moragas, s/n"),
+    ],
+)
+def test_icgc_address(zone_map, values, street_address):
+    address = addresses.icgc_address(icgc_row(**values), zone_map)
+    assert address.street_address == street_address
+    assert (address.zone_id, address.municipality) == ("Z11", "El Prat de Llobregat")
+
+
+def test_icgc_blocks_and_other_towns_are_not_delivery_addresses(zone_map):
+    assert addresses.icgc_address(icgc_row(address_type="viabloc"), zone_map) is None
+    assert addresses.icgc_address(icgc_row(municipality="Viladecans"), zone_map) is None
+
+
+def test_etrs89_to_wgs84_matches_the_published_coordinates():
+    # A taula-direle row, which publishes both: x_etrs89, y_etrs89 and longitud_wgs84, latitud_wgs84.
+    lon, lat = addresses.to_wgs84(429217.072, 4581017.569)
+    assert lon == pytest.approx(2.1535184, abs=1e-6)  # about 8 cm
+    assert lat == pytest.approx(41.3775667, abs=1e-6)
+
+
+@pytest.mark.parametrize("name", ["fleet", "drivers", "demand"])
+def test_schemas_accept_the_seed_and_reject_a_broken_one(name):
+    schema = json.loads((GENERATOR_DIR / "seed" / f"{name}.schema.json").read_text(encoding="utf-8"))
+    seed = json.loads((GENERATOR_DIR / "seed" / f"{name}.json").read_text(encoding="utf-8"))
+    validator = jsonschema.Draft202012Validator(schema)
+    assert not list(validator.iter_errors(seed))
+    records = {"fleet": "vehicles", "drivers": "drivers", "demand": "shippers"}[name]
+    seed[records][0]["unexpected"] = True
+    assert list(validator.iter_errors(seed))
