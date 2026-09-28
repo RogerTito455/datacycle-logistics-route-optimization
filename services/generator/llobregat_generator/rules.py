@@ -9,6 +9,7 @@ these rules in one place means the validators check exactly what the generator d
 from __future__ import annotations
 
 from datetime import time
+from enum import StrEnum
 
 from llobregat_generator.seeds import Seeds
 
@@ -29,6 +30,33 @@ SEGMENT_HOURS = {
 DEFAULT_HOURS = "offices"
 # Business windows start on the half hour.
 WINDOW_STEP_MIN = 30
+
+
+class Recipient(StrEnum):
+    """Who receives an order. The value is what bronze.orders.customer_type holds."""
+
+    CONSUMER = "B2C"
+    BUSINESS = "B2B"
+
+    @property
+    def seed_key(self) -> str:
+        """The key demand.json gives this recipient, as in parcels_per_stop."""
+        return "business" if self is Recipient.BUSINESS else "consumer"
+
+
+class Wave(StrEnum):
+    """Delivery wave of the service promise. The value is what bronze.orders.wave holds."""
+
+    MORNING = "morning"
+    AFTERNOON = "afternoon"
+
+
+class WindowType(StrEnum):
+    """How an order's time window was set. The value is what bronze.orders.window_type holds."""
+
+    SLOT = "slot"  # the consumer chose a 120-minute slot of the wave
+    WAVE = "wave"  # the consumer accepts any time in the wave
+    OPENING_HOURS = "opening_hours"  # a business recipient, inside its opening hours
 
 
 def minutes(hhmm: str) -> int:
@@ -57,18 +85,23 @@ def opening_ranges(hours: dict) -> list[tuple[int, int]]:
     return [(start, lunch_start), (lunch_end, end)]
 
 
-def delivery_waves(company: dict) -> dict[str, tuple[int, int]]:
+def delivery_waves(company: dict) -> dict[Wave, tuple[int, int]]:
     """The morning and afternoon-evening waves of the service promise, in minutes after midnight."""
     morning, afternoon = sorted(company["service_promise"]["delivery_windows"], key=lambda w: minutes(w["start"]))
     return {
-        "morning": (minutes(morning["start"]), minutes(morning["end"])),
-        "afternoon": (minutes(afternoon["start"]), minutes(afternoon["end"])),
+        Wave.MORNING: (minutes(morning["start"]), minutes(morning["end"])),
+        Wave.AFTERNOON: (minutes(afternoon["start"]), minutes(afternoon["end"])),
     }
 
 
 def hours_category(shipper: dict) -> str:
     """The opening hours (a key of business_opening_hours) of the shipper's business recipients."""
     return SEGMENT_HOURS.get(shipper["segment"], DEFAULT_HOURS)
+
+
+def business_wave(shipper: dict) -> Wave:
+    """The wave of a shipper's business parcels: midday-injection parcels miss the morning wave."""
+    return Wave.AFTERNOON if shipper["arrives_at_hub"] == MIDDAY_INJECTION else Wave.MORNING
 
 
 def business_window_starts(hours: dict, wave: tuple[int, int], window: int) -> list[int]:

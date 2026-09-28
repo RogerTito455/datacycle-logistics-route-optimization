@@ -37,6 +37,10 @@ import numpy as np
 from llobregat_generator.addresses import Address
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
+    Recipient,
+    Wave,
+    WindowType,
+    business_wave,
     business_window_starts,
     business_zone_weights,
     delivery_waves,
@@ -52,7 +56,7 @@ SIZES = ("small", "medium", "large")
 
 # Rules the demand model states in its assumptions, in prose rather than in fields:
 # a "4+" stop gets 4 parcels plus a geometric extra with this mean.
-FOUR_PLUS_EXTRA_MEAN = {"B2C": 0.4, "B2B": 1.5}
+FOUR_PLUS_EXTRA_MEAN = {Recipient.CONSUMER: 0.4, Recipient.BUSINESS: 1.5}
 # On Saturday most offices, factories and clinics are closed; shops and pharmacies are open.
 SATURDAY_OPEN = frozenset({"shops", "healthcare"})
 
@@ -102,7 +106,7 @@ class Stream:
     """The parcels of one shipper to one kind of recipient on the day."""
 
     shipper: dict
-    customer_type: str  # B2C or B2B
+    recipient: Recipient
     share: float
     hours: str | None  # opening-hours category of a business recipient
 
@@ -154,15 +158,17 @@ def day_streams(service_date: date, demand: dict) -> list[Stream]:
     for shipper in demand["shippers"]:
         share, business = shipper["share_of_daily_parcels"], shipper["business_share"]
         if business < 1:
-            streams.append(Stream(shipper, "B2C", share * (1 - business), None))
+            streams.append(Stream(shipper, Recipient.CONSUMER, share * (1 - business), None))
         hours = hours_category(shipper)
         if business > 0 and (not saturday or hours in SATURDAY_OPEN):
-            streams.append(Stream(shipper, "B2B", share * business, hours))
+            streams.append(Stream(shipper, Recipient.BUSINESS, share * business, hours))
     if saturday:  # scale consumer parcels up so the shares still sum to 1
-        b2b = sum(s.share for s in streams if s.customer_type == "B2B")
-        b2c = sum(s.share for s in streams if s.customer_type == "B2C")
+        b2b = sum(s.share for s in streams if s.recipient is Recipient.BUSINESS)
+        b2c = sum(s.share for s in streams if s.recipient is Recipient.CONSUMER)
         streams = [
-            Stream(s.shipper, s.customer_type, s.share * (1 - b2b) / b2c, s.hours) if s.customer_type == "B2C" else s
+            Stream(s.shipper, s.recipient, s.share * (1 - b2b) / b2c, s.hours)
+            if s.recipient is Recipient.CONSUMER
+            else s
             for s in streams
         ]
     return streams
@@ -207,7 +213,7 @@ def generate_day(
     business_zones: dict[str, tuple[list[str], np.ndarray]] = {}
     business_expected = dict.fromkeys(zone_share, 0.0)
     for stream, count in zip(streams, counts, strict=True):
-        if stream.customer_type == "B2B":
+        if stream.recipient is Recipient.BUSINESS:
             weights = business_zone_weights(stream.shipper, zone_share)
             business_zones[stream.shipper["shipper_id"]] = (list(weights), cdf(list(weights.values())))
             for zone, weight in weights.items():
@@ -222,28 +228,29 @@ def generate_day(
     before_cutoff = sum(hourly[f"{h:02d}"] for h in range(cutoff_hour))
     choice = demand["consumer_window_choice"]
     morning_odds = choice["morning_wave"] / (choice["morning_wave"] + choice["afternoon_evening_wave"])
-    per_stop = {
-        "B2C": demand["parcels_per_stop"]["consumer"],
-        "B2B": demand["parcels_per_stop"]["business"],
+    stop_cdf = {
+        recipient: cdf([demand["parcels_per_stop"][recipient.seed_key][n] for n in ("1", "2", "3", "4+")])
+        for recipient in Recipient
     }
-    stop_cdf = {kind: cdf([dist["1"], dist["2"], dist["3"], dist["4+"]]) for kind, dist in per_stop.items()}
     monday = DAY_NAMES[service_date.weekday()] == "Mon"
 
     orders = []
     for stream, count in zip(streams, counts, strict=True):
-        shipper, kind = stream.shipper, stream.customer_type
+        shipper, recipient = stream.shipper, stream.recipient
+        business = recipient is Recipient.BUSINESS
         size_cdf = cdf([shipper["parcel_mix"][size] for size in SIZES])
         midday = shipper["arrives_at_hub"] == MIDDAY_INJECTION
         same_day_odds = shipper["same_day_share"] / before_cutoff if midday else 0.0
+        zones, zone_cdf = business_zones[shipper["shipper_id"]] if business else consumer_zones
+        starts = calendar.business_starts[stream.hours, business_wave(shipper)] if business else []
         left = count
         while left > 0:
-            parcels = draw(rng, stop_cdf[kind]) + 1
+            parcels = draw(rng, stop_cdf[recipient]) + 1
             if parcels == 4:
-                parcels += int(rng.geometric(1 / (1 + FOUR_PLUS_EXTRA_MEAN[kind]))) - 1
+                parcels += int(rng.geometric(1 / (1 + FOUR_PLUS_EXTRA_MEAN[recipient]))) - 1
             parcels = min(parcels, left)
             left -= parcels
 
-            zones, zone_cdf = business_zones[shipper["shipper_id"]] if kind == "B2B" else consumer_zones
             zone_id = zones[draw(rng, zone_cdf)]
             address = pool[zone_id][int(rng.integers(len(pool[zone_id])))]
             size = SIZES[draw(rng, size_cdf)]
@@ -261,29 +268,28 @@ def generate_day(
             else:
                 registered_on = service_date - timedelta(days=1)
 
-            if same_day or midday:
-                wave = "afternoon"
-            elif kind == "B2B":
-                wave = "morning"
-            else:
-                wave = "morning" if rng.random() < morning_odds else "afternoon"
-            if kind == "B2B":
-                starts = calendar.business_starts[stream.hours, wave]
-                window_type, start = "opening_hours", starts[int(rng.integers(len(starts)))]
-                end = start + calendar.window
-            elif rng.random() < choice["specific_slot_share"]:
-                slots = calendar.slots[wave]
-                window_type, start = "slot", slots[int(rng.integers(len(slots)))]
+            if business:  # same-day parcels are midday parcels, so they ride the afternoon wave too
+                wave, window_type = business_wave(shipper), WindowType.OPENING_HOURS
+                start = starts[int(rng.integers(len(starts)))]
                 end = start + calendar.window
             else:
-                window_type, (start, end) = "wave", calendar.waves[wave]
+                if same_day or midday:
+                    wave = Wave.AFTERNOON
+                else:
+                    wave = Wave.MORNING if rng.random() < morning_odds else Wave.AFTERNOON
+                if rng.random() < choice["specific_slot_share"]:
+                    slots = calendar.slots[wave]
+                    window_type, start = WindowType.SLOT, slots[int(rng.integers(len(slots)))]
+                    end = start + calendar.window
+                else:
+                    window_type, (start, end) = WindowType.WAVE, calendar.waves[wave]
 
             orders.append(
                 {
                     "service_date": service_date,
                     "service_level": "same_day" if same_day else "next_day",
                     "priority": "high" if same_day else "normal",
-                    "customer_type": kind,
+                    "customer_type": recipient.value,
                     "shipper_id": shipper["shipper_id"],
                     "shipper_name": shipper["name"],
                     "origin_address": f"{shipper['name']} ({shipper['arrives_at_hub']})",
@@ -298,8 +304,8 @@ def generate_day(
                     "parcels": parcels,
                     "parcel_size": size,
                     "weight_kg": weight,
-                    "wave": wave,
-                    "window_type": window_type,
+                    "wave": wave.value,
+                    "window_type": window_type.value,
                     "window_start": at(service_date, start),
                     "window_end": at(service_date, end),
                     "notes": None,  # delivery notes are attached by issue #25

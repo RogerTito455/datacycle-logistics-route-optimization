@@ -7,7 +7,14 @@ from collections.abc import Sequence
 from datetime import date
 
 from llobregat_generator.orders import LOCAL_TZ, SIZES
-from llobregat_generator.rules import minutes, weekday_business_share, weekday_same_day_share, zone_shares
+from llobregat_generator.rules import (
+    Recipient,
+    Wave,
+    minutes,
+    weekday_business_share,
+    weekday_same_day_share,
+    zone_shares,
+)
 from llobregat_generator.zones import Polygon, in_polygons
 
 
@@ -33,14 +40,14 @@ def summarise(
         "orders": len(orders),
         "parcels": parcels,
         "parcels_per_stop": parcels / len(orders) if orders else 0.0,
-        "b2b_share": share(lambda o: o["customer_type"] == "B2B"),
+        "b2b_share": share(lambda o: o["customer_type"] == Recipient.BUSINESS),
         "same_day_share": share(lambda o: o["service_level"] == "same_day"),
         "same_day_orders": len(same_day),
         "same_day_after_cutoff": sum(
             t.date() != o["service_date"] or t.hour * 60 + t.minute >= cutoff
             for t, o in zip(registered, same_day, strict=True)
         ),
-        "morning_wave_share": share(lambda o: o["wave"] == "morning"),
+        "morning_wave_share": share(lambda o: o["wave"] == Wave.MORNING),
         "size_mix": {size: share(lambda o, s=size: o["parcel_size"] == s) for size in SIZES},
         "window_types": dict(Counter(o["window_type"] for o in orders)),
         "zone_share": {z["zone_id"]: by_zone[z["zone_id"]] / parcels if parcels else 0.0 for z in company["zones"]},
