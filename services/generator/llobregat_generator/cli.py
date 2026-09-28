@@ -12,6 +12,7 @@ from llobregat_generator import db, publish
 from llobregat_generator.config import Settings
 from llobregat_generator.orders import NoServiceError, generate_day
 from llobregat_generator.reference import load_reference
+from llobregat_generator.rules import SeedError
 from llobregat_generator.seeds import Seeds
 from llobregat_generator.storage import Bucket
 from llobregat_generator.summary import report, summarise
@@ -76,6 +77,9 @@ def main(argv: list[str] | None = None) -> int:
         return args.run(settings, args)
     except NoServiceError as exc:
         print(exc, file=sys.stderr)
+        return 2
+    except SeedError as exc:
+        print(f"the seeds cannot be used: {exc}", file=sys.stderr)
         return 2
     except psycopg.OperationalError as exc:
         print(

@@ -32,6 +32,10 @@ DEFAULT_HOURS = "offices"
 WINDOW_STEP_MIN = 30
 
 
+class SeedError(ValueError):
+    """The seeds ask for something the generator cannot do."""
+
+
 class Recipient(StrEnum):
     """Who receives an order. The value is what bronze.orders.customer_type holds."""
 
@@ -120,8 +124,18 @@ def zone_shares(company: dict) -> dict[str, float]:
 
 
 def business_zone_weights(shipper: dict, zone_share: dict[str, float]) -> dict[str, float]:
-    """The zones of company.json that the shipper's business parcels go to, each weighted by its share."""
-    return {z: zone_share[z] for z in shipper["business_recipient_zones"] if z in zone_share}
+    """The zones of company.json that the shipper's business parcels go to, each weighted by its share.
+
+    Raises SeedError for a shipper with business parcels and no such zone with a share above 0,
+    whose business parcels would have nowhere to go.
+    """
+    weights = {z: zone_share[z] for z in shipper["business_recipient_zones"] if zone_share.get(z, 0) > 0}
+    if not weights and shipper["business_share"] > 0:
+        raise SeedError(
+            f"{shipper['shipper_id']} sends business parcels, but none of its business zones "
+            f"{shipper['business_recipient_zones']} is a zone of company.json with a share above 0"
+        )
+    return weights
 
 
 def business_parcels_by_zone(seeds: Seeds) -> dict[str, float]:

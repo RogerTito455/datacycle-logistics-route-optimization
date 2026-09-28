@@ -38,6 +38,7 @@ from llobregat_generator.addresses import Address
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
     Recipient,
+    SeedError,
     Wave,
     WindowType,
     business_wave,
@@ -184,11 +185,20 @@ class Calendar:
         self.slots = {
             wave: list(range(start, end - self.window + 1, self.window)) for wave, (start, end) in self.waves.items()
         }
-        self.business_starts = {
-            (category, wave): business_window_starts(hours, span, self.window)
-            for category, hours in seeds.demand["business_opening_hours"].items()
-            for wave, span in self.waves.items()
-        }
+        self.opening_hours = seeds.demand["business_opening_hours"]
+
+    def business_starts(self, category: str, wave: Wave) -> list[int]:
+        """Starts of the windows a business recipient with these opening hours can get in the wave."""
+        hours = self.opening_hours.get(category)
+        if hours is None:
+            raise SeedError(f"demand.json has no business_opening_hours for {category!r}")
+        starts = business_window_starts(hours, self.waves[wave], self.window)
+        if not starts:
+            raise SeedError(
+                f"the {category} opening hours {hours} hold no {self.window}-minute window in the {wave} wave, "
+                "where the business parcels of their shippers are delivered"
+            )
+        return starts
 
 
 def local_datetime(day: date, minute_of_day: int) -> datetime:
@@ -242,7 +252,7 @@ def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str,
         midday = shipper["arrives_at_hub"] == MIDDAY_INJECTION
         same_day_odds = shipper["same_day_share"] / before_cutoff if midday else 0.0
         zones, zone_cdf = business_zones[shipper["shipper_id"]] if business else consumer_zones
-        starts = calendar.business_starts[stream.hours, business_wave(shipper)] if business else []
+        starts = calendar.business_starts(stream.hours, business_wave(shipper)) if business else []
         left = count
         while left > 0:
             parcels = draw(rng, stop_cdf[recipient]) + 1

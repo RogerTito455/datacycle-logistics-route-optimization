@@ -21,9 +21,13 @@ import jsonschema
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
     RELIEF_POOL,
+    SeedError,
     business_parcels_by_zone,
+    business_wave,
     business_window_starts,
+    business_zone_weights,
     delivery_waves,
+    hours_category,
     minutes,
     weekday_business_share,
     weekday_same_day_share,
@@ -314,12 +318,39 @@ def check_demand(seeds: Seeds) -> None:
 
     waves = delivery_waves(company)
     window = company["service_promise"]["promised_window_minutes"]
-    for name, hours in demand["business_opening_hours"].items():
+    opening_hours = demand["business_opening_hours"]
+    for name, hours in opening_hours.items():
         fits = [wave for wave, span in waves.items() if business_window_starts(hours, span, window)]
         check(bool(fits), f"{name} opening hours hold a {window}-minute window in: {', '.join(fits) or 'no wave'}")
+    # The generator's rules: a shipper's segment gives its recipients' opening hours, and its hand-over
+    # at the hub gives the wave its business parcels ride.
+    needed = sorted({(hours_category(s), business_wave(s)) for s in shippers if s["business_share"] > 0})
+    no_window = [
+        f"{category} in the {wave} wave"
+        for category, wave in needed
+        if category not in opening_hours or not business_window_starts(opening_hours[category], waves[wave], window)
+    ]
+    check(
+        not no_window,
+        f"every business shipper's recipients get a {window}-minute window in the wave of its parcels "
+        f"({len(needed)} opening hours and wave pairs); without one: {no_window or 'none'}",
+    )
 
-    business = business_parcels_by_zone(seeds)
     zone_share = zone_shares(company)
+    nowhere = []
+    for shipper in shippers:
+        try:
+            business_zone_weights(shipper, zone_share)
+        except SeedError:
+            nowhere.append(shipper["shipper_id"])
+    check(
+        not nowhere,
+        f"business shippers with a zone of company.json to deliver to; without one: {nowhere or 'none'}",
+    )
+    if nowhere:
+        print("  skip   business parcels by zone and first-attempt failure: fix the business zones first")
+        return
+    business = business_parcels_by_zone(seeds)
     over = [z for z in zone_share if business[z] > zone_share[z]]
     check(
         not over,

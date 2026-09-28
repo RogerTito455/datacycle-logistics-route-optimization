@@ -7,6 +7,8 @@ tolerances say how far the generator may drift before a test should fail.
 
 from __future__ import annotations
 
+import copy
+import dataclasses
 import io
 from collections import Counter
 from datetime import date, timedelta
@@ -20,6 +22,7 @@ from llobregat_generator.orders import LOCAL_TZ, SATURDAY_OPEN, SIZES, NoService
 from llobregat_generator.publish import ORDER_SCHEMA, orders_table
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
+    SeedError,
     business_parcels_by_zone,
     delivery_waves,
     hours_category,
@@ -102,6 +105,26 @@ def test_orders_add_up_to_the_day_total(week, saturday):
 def test_no_orders_on_sunday(seeds, pool):
     with pytest.raises(NoServiceError):
         generate_day(date(2026, 10, 11), SEED, seeds, pool)
+
+
+def broken_demand(seeds):
+    return dataclasses.replace(seeds, demand=copy.deepcopy(seeds.demand))
+
+
+def test_opening_hours_without_a_window_in_the_wave_stop_the_generator(seeds, pool):
+    # The office supplies shipper that injects at midday needs an afternoon window.
+    broken = broken_demand(seeds)
+    broken.demand["business_opening_hours"]["offices"] = {"open": "08:30", "close": "14:00", "lunch_break": None}
+    with pytest.raises(SeedError, match="offices opening hours .* no 120-minute window in the afternoon wave"):
+        generate_day(MONDAY, SEED, broken, pool)
+
+
+def test_business_parcels_without_a_known_zone_stop_the_generator(seeds, pool):
+    broken = broken_demand(seeds)
+    shipper = next(s for s in broken.demand["shippers"] if s["business_share"] == 1)
+    shipper["business_recipient_zones"] = ["Z99"]
+    with pytest.raises(SeedError, match=shipper["shipper_id"]):
+        generate_day(MONDAY, SEED, broken, pool)
 
 
 # Zones and business share ---------------------------------------------------------------------
