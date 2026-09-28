@@ -10,8 +10,11 @@ model's fields and its written assumptions:
    to keep the total.
 3. Parcels are grouped into stops by the parcels-per-stop distribution. A stop is one order: one
    shipper, one address, one parcel size.
-4. Zone: a business order goes to one of its shipper's business zones, in proportion to the zone
-   shares; consumer orders fill each zone up to its share of the day. Then a real address in it.
+4. Zone: the day's total is split over the zones by their share with the largest-remainder
+   method, as it is split over the shippers. A business shipper's parcels are split the same way
+   over its business zones, and consumer parcels fill what the business parcels left of each zone.
+   Each stop goes to a zone drawn in proportion to the parcels that zone still needs, so every zone
+   ends within a few parcels of its share. Then a real address in it.
 5. Registration time from the hourly curve. Only midday-injection shippers sell same-day, only
    before the 11:00 cut-off, with probability same_day_share / (share registered before 11:00);
    every other order is next-day and was registered the day before (for a Monday, on Saturday or
@@ -136,6 +139,8 @@ def draw(rng: np.random.Generator, cumulative: np.ndarray) -> int:
 
 def apportion(total: int, weights: Sequence[float]) -> list[int]:
     """Split total in proportion to weights; the largest remainders get the leftover units."""
+    if total == 0:
+        return [0] * len(weights)
     quotas = [total * w / sum(weights) for w in weights]
     counts = [int(q) for q in quotas]
     by_remainder = sorted(range(len(quotas)), key=lambda i: (counts[i] - quotas[i], i))
@@ -201,6 +206,25 @@ class Calendar:
         return starts
 
 
+def split(total: int, weights: Mapping[str, float]) -> dict[str, int]:
+    """Split total over the keys of weights with the largest-remainder method (apportion)."""
+    return dict(zip(weights, apportion(total, list(weights.values())), strict=True))
+
+
+def deal(rng: np.random.Generator, need: dict[str, int], parcels: int) -> str:
+    """A zone for a stop, drawn in proportion to the parcels each zone still needs.
+
+    Zones that still need at least the stop's parcels are preferred, so a large stop does not
+    overshoot a zone that needs only a few. The stop's parcels are taken off the zone's need.
+    """
+    zones = list(need)
+    whole = [need[z] if need[z] >= parcels else 0 for z in zones]
+    weights = whole if any(whole) else [max(0, need[z]) for z in zones]
+    zone = zones[draw(rng, cdf(weights))]
+    need[zone] -= parcels
+    return zone
+
+
 def local_datetime(day: date, minute_of_day: int) -> datetime:
     """The moment `minute_of_day` minutes after midnight of `day`, in Barcelona time."""
     return datetime.combine(day, time()).replace(tzinfo=LOCAL_TZ) + timedelta(minutes=minute_of_day)
@@ -218,18 +242,9 @@ def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str,
     missing = sorted(z for z in zone_share if not pool.get(z))
     if missing:
         raise ValueError(f"no addresses for zones {missing}; run load-reference first")
-
-    # Business parcels land in their shippers' zones; consumer parcels fill every zone up to its share.
-    business_zones: dict[str, tuple[list[str], np.ndarray]] = {}
-    business_expected = dict.fromkeys(zone_share, 0.0)
-    for stream, count in zip(streams, counts, strict=True):
-        if stream.recipient is Recipient.BUSINESS:
-            weights = business_zone_weights(stream.shipper, zone_share)
-            business_zones[stream.shipper["shipper_id"]] = (list(weights), cdf(list(weights.values())))
-            for zone, weight in weights.items():
-                business_expected[zone] += count * weight / sum(weights.values())
-    consumer_left = [max(0.0, zone_share[z] * total - business_expected[z]) for z in zone_share]
-    consumer_zones = (list(zone_share), cdf(consumer_left if sum(consumer_left) > 0 else list(zone_share.values())))
+    day_by_zone = split(total, zone_share)
+    business_by_zone = dict.fromkeys(zone_share, 0)
+    consumer_need: dict[str, int] = {}
 
     calendar = Calendar(seeds)
     hourly = demand["hourly_registration_share"]
@@ -245,13 +260,23 @@ def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str,
     monday = DAY_NAMES[service_date.weekday()] == "Mon"
 
     orders = []
-    for stream, count in zip(streams, counts, strict=True):
+    # Business streams first: their parcels are tied to their shippers' zones, and consumer parcels
+    # then fill what the business parcels left of each zone's share.
+    business_first = sorted(zip(streams, counts, strict=True), key=lambda sc: sc[0].recipient is Recipient.CONSUMER)
+    for stream, count in business_first:
         shipper, recipient = stream.shipper, stream.recipient
         business = recipient is Recipient.BUSINESS
+        if business:
+            need = split(count, business_zone_weights(shipper, zone_share))
+        else:
+            if not consumer_need:
+                consumer_total = sum(c for s, c in zip(streams, counts, strict=True) if s.recipient is recipient)
+                room = {z: max(0, day_by_zone[z] - business_by_zone[z]) for z in zone_share}
+                consumer_need.update(split(consumer_total, room if any(room.values()) else zone_share))
+            need = consumer_need
         size_cdf = cdf([shipper["parcel_mix"][size] for size in SIZES])
         midday = shipper["arrives_at_hub"] == MIDDAY_INJECTION
         same_day_odds = shipper["same_day_share"] / before_cutoff if midday else 0.0
-        zones, zone_cdf = business_zones[shipper["shipper_id"]] if business else consumer_zones
         starts = calendar.business_starts(stream.hours, business_wave(shipper)) if business else []
         left = count
         while left > 0:
@@ -261,7 +286,9 @@ def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str,
             parcels = min(parcels, left)
             left -= parcels
 
-            zone_id = zones[draw(rng, zone_cdf)]
+            zone_id = deal(rng, need, parcels)
+            if business:
+                business_by_zone[zone_id] += parcels
             address = pool[zone_id][int(rng.integers(len(pool[zone_id])))]
             size = SIZES[draw(rng, size_cdf)]
             low, high = WEIGHT_KG[size]

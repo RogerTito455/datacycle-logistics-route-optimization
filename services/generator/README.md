@@ -115,7 +115,7 @@ orders; `numpy` is pinned for that reason.
 | Shippers | The total is split by `share_of_daily_parcels`, then into consumer and business parcels by `business_share` | `shippers` |
 | Saturday | Business parcels only for shops and healthcare (pharmacies); consumer parcels are scaled up to keep the total | assumptions |
 | Stops | Parcels are grouped into orders by `parcels_per_stop`; a "4+" stop gets 4 parcels plus a geometric extra with mean 0.4 (consumer) or 1.5 (business). One order is one stop: one shipper, one address, one size | `parcels_per_stop`, assumptions |
-| Zone | A business order goes to one of its shipper's `business_recipient_zones`, weighted by zone share; consumer orders fill each zone up to its share of the day | `company.json`, assumptions |
+| Zone | The day's parcels are split over the zones by `share_of_daily_parcels` with the largest-remainder method, as over the shippers. A business shipper's parcels are split the same way over its `business_recipient_zones`; consumer parcels fill what the business parcels left of each zone. Each stop goes to a zone drawn in proportion to the parcels that zone still needs, preferring zones that need the whole stop, so every zone ends within a few parcels of its share | `company.json`, assumptions |
 | Address | A real address of that zone, uniformly | Open Data BCN, ICGC |
 | Size | By the shipper's `parcel_mix` | `shippers` |
 | Registration | Hour from `hourly_registration_share`, minute and second uniform | `hourly_registration_share` |
