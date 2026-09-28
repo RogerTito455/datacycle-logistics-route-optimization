@@ -4,9 +4,11 @@
    Barcelona district boundaries (Open Data BCN, CC BY 4.0) and the municipal boundaries at
    1:50,000 (ICGC, CC BY 4.0), simplified to about 5 m. The tests and `llobregat-generator summary`
    use it to check that orders lie inside their zone.
-2. tests/fixtures/addresses_sample.csv: 40 real addresses per zone drawn from the full address
-   pool (taula-direle and carrerer from Open Data BCN, Adreces simplificat from ICGC), so the tests
-   generate orders without the database or the downloads.
+2. tests/fixtures/: 40 real addresses per zone drawn from the full address pool, written as their
+   registers publish them, so the tests run the loader's own reading and zone assignment on them
+   and generate orders without the database or the downloads: taula_direle_sample.csv and
+   carrerer_sample.csv (Open Data BCN) for Barcelona, icgc_sample.csv (ICGC Adreces simplificat,
+   the columns the loader reads) for the five towns.
 
 Usage, from services/generator:
     uv run python scripts/build_fixtures.py
@@ -38,7 +40,7 @@ MUNICIPALITIES = addresses.Download(
     "divisions-administratives-v2r2-municipis-50000-20260120.json",
     "divisions-administratives-v2r2-municipis-50000-20260120.json",
 )
-SAMPLE_PATH = Path(__file__).resolve().parents[1] / "tests" / "fixtures" / "addresses_sample.csv"
+FIXTURES = Path(__file__).resolve().parents[1] / "tests" / "fixtures"
 SAMPLE_PER_ZONE = 40
 SIMPLIFY_M = 5.0
 M_PER_DEG_LAT = 110_574.0
@@ -118,24 +120,40 @@ def build_boundaries(seeds: Seeds, cache_dir: Path) -> dict:
     }
 
 
-def build_sample(seeds: Seeds, cache_dir: Path, boundaries: dict) -> list[addresses.Address]:
+def published(path: Path, columns: dict[str, str]) -> list[dict]:
+    """The rows of a register as published, with the columns the loader reads."""
+    with path.open(encoding="utf-8", newline="") as f:
+        return [{field: row[field] for field in columns} for row in csv.DictReader(f)]
+
+
+def build_sample(seeds: Seeds, cache_dir: Path, boundaries: dict) -> dict[str, list[dict]]:
+    """40 addresses per zone of the generator's pool, as rows of the files they come from."""
     zone_map = ZoneMap.from_company(seeds.company)
-    streets = addresses.read_carrerer(addresses.fetch_download(addresses.CARRERER, cache_dir))
+    direle = addresses.fetch_download(addresses.TAULA_DIRELE, cache_dir)
+    carrerer = addresses.fetch_download(addresses.CARRERER, cache_dir)
+    subset = addresses.icgc_subset(addresses.fetch_icgc(cache_dir), zone_map)
+    names = {s["street_code"]: s["official_name"] for s in addresses.read_carrerer(carrerer)}
     pool = addresses.build_pool(
-        addresses.read_taula_direle(addresses.fetch_download(addresses.TAULA_DIRELE, cache_dir)),
-        {s["street_code"]: s["official_name"] for s in streets},
-        addresses.read_icgc(addresses.fetch_icgc(cache_dir), zone_map)[0],
-        zone_map,
+        addresses.read_taula_direle(direle), names, addresses.read_icgc_subset(subset)[0], zone_map
     )
     shapes = {f["properties"]["zone_id"]: f["geometry"]["coordinates"] for f in boundaries["features"]}
     rng = np.random.default_rng(0)
-    sample = []
+    picked = set()
     for zone_id, zone_pool in pool.items():
         inside = sum(in_polygons(shapes[zone_id], a.lon, a.lat) for a in zone_pool)
         print(f"  {zone_id}: {len(zone_pool)} addresses, {inside / len(zone_pool):.2%} inside the simplified boundary")
-        picks = rng.choice(len(zone_pool), SAMPLE_PER_ZONE, replace=False)
-        sample += [zone_pool[i] for i in sorted(picks)]
-    return sample
+        picked |= {zone_pool[i].address_ref for i in rng.choice(len(zone_pool), SAMPLE_PER_ZONE, replace=False)}
+
+    def direle_ref(row: dict) -> str:
+        return addresses.barcelona_ref({addresses.TAULA_DIRELE_COLUMNS[k]: v for k, v in row.items()})
+
+    direle_rows = [r for r in published(direle, addresses.TAULA_DIRELE_COLUMNS) if direle_ref(r) in picked]
+    codes = {r["codi_carrer"] for r in direle_rows}
+    return {
+        "taula_direle_sample.csv": direle_rows,
+        "carrerer_sample.csv": [r for r in published(carrerer, addresses.CARRERER_COLUMNS) if r["codi_via"] in codes],
+        "icgc_sample.csv": [r for r in published(subset, addresses.ICGC_COLUMNS) if r["idadrvia"] in picked],
+    }
 
 
 def main() -> None:
@@ -145,13 +163,12 @@ def main() -> None:
     BOUNDARIES_PATH.parent.mkdir(parents=True, exist_ok=True)
     BOUNDARIES_PATH.write_text(json.dumps(boundaries, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"wrote {BOUNDARIES_PATH} ({BOUNDARIES_PATH.stat().st_size / 1e3:.0f} kB)")
-    sample = build_sample(seeds, settings.cache_dir, boundaries)
-    fields = ["address_ref", "zone_id", "street_address", "postcode", "municipality", "lat", "lon"]
-    with SAMPLE_PATH.open("w", encoding="utf-8", newline="") as f:
-        writer = csv.DictWriter(f, fields, lineterminator="\n")
-        writer.writeheader()
-        writer.writerows({field: getattr(a, field) for field in fields} for a in sample)
-    print(f"wrote {SAMPLE_PATH} ({len(sample)} addresses)")
+    for name, rows in build_sample(seeds, settings.cache_dir, boundaries).items():
+        with (FIXTURES / name).open("w", encoding="utf-8", newline="") as f:
+            writer = csv.DictWriter(f, list(rows[0]), lineterminator="\n")
+            writer.writeheader()
+            writer.writerows(rows)
+        print(f"wrote {FIXTURES / name} ({len(rows)} rows)")
 
 
 if __name__ == "__main__":

@@ -1,0 +1,311 @@
+codi_via,codi_carrer_ine,tipus_via,nom_curt,nom_oficial,nre_min,nre_max
+279407,03164,C,Repartidor,Carrer del Repartidor,0001,0063
+127704,01462,C,Floridablanca,Carrer de Floridablanca,0001,0154
+701441,05769,Av,Av Parc Logístic,Avinguda del Parc Logístic,0002,0040
+234001,02641,Pg,Pg Olímpic,Passeig Olímpic,0001,0020
+361202,04074,C,Viladecavalls,Carrer de Viladecavalls,0001,0101
+314406,03529,Ctra,Ctra S Creu Sarrià,Carretera de Santa Creu d'Olorda a Sarrià,0001,0530
+108608,01228,Ptge,Ptge Elisabets,Passatge d'Elisabets,0001,0017
+188200,02135,C,Mestre Dalmau,Carrer del Mestre Dalmau,0001,0030
+034807,00389,C,Baró de la Barre,Carrer del Baró de la Barre,0001,0076
+335803,03773,C,Tigre,Carrer del Tigre,0001,0035
+083904,00948,C,Coll i Vehí,Carrer de Coll i Vehí,0001,0145
+258702,02928,C,Pizarro,Carrer de Pizarro,0001,0014
+119003,01369,Pg,Pg Fabra i Puig,Passeig de Fabra i Puig,0069,0484
+187105,02122,C,Madrazo,Carrer dels Madrazo,0001,0163
+100107,01122,C,Deu i Mata,Carrer de Deu i Mata,0001,0158
+230000,02594,Pg,Pg Mare Déu Coll,Passeig de la Mare de Déu del Coll,0001,0260
+004500,00047,C,Aiguafreda,Carrer d'Aiguafreda,0001,0030
+229409,02588,C,Nou Pins,Carrer dels Nou Pins,0001,0130
+150852,01710,Gru,Gru Vivendes Pau,Grup Vivendes la Pau,0001,0103
+101507,01140,C,Doctor Coll,Carrer del Doctor Coll,0001,0027
+198702,02249,Av,Av F Ferrer Guàrdi,Avinguda de Francesc Ferrer i Guàrdia,0001,0044
+349706,03934,C,Comte d'Urgell,Carrer del Comte d'Urgell,0001,0300
+153806,01743,Ptge,Ptge Gutenberg,Passatge de Gutenberg,0001,0007
+278903,03160,C,Remei,Carrer del Remei,0001,0045
+255704,02894,C,Pinar del Río,Carrer de Pinar del Río,0001,0076
+087009,00977,C,Comte Borrell,Carrer del Comte Borrell,0001,0342
+014107,00150,C,Amílcar,Carrer d'Amílcar,0001,0233
+254803,02884,C,Peu de la Creu,Carrer del Peu de la Creu,0001,0032
+131304,01498,Ptge,Ptge Foret,Passatge de Foret,0001,0040
+065200,00726,C,Cardenal Reig,Carrer del Cardenal Reig,0001,0061
+111908,01275,Av,Av Escolapi Càncer,Avinguda d'Escolapi Càncer,0001,0198
+027404,00305,Drec,Drec Vallvidrera,Drecera de Vallvidrera,0001,0058
+144306,01641,C,Pi i Margall,Carrer de Pi i Margall,0001,0122
+358004,04038,C,Vesuvi,Carrer del Vesuvi,0001,0047
+351300,03951,C,Valladolid,Carrer de Valladolid,0001,0054
+701518,05847,C,Port de Rotterdam,Carrer del Port de Rotterdam,0001,0011
+341409,03833,C,Torres,Carrer de les Torres,0001,0107
+201909,02281,Ptge,Ptge Martras,Passatge de Martras,0001,0029
+330708,03715,C,Taquígraf Garriga,Carrer del Taquígraf Garriga,0001,0195
+143904,01637,Rda,Rda General Mitre,Ronda del General Mitre,0001,0267
+324002,03634,C,Serrallonga,Carrer de Serrallonga,0001,0030
+090502,01015,C,Còrsega,Carrer de Còrsega,0045,0713
+286504,03241,C,Roger de Flor,Carrer de Roger de Flor,0001,0338
+701323,05650,C,Joan Comorera,Carrer de Joan Comorera,0001,0018
+186408,02113,C,Llobera,Carrer de Llobera,0001,0142
+700130,04468,C,Longitudinal 10,Carrer Longitudinal 10,0031,0066
+050905,00558,C,Ventura Plaja,Carrer de Ventura Plaja,0001,0062
+025001,00279,C,Arquímedes,Carrer d'Arquímedes,0001,0068
+251102,02849,C,Perill,Carrer del Perill,0001,0061
+016408,00181,C,Àngels,Carrer dels Àngels,0001,0024
+700833,05158,Pl,Pl Joan Cornudella,Plaça de Joan Cornudella,0001,0028
+030409,00341,C,Bac de Roda,Carrer de Bac de Roda,0001,0211
+240208,02712,C,Pàdua,Carrer de Pàdua,0001,0143
+028509,00318,C,Ave Maria,Carrer de l'Ave Maria,0001,0004
+097308,01093,C,Dalmases,Carrer de Dalmases,0016,0082
+135101,01540,C,Font Florida,Carrer de la Font Florida,0001,0131
+700800,05125,Camí,Camí Salze,Camí del Salze,0001,0105
+700656,04984,Camí,Camí Fredolic,Camí del Fredolic,0001,0012
+001309,00014,C,Acàcies,Carrer de les Acàcies,0001,0073
+224405,02533,C,Murtra,Carrer de la Murtra,0001,0181
+057802,00633,C,Camp Arriassa,Carrer del Camp Arriassa,0042,0137
+339203,03807,C,Torras i Pujalt,Carrer de Torras i Pujalt,0001,0069
+148409,01682,Ctra,Ctra Sant Cugat,Carretera de Sant Cugat,0001,0383
+134801,01536,C,Freser,Carrer del Freser,0001,0240
+115603,01317,C,Espronceda,Carrer d'Espronceda,0001,0417
+099303,01115,C,Desfar,Carrer de Desfar,0001,0061
+219303,02476,Ptge,Ptge Montornès,Passatge de Montornès,0001,0026
+296257,03343,Rier,Rier Sant Andreu,Riera de Sant Andreu,0001,0111
+700963,05287,Ptge,Ptge Malacca,Passatge de Malacca,0001,0020
+007407,00076,C,Alcolea,Carrer d'Alcolea,0001,0167
+031300,00350,C,Bailèn,Carrer de Bailèn,0001,0244
+185303,02102,Ptge,Ptge Llívia,Passatge de Llívia,0001,0084
+283404,03210,C,Rita Bonnat,Carrer de Rita Bonnat,0001,0013
+088001,00987,C,Comtes Bell-lloc,Carrer dels Comtes de Bell-lloc,0041,0216
+018505,00211,C,Aragó,Carrer d'Aragó,0001,0661
+258509,02926,C,Pitàgores,Carrer de Pitàgores,0001,0045
+192900,02183,C,Manuel Angelon,Carrer de Manuel Angelon,0001,0028
+161407,01825,C,Indústria,Carrer de la Indústria,0001,0388
+144601,01644,Av,Av Diagonal,Avinguda Diagonal,0001,0716
+187579,02127,C,Maduixer,Carrer del Maduixer,0001,0047
+231502,02613,C,Numància,Carrer de Numància,0001,0215
+307808,03460,C,Sant Miquel,Carrer de Sant Miquel,0001,0137
+071905,00799,C,Castanys,Carrer de Castanys,0001,0035
+008705,00089,C,Alfons el Magnànim,Carrer d'Alfons el Magnànim,0001,0131
+199206,02254,C,Marquès de la Mina,Carrer del Marquès de la Mina,0001,0021
+701694,06026,C,Cal Cisó,Carrer de Cal Cisó,0016,0088
+086200,00970,C,Concili de Trento,Carrer del Concili de Trento,0001,0344
+239209,02700,C,Pare Laínez,Carrer del Pare Laínez,0001,0057
+353000,03980,C,Vallfogona,Carrer de Vallfogona,0001,0042
+199400,02256,C,Marquès Mulhacén,Carrer del Marquès de Mulhacén,0001,0057
+313006,03514,C,Santa Anna,Carrer de Santa Anna,0001,0039
+160007,01809,Ctra,Ctra Església,Carretera de l'Església,0001,0108
+701869,06202,C,Irena Sendler,Carrer d'Irena Sendler,0001,0028
+700661,04989,C,Joan Miró,Carrer de Joan Miró,0001,0048
+112208,01278,C,Escudellers,Carrer d'Escudellers,0001,0071
+318305,03569,C,Santa Rosalia,Carrer de Santa Rosalia,0001,0163
+322200,03615,C,Segur,Carrer de Segur,0001,0088
+194202,02198,C,Mar,Carrer del Mar,0001,0146
+027700,00309,C,Atlàntida,Carrer de l'Atlàntida,0001,0115
+310507,03487,Av,Av St Ramon Nonat,Avinguda de Sant Ramon Nonat,0001,0040
+023403,00263,C,Aribau,Carrer d'Aribau,0001,0330
+356803,04025,C,Verdi,Carrer de Verdi,0001,0351
+058543,00643,C,Can Basseda,Carrer de Can Basseda,0001,0051
+701489,05818,C,Transversal 9,Carrer Transversal 9,0001,0087
+109101,01238,C,Enamorats,Carrer dels Enamorats,0001,0156
+247309,02807,C,Pasteur,Carrer de Pasteur,0001,0074
+259909,02942,C,Plantada,Carrer de Plantada,0001,0048
+167709,01911,C,Joaquín Costa,Carrer de Joaquín Costa,0001,0072
+097829,01099,C,Danubi,Carrer del Danubi,0001,0045
+104709,01183,C,Dominics,Carrer dels Dominics,0001,0035
+341704,03838,C,Torres de Marina,Carrer de Torres de Marina,0001,0031
+331700,03724,C,Tàrrega,Carrer de Tàrrega,0001,0082
+142300,01620,Av,Av Gaudí,Avinguda de Gaudí,0001,0087
+207202,02342,C,Mejía Lequerica,Carrer de Mejía Lequerica,0001,0055
+062609,00698,Av,Av Icària,Avinguda d'Icària,0090,0219
+359700,04058,C,Vidal i Guasch,Carrer de Vidal i Guasch,0001,0099
+235809,02660,Pl,Pl Orfila,Plaça d'Orfila,0001,0013
+282208,03196,C,Riera Baixa,Carrer de la Riera Baixa,0001,0026
+040300,00448,C,Berlín,Carrer de Berlín,0001,0107
+118306,01357,C,Europa,Carrer d'Europa,0001,0052
+700059,04401,Ctra,Ctra Vallvi Planes,Carretera de Vallvidrera a les Planes,0001,0145
+090900,01018,C,Corders,Carrer dels Corders,0001,0018
+161000,01820,C,Inca,Carrer d'Inca,0001,0011
+701911,06244,Plta,Plta Sense Nom,Placeta Sense Nom (701911),0001,0005
+201807,02280,C,Martorelles,Carrer de Martorelles,0001,0065
+168100,01916,Ptge,Ptge Joaquim Rita,Passatge de Joaquim Rita,0001,0027
+094208,01055,Pla,Pla Seu,Pla de la Seu,0001,0003
+102500,01156,C,Dr Joaq Albarrán,Carrer del Doctor Joaquín Albarrán,0001,0039
+227200,02562,C,Nena Casas,Carrer de la Nena Casas,0001,0087
+294874,03329,Pg,Pg Salvat Papassei,Passeig de Salvat Papasseit,0001,0042
+061402,00684,C,Canuda,Carrer de la Canuda,0001,0047
+194155,02197,Parc,Parc F Meca,Parc Forestal de la Meca,0001,0084
+336001,03774,Pg,Pg Til·lers,Passeig dels Til·lers,0001,0028
+218300,02466,C,Montsió,Carrer de Montsió,0001,0017
+116901,01343,C,Esteve Terradas,Carrer d'Esteve Terradas,0001,0079
+367901,04145,C,Watt,Carrer de Watt,0001,0034
+027007,00299,C,Assaonadors,Carrer dels Assaonadors,0001,0040
+032404,00365,C,Baliarda,Carrer de Baliarda,0001,0114
+140804,01606,C,Garigliano,Carrer de Garigliano,0001,0058
+111704,01272,C,Escòcia,Carrer d'Escòcia,0001,0139
+081603,00923,C,Clot,Carrer del Clot,0001,0264
+197302,02232,C,Marina,Carrer de la Marina,0001,0380
+037703,00420,C,Betlem,Carrer de Betlem,0001,0061
+311408,03497,C,Sant Elm,Carrer de Sant Elm,0001,0096
+193006,02184,C,Manuel Arnús,Carrer de Manuel Arnús,0001,0101
+226706,02558,Ptge,Ptge Negociant,Passatge del Negociant,0001,0040
+208908,02362,Ptge,Ptge Mercat,Passatge del Mercat,0001,0016
+248200,02820,Ptge,Ptge Pearson,Passatge de Pearson,0001,0026
+701523,05852,C,Port de Casablanca,Carrer del Port de Casablanca,0001,0021
+192207,02176,C,Manlleu,Carrer de Manlleu,0001,0018
+335100,03762,Pl,Pl Tetuan,Plaça de Tetuan,0001,0049
+038604,00432,C,Benavent,Carrer de Benavent,0001,0051
+255908,02896,C,Pineda,Carrer de Pineda,0001,0012
+058102,00636,C,Campoamor,Carrer de Campoamor,0001,0079
+279203,03162,C,Renart,Carrer de Renart,0001,0068
+289105,03266,C,Rosselló,Carrer del Rosselló,0001,0569
+701478,05806,C,Longitudinal 3,Carrer Longitudinal 3,0029,0094
+089707,01007,C,Constitució,Carrer de la Constitució,0001,0196
+103400,01169,C,Doctor Rizal,Carrer del Doctor Rizal,0001,0023
+341307,03832,C,Josep Torres,Carrer de Josep Torres,0001,0028
+306306,03446,C,Sant Lluís,Carrer de Sant Lluís,0001,0107
+169103,01926,C,Jorge Manrique,Carrer de Jorge Manrique,0001,0031
+202209,02287,Ptge,Ptge Mas de Roda,Passatge de Mas de Roda,0001,0041
+191204,02166,C,Mallorca,Carrer de Mallorca,0001,0678
+101700,01143,C,Doctor Ferran,Carrer del Doctor Ferran,0001,0063
+337208,03787,Ptge,Ptge Toledo,Passatge de Toledo,0001,0022
+138100,01575,C,Gabriel y Galán,Carrer de Gabriel y Galán,0001,0028
+354455,04000,C,Escar,Carrer de l'Escar,0001,0026
+544643,04340,Moll,Moll Pescadors,Moll de Pescadors,0001,0002
+325005,03644,C,Sicília,Carrer de Sicília,0089,0414
+077107,00867,C,Turó Trinitat,Carrer del Turó de la Trinitat,0001,0111
+299903,03380,C,Sant Eusebi,Carrer de Sant Eusebi,0001,0072
+270901,03073,C,Pujades,Carrer de Pujades,0001,0464
+242407,02735,C,Paloma,Carrer de la Paloma,0001,0030
+344101,03866,Trav,Trav Gràcia,Travessera de Gràcia,0001,0451
+308709,03469,Rda,Rda Sant Pau,Ronda de Sant Pau,0001,0080
+120308,01383,C,Francesc Carbonell,Carrer de Francesc Carbonell,0001,0058
+701352,05679,C,Gaziel,Carrer de Gaziel,0001,0065
+322754,03621,C,Sena,Carrer del Sena,0001,0039
+095732,01074,Csta,Csta Bruc,Costa del Bruc,0001,0025
+162603,01839,C,Juan M Gervilla,Carrer de Juan Miguel Gervilla Valladolid,0001,0016
+186102,02110,C,Llorens i Barba,Carrer de Llorens i Barba,0001,0094
+157308,01778,Ctra,Ctra Hta Cerdany,Carretera d'Horta a Cerdanyola,0001,0197
+241404,02724,C,Palaudàries,Carrer de Palaudàries,0001,0031
+062507,00697,C,Capità Arenas,Carrer del Capità Arenas,0001,0070
+282106,03195,C,Riera Alta,Carrer de la Riera Alta,0001,0073
+038502,00431,C,Bellver,Carrer de Bellver,0001,0024
+268003,03038,C,Provença,Carrer de Provença,0001,0598
+183002,02077,C,Lluís Sagnier,Carrer de Lluís Sagnier,0001,0080
+196106,02219,C,Maria Auxiliadora,Carrer de Maria Auxiliadora,0001,0029
+327102,03677,C,Solà,Carrer de Solà,0001,0043
+254304,02879,C,Petons,Carrer dels Petons,0001,0036
+346800,03894,Rbla,Rbla Poblenou,Rambla del Poblenou,0001,0193
+073707,00822,C,Castella,Carrer de Castella,0001,0062
+701476,05804,C,Longitudinal 1,Carrer Longitudinal 1,0001,0094
+316208,03547,C,Santa Joana d'Arc,Carrer de Santa Joana d'Arc,0001,0073
+199807,02260,C,Marquès Santillana,Carrer del Marquès de Santillana,0001,0020
+060308,00673,C,Canonge Pibernat,Carrer del Canonge Pibernat,0001,0041
+365702,04121,Av,Av M Déu Montserra,Avinguda de la Mare de Déu de Montserrat,0001,0288
+010809,00112,C,Almirall Barceló,Carrer de l'Almirall Barceló,0001,0035
+280100,03172,C,Reus,Carrer de Reus,0001,0031
+068900,00763,C,Cartagena,Carrer de Cartagena,0149,0403
+312400,03507,C,Sants,Carrer de Sants,0001,0445
+352507,03974,Pg,Pg Vall d'Hebron,Passeig de la Vall d'Hebron,0001,0320
+348306,03915,Pg,Pg Turull,Passeig de Turull,0001,0068
+359506,04056,C,Vic,Carrer de Vic,0001,0028
+351708,03957,C,Pablo Iglesias,Carrer de Pablo Iglesias,0001,0122
+287201,03247,Av,Av Roma,Avinguda de Roma,0001,0159
+011109,00116,C,Miquel Pedrola,Carrer de Miquel Pedrola i Alegre,0001,0012
+225500,02545,C,Nàpols,Carrer de Nàpols,0001,0363
+356202,04018,C,Veneçuela,Carrer de Veneçuela,0001,0173
+282401,03199,C,Riera Sant Miquel,Carrer de la Riera de Sant Miquel,0001,0079
+266405,03017,Rbla,Rbla Prim,Rambla de Prim,0006,0302
+149707,01697,C,Gratallops,Carrer de Gratallops,0001,0046
+230601,02602,C,Mare Déu de Port,Carrer de la Mare de Déu de Port,0001,0415
+227800,02569,C,Nicaragua,Carrer de Nicaragua,0001,0157
+183603,02081,C,Llacuna,Carrer de la Llacuna,0001,0176
+178308,02028,C,Lepant,Carrer de Lepant,0121,0440
+332204,03730,C,Tavern,Carrer de Tavern,0001,0082
+107300,01213,C,Eduardo Conde,Carrer d'Eduardo Conde,0001,0052
+040800,00453,C,Bernat Bransi,Carrer de Bernat Bransi,0001,0062
+087100,00978,C,Comte de Güell,Carrer del Comte de Güell,0003,0061
+365305,04116,C,M Déu Desemparats,Carrer de la Mare de Déu dels Desemparats,0001,0025
+185507,02104,C,Llobet Vall-lloser,Carrer de Llobet i Vall-llosera,0001,0061
+242906,02741,C,Pallars,Carrer de Pallars,0063,0511
+309100,03473,C,Sant Pere,Carrer de Sant Pere,0001,0020
+375706,04192,C,Número 60,Carrer Número 60 Zona Franca,0001,0030
+004409,00046,C,Aiguablava,Carrer d'Aiguablava,0001,0145
+243909,02752,C,Pantà de Tremp,Carrer del Pantà de Tremp,0001,0076
+171604,01955,C,Joan Blanques,Carrer de Joan Blanques,0001,0074
+172403,01963,C,Joan Güell,Carrer de Joan Güell,0001,0254
+032007,00360,C,Balcells,Carrer de Balcells,0001,0050
+025205,00281,C,Arquit Martorell,Carrer de l'Arquitecte Martorell,0001,0005
+366909,04134,Ctra,Ctra Vista-rica,Carretera de Vista-rica,0001,0065
+173905,01978,C,Jocs Florals,Carrer dels Jocs Florals,0001,0190
+069302,00769,Pg,Pg Cantunis,Passeig de Cantunis,0001,0123
+226502,02555,C,Navata,Carrer de Navata,0001,0035
+162002,01831,Av,Av J Tarradellas,Avinguda de Josep Tarradellas,0001,0161
+217104,02450,C,Muntanya,Carrer de la Muntanya,0001,0125
+301700,03397,C,Sant Gabriel,Carrer de Sant Gabriel,0001,0024
+195500,02213,C,Margarit,Carrer de Margarit,0001,0116
+211006,02385,C,Miquel Boera,Carrer de Miquel Boera,0001,0020
+142708,01625,C,Gelabert,Carrer de Gelabert,0001,0046
+344000,03865,Trav,Trav Dalt,Travessera de Dalt,0001,0138
+168406,01919,C,Jorba,Carrer de Jorba,0001,0070
+092600,01035,C,Corts,Carrer de les Corts,0001,0046
+296202,03342,C,Gran Sant Andreu,Carrer Gran de Sant Andreu,0001,0517
+246000,02773,C,Parlament,Carrer del Parlament,0001,0063
+013400,00143,C,Amargós,Carrer de n'Amargós,0001,0022
+076807,00863,C,Sardenya,Carrer de Sardenya,0029,0563
+343903,03864,Trav,Trav Corts,Travessera de les Corts,0001,0379
+094300,01056,C,Cristóbal de Moura,Carrer de Cristóbal de Moura,0001,0259
+051908,00569,C,Burgos,Carrer de Burgos,0002,0074
+095608,01071,C,Costa,Carrer de la Costa,0001,0088
+330504,03713,C,Tapioles,Carrer de Tapioles,0001,0079
+700674,05002,C,Amsterdam,Carrer d'Amsterdam,0001,0051
+095700,01072,Ptge,Ptge Costa Putxet,Passatge de la Costa del Putxet,0001,0008
+208205,02352,C,Menorca,Carrer de Menorca,0001,0226
+003508,00035,Ctra,Ctra Aigües,Carretera de les Aigües,0001,0406
+266904,03022,C,Princesa,Carrer de la Princesa,0001,0061
+700087,04429,C,Drs Trias i Pujol,Carrer dels Doctors Trias i Pujol,0001,0012
+316707,03553,C,Santa Madrona,Carrer de Santa Madrona,0001,0028
+180150,02047,C,Lohengrin,Carrer de Lohengrin,0001,0010
+317903,03565,C,Santa Otília,Carrer de Santa Otília,0001,0058
+153704,01742,C,Gutenberg,Carrer de Gutenberg,0001,0032
+149300,01693,C,Granollers,Carrer de Granollers,0001,0133
+701333,05660,Pl,Pl Sibil·les,Plaça de les Sibil·les,0001,0004
+701356,05683,C,Mérida,Carrer de Mérida,0001,0023
+054906,00603,C,Calatrava,Carrer de Calatrava,0001,0098
+253902,02875,C,Perú,Carrer del Perú,0002,0297
+206505,02335,C,Major de Sarrià,Carrer Major de Sarrià,0001,0242
+339906,03818,C,Torre dels Pardals,Carrer de la Torre dels Pardals,0001,0096
+197200,02231,C,Marín,Carrer de Marín,0001,0030
+700025,04373,Pg,Pg Josep Carner,Passeig de Josep Carner,0026,0068
+701334,05661,C,Fernando Pessoa,Carrer de Fernando Pessoa,0001,0072
+367504,04141,C,Doctor Trueta,Carrer del Doctor Trueta,0001,0236
+701278,05605,Pg,Pg Taulat,Passeig del Taulat,0092,0293
+029104,00325,C,Jiménez i Iglesias,Carrer de Jiménez i Iglesias,0001,0017
+700685,05014,Pl,Pl Margarida Xirgu,Plaça de Margarida Xirgu,0001,0012
+288703,03263,C,Rosalía de Castro,Carrer de Rosalía de Castro,0001,0067
+197608,02235,C,Torrent C Mariner,Carrer del Torrent de Can Mariner,0001,0053
+315307,03538,C,Santa Eulàlia,Carrer de Santa Eulàlia,0001,0036
+216906,02448,C,Montalegre,Carrer de Montalegre,0001,0010
+701514,05843,C,Port de Lagos,Carrer del Port de Lagos,0001,0040
+028000,00313,Via,Via Augusta,Via Augusta,0001,0425
+199909,02261,C,Marquès Sentmenat,Carrer del Marquès de Sentmenat,0001,0099
+353306,03983,C,Vallhonrat,Carrer de Vallhonrat,0001,0030
+089004,00998,C,Consell de Cent,Carrer del Consell de Cent,0001,0631
+244800,02762,C,Paraguai,Carrer del Paraguai,0001,0052
+130607,01492,C,Fontanet,Carrer dels Fontanet,0001,0047
+260602,02951,C,Plutó,Carrer de Plutó,0001,0047
+701748,06080,C,Francesc Pedra,Carrer de Francesc Pedra,0001,0027
+100800,01132,C,Diputació,Carrer de la Diputació,0001,0483
+176404,02011,C,Llenguadoc,Carrer del Llenguadoc,0001,0118
+236506,02667,C,Oristà,Carrer d'Oristà,0001,0167
+220109,02484,C,Montseny,Carrer del Montseny,0001,0051
+249304,02831,C,Pere IV,Carrer de Pere IV,0002,0560
+110803,01258,C,Entença,Carrer d'Entença,0001,0338
+321605,03609,C,Pau Alsina,Carrer de Pau Alsina,0001,0150
+107853,01219,C,Menta,Carrer de la Menta,0001,0055
+037500,00418,C,Begònia,Carrer de la Begònia,0011,0016
+156101,01764,C,Hipòlit Lázaro,Carrer d'Hipòlit Lázaro,0001,0036
+001400,00015,Pl,Pl Acadèmia,Plaça de l'Acadèmia,0001,0006
+111205,01263,Pl,Pl Herenni,Plaça d'Herenni,0001,0013
+297001,03350,C,St Antoni M Claret,Carrer de Sant Antoni Maria Claret,0001,0522
+198258,02245,C,Marquès de Barberà,Carrer del Marquès de Barberà,0001,0039
+053302,00585,C,Cabrera,Carrer de Cabrera,0001,0064
+215903,02439,C,Montfar,Carrer dels Montfar,0001,0034
+013909,00148,C,Amigó,Carrer d'Amigó,0001,0091
+210502,02380,C,Misser Ferrer,Carrer del Misser Ferrer,0001,0005

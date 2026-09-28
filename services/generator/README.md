@@ -40,10 +40,11 @@ precisely than the address points. One is a register error: `taula-direle` puts 
 Muntaner, 79, in the Eixample, at a point in Montjuïc 1.4 km away. Bronze keeps it as published.
 
 Downloads are cached in `services/generator/.cache/` (git-ignored): the first `make load-reference`
-fetches about 70 MB, later runs reuse them. Only two small extracts are committed:
-the zone boundaries and 560 sample addresses for the tests
-([`tests/fixtures/addresses_sample.csv`](tests/fixtures/addresses_sample.csv), 40 per zone).
-[`scripts/build_fixtures.py`](scripts/build_fixtures.py) rebuilds both from the cache.
+fetches about 70 MB, later runs reuse them. Only small extracts are committed: the zone boundaries
+and, for the tests, 560 sample addresses (40 per zone) as the registers publish them, in
+[`tests/fixtures/`](tests/fixtures/): `taula_direle_sample.csv` and `carrerer_sample.csv` for
+Barcelona, `icgc_sample.csv` for the five towns. [`scripts/build_fixtures.py`](scripts/build_fixtures.py)
+rebuilds them from the cache.
 
 ## Outputs
 
@@ -163,11 +164,17 @@ a demo; the `event_time` of such orders can then be later than their `ingested_a
 
 ## Tests
 
-`make test-generator` generates a week of orders and a Saturday from the committed sample
-addresses, with no database or network, and checks them against the seeds: day totals by weekday
-and season, zone shares, the business share and where business parcels go, the same-day rule,
-waves and windows, registration hours, parcels per stop, parcel mix, that every address is real and
-inside its zone's official boundary, and that the same date and seed give identical orders and an
-identical Parquet file. Shares pooled over the week are compared within four standard errors,
-computed from the orders themselves. CI runs the tests and the seed validators on every pull
-request.
+`make test-generator` runs offline, with no database or network. It reads the sample addresses
+with the loader's own code and assigns their zones as the loader does, then checks that each lies
+inside its zone's official boundary, which comes from other files. It generates a week of orders
+and a Saturday from them and checks those against the seeds: day totals by weekday and season, the
+Black Friday week, zone shares, the business share and where business parcels go, the same-day
+rule, waves and windows, registration hours, parcels per stop, parcel mix, that every order goes to
+a real address of its zone, and that the same date and seed give identical orders and an identical
+Parquet file. Shares pooled over the week are compared within four standard errors, computed from
+the orders themselves; zone shares, split exactly, within 5% of each zone's share on a single day.
+Other tests cover the ICGC reading with its conversion to WGS84, the file metadata, the checksum of
+the reference files and the refusal of future dates. The figures the seeds must satisfy on their
+own are the seed validators' job, not the tests'.
+
+CI runs the tests and the seed validators on every pull request.

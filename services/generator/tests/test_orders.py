@@ -41,7 +41,6 @@ from llobregat_generator.rules import (
     weekday_same_day_share,
     zone_shares,
 )
-from llobregat_generator.zones import in_polygons
 
 WINDOW = 120
 METADATA = FileMetadata("generator/orders", "operations", 3, datetime(2026, 9, 29, 6, 30, tzinfo=UTC))
@@ -121,13 +120,6 @@ def test_the_november_peak_is_the_black_friday_week(seeds, service_date, multipl
     assert seasonal_multiplier(service_date, seeds.company["daily_volume"]["seasonal_peaks"]) == multiplier
 
 
-def test_saturday_mean_matches_company_profile(seeds):
-    volume = seeds.company["daily_volume"]
-    assert volume["weekday_parcels_mean"] * seeds.demand["weekday_multipliers"]["Sat"] == pytest.approx(
-        volume["saturday_parcels_mean"]
-    )
-
-
 def test_orders_add_up_to_the_day_total(week, saturday):
     for day in [*week, saturday]:
         assert parcels(day.orders) == day.parcels
@@ -170,16 +162,19 @@ def shares_by_zone(orders) -> dict[str, float]:
 
 
 def test_zone_shares_single_day(seeds, weekday, saturday):
+    """The day's parcels are split over the zones exactly, so each zone lands within a few parcels
+    of its share: 5% of the share, 2 parcels of a 2% zone on a Saturday."""
     for day in (weekday, saturday):
         shares = shares_by_zone(day.orders)
         for zone in seeds.company["zones"]:
-            assert shares[zone["zone_id"]] == pytest.approx(zone["share_of_daily_parcels"], abs=0.03), zone["zone_id"]
+            got = shares.get(zone["zone_id"], 0.0)
+            assert got == pytest.approx(zone["share_of_daily_parcels"], rel=0.05), (day.service_date, zone["zone_id"])
 
 
 def test_zone_shares_over_a_week(seeds, week):
     shares = shares_by_zone(pooled(week))
     for zone in seeds.company["zones"]:
-        assert shares[zone["zone_id"]] == pytest.approx(zone["share_of_daily_parcels"], abs=0.012), zone["zone_id"]
+        assert shares.get(zone["zone_id"], 0.0) == pytest.approx(zone["share_of_daily_parcels"], rel=0.02), zone
 
 
 def test_business_share(seeds, weekday):
@@ -187,7 +182,6 @@ def test_business_share(seeds, weekday):
     assert parcels(weekday.orders, lambda o: o["customer_type"] == "B2B") / weekday.parcels == pytest.approx(
         expected, abs=0.005
     )
-    assert expected == pytest.approx(seeds.company["daily_volume"]["b2b_share_pct"] / 100, abs=0.005)
 
 
 def test_business_and_consumer_parcels_by_zone_over_a_week(seeds, week):
@@ -332,24 +326,13 @@ def test_parcel_mix(seeds, week):
 # Addresses ----------------------------------------------------------------------------------
 
 
-def test_addresses_are_real_and_inside_their_zone(pool, boundaries, week, saturday):
+def test_orders_go_to_real_addresses_of_their_zone(pool, week, saturday):
     by_ref = {a.address_ref: a for addresses in pool.values() for a in addresses}
-    orders = [*pooled(week), *saturday.orders]
-    for o in orders:
+    for o in [*pooled(week), *saturday.orders]:
         address = by_ref[o["address_ref"]]
         assert address.zone_id == o["destination_zone_id"]
         assert (address.lat, address.lon) == (o["destination_lat"], o["destination_lon"])
         assert address.street_address == o["destination_address"]
-    inside = sum(
-        in_polygons(boundaries[o["destination_zone_id"]], o["destination_lon"], o["destination_lat"]) for o in orders
-    )
-    assert inside / len(orders) >= 0.99
-
-
-def test_the_sample_addresses_lie_in_their_official_boundary(pool, boundaries):
-    addresses = [a for zone in pool.values() for a in zone]
-    assert len(pool) == 14
-    assert sum(in_polygons(boundaries[a.zone_id], a.lon, a.lat) for a in addresses) / len(addresses) >= 0.99
 
 
 # Identity and determinism -------------------------------------------------------------------

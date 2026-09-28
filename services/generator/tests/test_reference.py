@@ -11,12 +11,7 @@ import pytest
 from llobregat_generator import addresses, reference
 from llobregat_generator.config import GENERATOR_DIR
 from llobregat_generator.metadata import FileMetadata, content_checksum, parquet_table
-from llobregat_generator.zones import ZoneMap
-
-
-@pytest.fixture(scope="module")
-def zone_map(seeds) -> ZoneMap:
-    return ZoneMap.from_company(seeds.company)
+from llobregat_generator.zones import in_polygons
 
 
 def test_seed_tables_match_the_seeds(seeds):
@@ -185,6 +180,16 @@ def test_read_icgc_keeps_the_zone_towns_converts_coordinates_and_skips_rows_with
     assert rows[0]["lon"] == pytest.approx(2.1535184, abs=1e-6)  # about 8 cm
     assert rows[0]["lat"] == pytest.approx(41.3775667, abs=1e-6)
     assert (rows[0]["x_etrs89"], rows[0]["y_etrs89"]) == (429217.072, 4581017.569)
+
+
+def test_the_registers_put_each_sample_address_inside_its_zone(pool, boundaries):
+    """The loader's zone assignment, by district code or municipality matched to company.json, run on
+    rows as the registers publish them, against the official boundaries, which come from other files.
+    A wrong district-to-zone match or a wrong coordinate conversion puts addresses outside."""
+    assert set(pool) == set(boundaries)
+    sample = [a for zone in pool.values() for a in zone]
+    outside = [(a.zone_id, a.address_ref) for a in sample if not in_polygons(boundaries[a.zone_id], a.lon, a.lat)]
+    assert len(outside) <= len(sample) // 100, outside
 
 
 @pytest.mark.parametrize("name", ["fleet", "drivers", "demand"])
