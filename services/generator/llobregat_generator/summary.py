@@ -15,6 +15,7 @@ from llobregat_generator.rules import (
     weekday_same_day_share,
     zone_shares,
 )
+from llobregat_generator.seeds import Seeds
 from llobregat_generator.zones import Polygon, in_polygons
 
 
@@ -61,8 +62,9 @@ def summarise(
     return figures
 
 
-def report(service_date: date, figures: dict, company: dict, demand: dict) -> str:
+def report(service_date: date, figures: dict, seeds: Seeds) -> str:
     """The figures as text, each next to what the seeds say."""
+    company, demand = seeds.company, seeds.demand
     volume = company["daily_volume"]
     b2b_model = weekday_business_share(demand)
     same_day_model = weekday_same_day_share(demand)

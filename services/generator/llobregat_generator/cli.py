@@ -30,14 +30,14 @@ def cmd_orders(settings: Settings, args: argparse.Namespace) -> int:
     seeds = Seeds.load(settings.seed_dir)
     with db.connect(settings) as conn:
         pool = publish.read_pool(conn, ZoneMap.from_company(seeds.company))
-        day = generate_day(args.date, args.seed, seeds.company, seeds.demand, pool)
+        day = generate_day(args.date, args.seed, seeds, pool)
         key, deleted, written = publish.publish_day(conn, Bucket(settings), day)
     print(f"bronze/{key}: {written} orders, {day.parcels} parcels (seed {args.seed})")
     print(
         f"bronze.orders: {written} rows written" + (f", {deleted} rows of an earlier run replaced" if deleted else "")
     )
     figures = summarise(day.orders, seeds.company, load_boundaries())
-    print(report(args.date, figures, seeds.company, seeds.demand))
+    print(report(args.date, figures, seeds))
     return 0
 
 
@@ -48,7 +48,7 @@ def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
     if not orders:
         print(f"no generated orders for {args.date} in bronze.orders")
         return 1
-    print(report(args.date, summarise(orders, seeds.company, load_boundaries()), seeds.company, seeds.demand))
+    print(report(args.date, summarise(orders, seeds.company, load_boundaries()), seeds))
     return 0
 
 

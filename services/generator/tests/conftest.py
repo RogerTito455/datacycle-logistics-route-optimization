@@ -46,7 +46,7 @@ def boundaries():
 @pytest.fixture(scope="session")
 def week(seeds, pool) -> list[Day]:
     """Monday to Friday of one week."""
-    return [generate_day(MONDAY + timedelta(days=i), SEED, seeds.company, seeds.demand, pool) for i in range(5)]
+    return [generate_day(MONDAY + timedelta(days=i), SEED, seeds, pool) for i in range(5)]
 
 
 @pytest.fixture(scope="session")
@@ -56,7 +56,7 @@ def weekday(week) -> Day:
 
 @pytest.fixture(scope="session")
 def saturday(seeds, pool) -> Day:
-    return generate_day(SATURDAY, SEED, seeds.company, seeds.demand, pool)
+    return generate_day(SATURDAY, SEED, seeds, pool)
 
 
 @pytest.fixture(scope="session")

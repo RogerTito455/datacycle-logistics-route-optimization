@@ -79,8 +79,7 @@ def minute_of_day(ts) -> int:
 def test_day_total_follows_mean_stddev_weekday_and_season(seeds, service_date, multiplier):
     volume = seeds.company["daily_volume"]
     totals = [
-        day_total(np.random.default_rng([seed, service_date.toordinal()]), service_date, seeds.company, seeds.demand)
-        for seed in range(400)
+        day_total(np.random.default_rng([seed, service_date.toordinal()]), service_date, seeds) for seed in range(400)
     ]
     expected_mean = volume["weekday_parcels_mean"] * multiplier
     expected_sd = volume["weekday_parcels_stddev"] * multiplier
@@ -102,7 +101,7 @@ def test_orders_add_up_to_the_day_total(week, saturday):
 
 def test_no_orders_on_sunday(seeds, pool):
     with pytest.raises(NoServiceError):
-        generate_day(date(2026, 10, 11), SEED, seeds.company, seeds.demand, pool)
+        generate_day(date(2026, 10, 11), SEED, seeds, pool)
 
 
 # Zones and business share ---------------------------------------------------------------------
@@ -310,7 +309,7 @@ def test_order_ids_follow_registration_time(weekday):
 
 
 def test_same_date_and_seed_give_the_same_orders(seeds, pool, weekday):
-    again = generate_day(MONDAY, SEED, seeds.company, seeds.demand, pool)
+    again = generate_day(MONDAY, SEED, seeds, pool)
     assert again.orders == weekday.orders
 
     def parquet_bytes(day) -> bytes:
@@ -322,9 +321,9 @@ def test_same_date_and_seed_give_the_same_orders(seeds, pool, weekday):
 
 
 def test_another_seed_or_date_gives_other_orders(seeds, pool, weekday):
-    other_seed = generate_day(MONDAY, SEED + 1, seeds.company, seeds.demand, pool)
+    other_seed = generate_day(MONDAY, SEED + 1, seeds, pool)
     assert other_seed.orders != weekday.orders
-    next_monday = generate_day(MONDAY + timedelta(days=7), SEED, seeds.company, seeds.demand, pool)
+    next_monday = generate_day(MONDAY + timedelta(days=7), SEED, seeds, pool)
     assert [o["address_ref"] for o in next_monday.orders[:50]] != [o["address_ref"] for o in weekday.orders[:50]]
 
 

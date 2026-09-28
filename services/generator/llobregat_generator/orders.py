@@ -48,6 +48,7 @@ from llobregat_generator.rules import (
     minutes,
     zone_shares,
 )
+from llobregat_generator.seeds import Seeds
 
 SOURCE_ID = "generator/orders"
 LOCAL_TZ = ZoneInfo("Europe/Madrid")
@@ -142,14 +143,14 @@ def apportion(total: int, weights: Sequence[float]) -> list[int]:
     return counts
 
 
-def day_total(rng: np.random.Generator, service_date: date, company: dict, demand: dict) -> int:
-    volume = company["daily_volume"]
+def day_total(rng: np.random.Generator, service_date: date, seeds: Seeds) -> int:
+    volume = seeds.company["daily_volume"]
     day_name = DAY_NAMES[service_date.weekday()]
     if day_name == "Sun" and not volume["sunday_operates"]:
         raise NoServiceError(f"{service_date} is a Sunday; Llobregat Express does not deliver on Sundays")
     season = {p["month"]: p["multiplier"] for p in volume["seasonal_peaks"]}.get(service_date.month, 1.0)
     base = rng.normal(volume["weekday_parcels_mean"], volume["weekday_parcels_stddev"])
-    return max(0, round(base * demand["weekday_multipliers"][day_name] * season))
+    return max(0, round(base * seeds.demand["weekday_multipliers"][day_name] * season))
 
 
 def day_streams(service_date: date, demand: dict) -> list[Stream]:
@@ -177,16 +178,15 @@ def day_streams(service_date: date, demand: dict) -> list[Stream]:
 class Calendar:
     """Waves, slots and business windows of the service promise, in minutes after midnight."""
 
-    def __init__(self, company: dict, demand: dict):
-        promise = company["service_promise"]
-        self.window = promise["promised_window_minutes"]
-        self.waves = delivery_waves(company)
+    def __init__(self, seeds: Seeds):
+        self.window = seeds.company["service_promise"]["promised_window_minutes"]
+        self.waves = delivery_waves(seeds.company)
         self.slots = {
             wave: list(range(start, end - self.window + 1, self.window)) for wave, (start, end) in self.waves.items()
         }
         self.business_starts = {
             (category, wave): business_window_starts(hours, span, self.window)
-            for category, hours in demand["business_opening_hours"].items()
+            for category, hours in seeds.demand["business_opening_hours"].items()
             for wave, span in self.waves.items()
         }
 
@@ -195,12 +195,11 @@ def at(day: date, minute_of_day: int) -> datetime:
     return datetime.combine(day, time()).replace(tzinfo=LOCAL_TZ) + timedelta(minutes=minute_of_day)
 
 
-def generate_day(
-    service_date: date, seed: int, company: dict, demand: dict, pool: Mapping[str, Sequence[Address]]
-) -> Day:
+def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str, Sequence[Address]]) -> Day:
     """The orders of one service date. Pure: the same inputs always give the same orders."""
+    company, demand = seeds.company, seeds.demand
     rng = np.random.default_rng([seed, service_date.toordinal()])
-    total = day_total(rng, service_date, company, demand)
+    total = day_total(rng, service_date, seeds)
     streams = day_streams(service_date, demand)
     counts = apportion(total, [s.share for s in streams])
 
@@ -221,7 +220,7 @@ def generate_day(
     consumer_left = [max(0.0, zone_share[z] * total - business_expected[z]) for z in zone_share]
     consumer_zones = (list(zone_share), cdf(consumer_left if sum(consumer_left) > 0 else list(zone_share.values())))
 
-    calendar = Calendar(company, demand)
+    calendar = Calendar(seeds)
     hourly = demand["hourly_registration_share"]
     hour_cdf = cdf([hourly[f"{h:02d}"] for h in range(24)])
     cutoff_hour = minutes(company["hub"]["timetable"]["same_day_cutoff"]) // 60
