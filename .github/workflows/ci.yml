@@ -26,7 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: astral-sh/setup-uv@v6
       - name: ruff
-        run: uvx ruff check . && uvx ruff format --check .
+        run: uvx ruff@0.16.9 check . && uvx ruff@0.16.9 format --check .
       - name: Validate AI-generated seed data (structure and consistency)
         run: uv run --with jsonschema python services/generator/validate_company.py --offline
 
