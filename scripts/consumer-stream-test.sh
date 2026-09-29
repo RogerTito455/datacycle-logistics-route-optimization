@@ -69,8 +69,14 @@ state() {
 }
 written() { [[ "$(state)" == "3 2 3 3 "* ]]; }
 lag_zero() { [[ "$(group_lag)" == 0 ]]; }
+lag_seen() {  # a lag measurement after the batch (one every 10 s): every topic, with the newest event_time
+  [[ "$(psql_admin -c "
+    SELECT count(DISTINCT topic) = 3 AND coalesce(bool_or(last_event_time >= '2000-01-03 07:30:05+00'), false)
+    FROM ops.consumer_lag WHERE consumer_group = '${GROUP}'")" == t ]]
+}
 wait_for "the consumer did not write the messages" 60 written
 wait_for "the consumer group still lags" 30 lag_zero
+wait_for "ops.consumer_lag has no measurement of the three topics with the newest event_time" 30 lag_seen
 
 echo "== checks"
 failed=$(psql_admin -c "
@@ -103,10 +109,7 @@ failed=$(psql_admin -c "
        = 'delivery.events:invalid_field gps.pings:missing_field vehicle.telemetry:invalid_json'
      AND (SELECT encode(payload, 'escape') FROM dead WHERE topic = 'vehicle.telemetry')
        = '{\"vehicle_id\":\"${VAN}\",\"event_time\":'
-     AND NOT EXISTS (SELECT 1 FROM dead WHERE kafka_offset IS NULL OR kafka_timestamp IS NULL OR error = '')),
-    ('the lag of every partition is recorded, the newest event_time with it',
-     (SELECT count(DISTINCT topic) FROM ops.consumer_lag WHERE consumer_group = '${GROUP}') = 3
-     AND EXISTS (SELECT 1 FROM ops.consumer_lag WHERE last_event_time >= '2000-01-03 07:30:05+00')))
+     AND NOT EXISTS (SELECT 1 FROM dead WHERE kafka_offset IS NULL OR kafka_timestamp IS NULL OR error = '')))
   SELECT coalesce(string_agg(name, '; '), '') FROM checks WHERE NOT ok")
 [[ -z "$failed" ]] || { echo "FAIL: $failed"; exit 1; }
 before=$(state)
