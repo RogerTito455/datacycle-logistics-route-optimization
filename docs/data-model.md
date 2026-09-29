@@ -337,7 +337,11 @@ Platform tables in `ops`:
   and uploads the date's file inside it, before the commit. If the database or the upload fails,
   the transaction rolls back and the date keeps its rows and its file. If the commit fails after
   the upload, the bucket holds the new file with the old rows until the next run of the date
-  overwrites it. A date is never duplicated.
+  overwrites it. A date is never duplicated. The prefix `pod/samples/` of the `bronze` bucket is
+  outside the rule too: it holds the demonstration photos of `make pod-sample`, which leaves an
+  unchanged photo as it is but replaces one that changed and removes the photos a date's new
+  sample no longer has. No row points to those objects. The photos the simulator (issue #7) will
+  write under `pod/<service date>/`, whose keys `delivery_events` records, are write-once.
 - **No cascades.** A plan's stops have no `ON DELETE CASCADE`, so deleting a plan that has stops
   fails instead of taking them along.
 

@@ -9,7 +9,7 @@ and the photos are synthetic placeholders drawn by code.
 |---|---|
 | `make load-reference` | Loads the hub, zones, shifts, vehicle types, vehicles, drivers, shippers, delivery notes, streets and postal addresses into their `bronze` tables, and stores the files they come from in the RustFS `bronze` bucket |
 | `make generate DATE=2026-09-28` | Generates the orders of one service date: a Parquet file in the `bronze` bucket and the same rows in `bronze.orders` |
-| `make pod-sample DATE=2026-09-28` | Uploads 20 proof-of-delivery placeholder photos for orders of a generated date under `pod/samples/` in the `bronze` bucket (`COUNT=` for another number) |
+| `make pod-sample DATE=2026-09-28` | Uploads 20 proof-of-delivery placeholder photos for orders of a generated date under `pod/samples/` in the `bronze` bucket, a demonstration prefix (`COUNT=` for another number) |
 | `make validate-seeds` | Checks the five AI-generated seeds: structure, consistency with each other and with their prompts, geography |
 | `make test-generator` | Runs the tests, offline |
 
@@ -89,9 +89,9 @@ Rows loaded from a file keep `raw_object_key`, the key of that file in the bucke
 drivers, shippers, delivery notes, streets, addresses and orders. The orders file records the
 service date, the seed and the generator version in its Parquet metadata.
 
-Proof-of-delivery photos are objects, not rows: `pod/<service date>/<order id>.jpg` in the `bronze`
-bucket, one per delivered stop once the simulator (issue #7) delivers them, with the key in
-`bronze.delivery_events.pod_object_key`; `pod-sample` writes a sample under
+Proof-of-delivery photos are objects, not rows: the simulator (issue #7) will store one per
+delivered stop at `pod/<service date>/<order id>.jpg` in the `bronze` bucket and write its key into
+`bronze.delivery_events.pod_object_key`. Until then `pod-sample` writes a sample under
 `pod/samples/<service date>/` ([below](#proof-of-delivery-photos)).
 
 **Re-running.** Bronze is write-once, so `load-reference` inserts only the rows whose key is not in
@@ -236,14 +236,22 @@ at the pixels:
 `pod.upload()` stores a photo at `pod/<service date>/<order id>.jpg` in the `bronze` bucket, with
 content type `image/jpeg` and the metadata elements of ADR 0001, decision 20, as S3 user metadata:
 `source` (`simulator/pod-photos`), `owner` and `schema-version` (those of
-`bronze.delivery_events`, which records the key), `ingested-at` and `order-id`. It returns the key,
-which the simulator (issue #7) writes into `pod_object_key` of the `delivered` event.
+`bronze.delivery_events`, which will record the key), `ingested-at` and `order-id`, and a
+`content-sha256` of the image and those elements without `ingested-at`. When the key already holds
+the same photo with the same elements, nothing is written, so the photo keeps the `ingested-at` of
+the upload that wrote it. `upload()` returns the key, which the simulator (issue #7) will write into
+`pod_object_key` of the `delivered` event.
 
 Until the simulator exists, `make pod-sample DATE=2026-09-28` uploads photos for 20 orders of a
 generated date under `pod/samples/<service date>/`, each at a time drawn inside the order's window,
-reads every one back and checks that its EXIF time and position are the delivery's. A run replaces
-the date's earlier sample; the same date, count and seed give the same photos, and a larger count
-keeps the photos of a smaller one. The sample writes no `delivery_events` rows.
+and reads every one back: its EXIF time and position must be the delivery's and its S3 user
+metadata the elements above. It uploads the new photos first and then removes the photos of an
+earlier sample of the date that are not among them, so a run that fails halfway leaves the old
+sample whole; a failing bucket ends it with a message, not a traceback. The same date, count and
+seed give the same photos, so running it again writes nothing, and a larger count keeps the photos
+of a smaller one. `pod/samples/` is a demonstration prefix outside bronze's write-once rule
+([data model](../../docs/data-model.md#keys-and-constraints)); the sample writes no
+`delivery_events` rows.
 
 ## Tests
 
@@ -272,7 +280,8 @@ CI runs the tests and the seed validators on every pull request. Its compose smo
 the reference data into a fresh stack twice, generates a past Monday twice and checks bronze with
 SQL: row counts, metadata filled, nothing written by the second load, the same orders after the
 second run of the date and about a third of them with a note of the corpus. Then it uploads the
-date's 20 sample photos and reads their EXIF back. It loads the sample addresses instead of the downloads
-([`scripts/sample_cache.py`](scripts/sample_cache.py) writes them as a download cache), so it needs
-no open-data portal. `make test-generator-db` runs the same checks on your stack with the full
+date's 20 sample photos twice, reading back their EXIF and S3 user metadata each time; the second
+run must write nothing, and one photo's metadata is read straight from RustFS. It loads the sample
+addresses instead of the downloads ([`scripts/sample_cache.py`](scripts/sample_cache.py) writes
+them as a download cache, marked complete), so it needs no open-data portal. `make test-generator-db` runs the same checks on your stack with the full
 data, `SAMPLE=1` with the sample on a fresh one.
