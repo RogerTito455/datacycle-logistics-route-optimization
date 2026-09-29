@@ -27,7 +27,14 @@ check() {  # check <name> <command...>
 }
 
 redpanda() {
-  $COMPOSE exec -T redpanda rpk cluster health | grep -Eq 'Healthy:.+true' || { echo "cluster not healthy"; return 1; }
+  # Right after start-up or topic creation the cluster can report unhealthy for a few seconds while
+  # partition leaders are elected, so give it up to 30 s before failing.
+  local healthy=no
+  for _ in $(seq 1 15); do
+    if $COMPOSE exec -T redpanda rpk cluster health | grep -Eq 'Healthy:.+true'; then healthy=yes; break; fi
+    sleep 2
+  done
+  [[ $healthy == yes ]] || { echo "cluster not healthy after 30 s"; return 1; }
   local topics; topics=$($COMPOSE exec -T redpanda rpk topic list | awk 'NR>1 {print $1}' | sort | tr '\n' ' ')
   [[ "$topics" == *"gps.pings"* && "$topics" == *"vehicle.telemetry"* && "$topics" == *"delivery.events"* ]] \
     || { echo "topics missing: $topics"; return 1; }
