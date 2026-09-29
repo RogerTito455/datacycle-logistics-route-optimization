@@ -19,7 +19,7 @@
     "9001": { "label": "RustFS console", "onAutoForward": "silent" },
     "5000": { "label": "OSRM", "onAutoForward": "silent" }
   },
-  "postCreateCommand": "test -f .env || cp .env.example .env",
+  "postCreateCommand": "test -f .env || cp .env.example .env; pip install --quiet uv",
   "customizations": {
     "vscode": {
       "extensions": [

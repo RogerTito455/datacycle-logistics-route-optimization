@@ -9,7 +9,7 @@ import os
 import socket
 import urllib.request
 from contextlib import closing
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import dagster as dg
 import psycopg2
@@ -44,9 +44,7 @@ def _connect():
 def _postgres_ok() -> tuple[bool, str]:
     try:
         with closing(_connect()) as conn, conn.cursor() as cur:
-            cur.execute(
-                "SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'"
-            )
+            cur.execute("SELECT extversion FROM pg_extension WHERE extname = 'timescaledb'")
             row = cur.fetchone()
         return (
             row is not None,
@@ -69,13 +67,11 @@ def platform_health(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
         "redpanda": _tcp_ok(kafka_host, int(kafka_port)),
         "redpanda-console": _http_ok("http://redpanda-console:8080/"),
         "rustfs": _http_ok(f"{os.environ['S3_ENDPOINT']}/health"),
-        "osrm": _http_ok(
-            f"{os.environ['OSRM_URL']}/route/v1/driving/2.1370,41.3405;2.1744,41.4036?overview=false"
-        ),
+        "osrm": _http_ok(f"{os.environ['OSRM_URL']}/route/v1/driving/2.1370,41.3405;2.1744,41.4036?overview=false"),
         "grafana": _http_ok("http://grafana:3000/api/health"),
         "dagster-webserver": _http_ok("http://dagster-webserver:3000/server_info"),
     }
-    checked_at = datetime.now(timezone.utc)
+    checked_at = datetime.now(UTC)
 
     with closing(_connect()) as conn, conn, conn.cursor() as cur:
         cur.executemany(
@@ -85,9 +81,7 @@ def platform_health(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
 
     up = sum(ok for ok, _ in checks.values())
     for name, (ok, detail) in checks.items():
-        (context.log.info if ok else context.log.warning)(
-            f"{name}: {'up' if ok else 'DOWN'} ({detail})"
-        )
+        (context.log.info if ok else context.log.warning)(f"{name}: {'up' if ok else 'DOWN'} ({detail})")
 
     return dg.MaterializeResult(
         metadata={
@@ -96,10 +90,7 @@ def platform_health(context: dg.AssetExecutionContext) -> dg.MaterializeResult:
             "checked_at": dg.MetadataValue.timestamp(checked_at),
             "results": dg.MetadataValue.md(
                 "| Service | Status | Detail |\n|---|---|---|\n"
-                + "\n".join(
-                    f"| {n} | {'up' if ok else 'DOWN'} | {d} |"
-                    for n, (ok, d) in checks.items()
-                )
+                + "\n".join(f"| {n} | {'up' if ok else 'DOWN'} | {d} |" for n, (ok, d) in checks.items())
             ),
             # The three mandatory metadata elements (ADR 0001, decision 20).
             "source": "dagster/platform_health",

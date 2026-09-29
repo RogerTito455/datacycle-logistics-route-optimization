@@ -1,0 +1,644 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RogerTito455/datacycle-logistics-route-optimization/services/generator/seed/company.schema.json",
+  "title": "Llobregat Express company profile",
+  "description": "Structure of the AI-generated company profile (prompt 001). Coordinates are bounded to the Barcelona metropolitan area.",
+  "$defs": {
+    "hhmm": {
+      "description": "Local time of day, 24-hour HH:MM.",
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$"
+    },
+    "hhmm_range": {
+      "description": "Local time range, HH:MM-HH:MM.",
+      "type": "string",
+      "pattern": "^([01]\\d|2[0-3]):[0-5]\\d-([01]\\d|2[0-3]):[0-5]\\d$"
+    }
+  },
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "company",
+    "hub",
+    "service_promise",
+    "daily_volume",
+    "zones",
+    "fleet",
+    "drivers",
+    "kpi_targets",
+    "operational_risks"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "company": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "legal_name",
+        "founded_year",
+        "headquarters_municipality",
+        "business_model",
+        "modeled_on",
+        "customer_segments"
+      ],
+      "properties": {
+        "name": {
+          "const": "Llobregat Express"
+        },
+        "legal_name": {
+          "type": "string",
+          "minLength": 1
+        },
+        "founded_year": {
+          "type": "integer",
+          "minimum": 1950,
+          "maximum": 2026
+        },
+        "headquarters_municipality": {
+          "type": "string",
+          "minLength": 1
+        },
+        "business_model": {
+          "type": "string",
+          "minLength": 1
+        },
+        "modeled_on": {
+          "type": "string",
+          "minLength": 1
+        },
+        "customer_segments": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "minItems": 1
+        }
+      }
+    },
+    "hub": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "name",
+        "address",
+        "municipality",
+        "lat",
+        "lon",
+        "floor_area_m2",
+        "loading_docks",
+        "sorting_capacity_parcels_per_hour",
+        "timetable"
+      ],
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "address": {
+          "type": "string"
+        },
+        "municipality": {
+          "type": "string"
+        },
+        "lat": {
+          "type": "number",
+          "minimum": 41.25,
+          "maximum": 41.5
+        },
+        "lon": {
+          "type": "number",
+          "minimum": 1.95,
+          "maximum": 2.3
+        },
+        "floor_area_m2": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "loading_docks": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "sorting_capacity_parcels_per_hour": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "timetable": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "inbound_trucks_arrive",
+            "sorting",
+            "first_departure",
+            "last_departure",
+            "same_day_cutoff"
+          ],
+          "properties": {
+            "inbound_trucks_arrive": {
+              "$ref": "#/$defs/hhmm_range"
+            },
+            "sorting": {
+              "$ref": "#/$defs/hhmm_range"
+            },
+            "first_departure": {
+              "$ref": "#/$defs/hhmm"
+            },
+            "last_departure": {
+              "$ref": "#/$defs/hhmm"
+            },
+            "same_day_cutoff": {
+              "$ref": "#/$defs/hhmm"
+            }
+          }
+        }
+      }
+    },
+    "service_promise": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "delivery_windows",
+        "promised_window_minutes",
+        "on_time_target_pct",
+        "first_attempt_success_target_pct",
+        "failed_delivery_policy"
+      ],
+      "properties": {
+        "delivery_windows": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "start",
+              "end"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "start": {
+                "$ref": "#/$defs/hhmm"
+              },
+              "end": {
+                "$ref": "#/$defs/hhmm"
+              }
+            }
+          }
+        },
+        "promised_window_minutes": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "on_time_target_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "first_attempt_success_target_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "failed_delivery_policy": {
+          "type": "string"
+        }
+      }
+    },
+    "daily_volume": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "weekday_parcels_mean",
+        "weekday_parcels_stddev",
+        "saturday_parcels_mean",
+        "sunday_operates",
+        "seasonal_peaks",
+        "parcel_mix",
+        "b2b_share_pct"
+      ],
+      "properties": {
+        "weekday_parcels_mean": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "weekday_parcels_stddev": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "saturday_parcels_mean": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "sunday_operates": {
+          "type": "boolean"
+        },
+        "seasonal_peaks": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "month",
+              "multiplier"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "month": {
+                "type": "integer",
+                "minimum": 1,
+                "maximum": 12
+              },
+              "multiplier": {
+                "type": "number",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "parcel_mix": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "small_pct",
+            "medium_pct",
+            "large_pct"
+          ],
+          "properties": {
+            "small_pct": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "medium_pct": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "large_pct": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "b2b_share_pct": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 100
+        }
+      }
+    },
+    "zones": {
+      "type": "array",
+      "minItems": 10,
+      "maxItems": 14,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "zone_id",
+          "name",
+          "municipality",
+          "districts",
+          "centroid",
+          "distance_from_hub_km",
+          "share_of_daily_parcels",
+          "stops_per_route",
+          "minutes_per_stop",
+          "delivery_difficulty",
+          "difficulty_factors",
+          "preferred_vehicle_type_ids"
+        ],
+        "properties": {
+          "zone_id": {
+            "type": "string",
+            "pattern": "^Z\\d{2}$"
+          },
+          "name": {
+            "type": "string"
+          },
+          "municipality": {
+            "type": "string"
+          },
+          "districts": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "centroid": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "lat",
+              "lon"
+            ],
+            "properties": {
+              "lat": {
+                "type": "number",
+                "minimum": 41.25,
+                "maximum": 41.5
+              },
+              "lon": {
+                "type": "number",
+                "minimum": 1.95,
+                "maximum": 2.3
+              }
+            }
+          },
+          "distance_from_hub_km": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "share_of_daily_parcels": {
+            "type": "number",
+            "exclusiveMinimum": 0,
+            "maximum": 1
+          },
+          "stops_per_route": {
+            "type": "integer",
+            "minimum": 1
+          },
+          "minutes_per_stop": {
+            "type": "number",
+            "exclusiveMinimum": 0
+          },
+          "delivery_difficulty": {
+            "enum": [
+              "low",
+              "medium",
+              "high"
+            ]
+          },
+          "difficulty_factors": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          },
+          "preferred_vehicle_type_ids": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "minLength": 1
+            },
+            "minItems": 1
+          }
+        }
+      }
+    },
+    "fleet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "vehicle_types",
+        "total_vehicles"
+      ],
+      "properties": {
+        "vehicle_types": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "type_id",
+              "description",
+              "count",
+              "energy",
+              "dgt_label",
+              "payload_kg",
+              "cargo_volume_m3",
+              "parcel_capacity",
+              "consumption",
+              "range_km",
+              "urban_average_speed_kmh",
+              "telemetry_sensors"
+            ],
+            "properties": {
+              "type_id": {
+                "type": "string",
+                "minLength": 1
+              },
+              "description": {
+                "type": "string"
+              },
+              "count": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "energy": {
+                "enum": [
+                  "electric",
+                  "plug-in hybrid",
+                  "diesel",
+                  "CNG"
+                ]
+              },
+              "dgt_label": {
+                "enum": [
+                  "0",
+                  "ECO",
+                  "C"
+                ]
+              },
+              "payload_kg": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "cargo_volume_m3": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "parcel_capacity": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "consumption": {
+                "type": "object",
+                "additionalProperties": false,
+                "required": [
+                  "value",
+                  "unit"
+                ],
+                "properties": {
+                  "value": {
+                    "type": "number",
+                    "exclusiveMinimum": 0
+                  },
+                  "unit": {
+                    "enum": [
+                      "kWh/100km",
+                      "l/100km",
+                      "kg/100km"
+                    ]
+                  }
+                }
+              },
+              "range_km": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "urban_average_speed_kmh": {
+                "type": "number",
+                "exclusiveMinimum": 0
+              },
+              "telemetry_sensors": {
+                "type": "array",
+                "items": {
+                  "type": "string",
+                  "minLength": 1
+                },
+                "minItems": 1
+              }
+            }
+          }
+        },
+        "total_vehicles": {
+          "const": 30
+        }
+      }
+    },
+    "drivers": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "headcount",
+        "shifts",
+        "max_route_duration_minutes"
+      ],
+      "properties": {
+        "headcount": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "shifts": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "name",
+              "start",
+              "end",
+              "break_minutes",
+              "drivers"
+            ],
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "start": {
+                "$ref": "#/$defs/hhmm"
+              },
+              "end": {
+                "$ref": "#/$defs/hhmm"
+              },
+              "break_minutes": {
+                "type": "integer",
+                "minimum": 0
+              },
+              "drivers": {
+                "type": "integer",
+                "minimum": 1
+              }
+            }
+          }
+        },
+        "max_route_duration_minutes": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "kpi_targets": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "avg_delivery_time_per_route_minutes",
+        "avg_delay_vs_plan_minutes",
+        "on_time_share_pct"
+      ],
+      "properties": {
+        "avg_delivery_time_per_route_minutes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current_baseline",
+            "target_with_optimization",
+            "rationale"
+          ],
+          "properties": {
+            "current_baseline": {
+              "type": "number"
+            },
+            "target_with_optimization": {
+              "type": "number"
+            },
+            "rationale": {
+              "type": "string"
+            }
+          }
+        },
+        "avg_delay_vs_plan_minutes": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current_baseline",
+            "target"
+          ],
+          "properties": {
+            "current_baseline": {
+              "type": "number"
+            },
+            "target": {
+              "type": "number"
+            }
+          }
+        },
+        "on_time_share_pct": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "current_baseline",
+            "target"
+          ],
+          "properties": {
+            "current_baseline": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "target": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        }
+      }
+    },
+    "operational_risks": {
+      "type": "array",
+      "items": {
+        "type": "string",
+        "minLength": 1
+      },
+      "minItems": 1
+    }
+  }
+}
