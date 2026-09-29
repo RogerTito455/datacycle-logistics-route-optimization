@@ -84,7 +84,7 @@ drivers, shippers, delivery notes, streets, addresses and orders. The orders fil
 service date, the seed and the generator version in its Parquet metadata.
 
 Proof-of-delivery photos are objects, not rows: `pod/<service date>/<order id>.jpg` in the `bronze`
-bucket, one per delivered stop once the simulator (issue #7) delivers them, with the key in
+bucket, one per delivered stop of the [simulator](../simulator/README.md), with the key in
 `bronze.delivery_events.pod_object_key`; `pod-sample` writes a sample under
 `pod/samples/<service date>/` ([below](#proof-of-delivery-photos)).
 
@@ -200,7 +200,7 @@ the corpus against them:
 
 The category is the model's label, and a coarse one: a few location hints describe a house (N-012
 "la casa del final de la cuesta"), and business recipients can still get them. The two labels are
-not used by the generator; they are there for the simulator (issue #7) and for analysis. On the
+not used by the generator; the [simulator](../simulator/README.md) uses them, and analysis can. On the
 two dates loaded on 29 September 2026, 32.4% of the Saturday's orders and 32.9% of the Monday's
 carry a note, and 79.1% of the business recipients' notes are business hours or location hints.
 
@@ -231,9 +231,9 @@ at the pixels:
 content type `image/jpeg` and the metadata elements of ADR 0001, decision 20, as S3 user metadata:
 `source` (`simulator/pod-photos`), `owner` and `schema-version` (those of
 `bronze.delivery_events`, which records the key), `ingested-at` and `order-id`. It returns the key,
-which the simulator (issue #7) writes into `pod_object_key` of the `delivered` event.
+which the simulator writes into `pod_object_key` of the `delivered` event.
 
-Until the simulator exists, `make pod-sample DATE=2026-09-28` uploads photos for 20 orders of a
+For the documentation, `make pod-sample DATE=2026-09-28` uploads photos for 20 orders of a
 generated date under `pod/samples/<service date>/`, each at a time drawn inside the order's window,
 reads every one back and checks that its EXIF time and position are the delivery's. A run replaces
 the date's earlier sample; the same date, count and seed give the same photos, and a larger count
