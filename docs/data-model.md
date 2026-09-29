@@ -426,11 +426,11 @@ Planned models, built by dbt from the bronze tables above:
 | `silver.dim_shipper` | One row per shipper | `shippers` |
 | `silver.dim_address` | One row per postal address | `addresses`, `streets`, `icgc_addresses` |
 | `silver.fct_route` | One row per route: departure from the hub geofence (`hubs.geofence_radius_m`), completion, planned duration | `gps_pings`, `delivery_events`, `route_plans`, `route_history`, `hubs` |
-| `silver.fct_delivery` | One row per order: final status, time in window, proof-of-delivery photo, delivery note and its labels | `orders`, `delivery_events`, `delivery_notes` |
+| `silver.fct_delivery` | One row per order: final status, time in window, proof-of-delivery photo | `orders`, `delivery_events` |
 | `silver.fct_traffic`, `silver.fct_weather` | One row per section or location and time | `traffic_state`, `traffic_section_points`, `weather` |
 | `gold.kpi_route_duration` | Average delivery time per route by day, zone, hour of departure, vehicle type and weather | `fct_route` and dimensions |
 | `gold.kpi_delay_and_on_time` | Average delay against plan and on-time share | `fct_route`, `fct_delivery` |
-| `gold.fct_deliveries` | One row per order for the dashboards, with the key of the proof-of-delivery photo and the category of the delivery note | `fct_delivery` and dimensions |
+| `gold.fct_deliveries` | One row per order for the dashboards, with the key of the proof-of-delivery photo (issue #10) | `fct_delivery` and dimensions |
 
 The silver tests carry the value rules listed under [Keys and constraints](#keys-and-constraints),
 so bronze can stay raw.
