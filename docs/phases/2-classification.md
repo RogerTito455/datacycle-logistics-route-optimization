@@ -13,12 +13,12 @@ arrives, and as it is stored for analysis.
 
 | Term | Meaning |
 |---|---|
-| Bronze, silver, gold | The three layers of the platform's database. Bronze holds every record as it arrived, parsed into rows but not cleaned; silver holds cleaned and joined data; gold holds the KPI and what the dashboards read. See the [data model](../data-model.md) |
+| Bronze, silver, gold | The three layers of the platform's database, TimescaleDB, which is its data warehouse. Bronze holds every record as it arrived, parsed into rows but not cleaned; silver holds cleaned and joined data; gold holds the KPI and what the dashboards read. See the [data model](../data-model.md) |
 | Hypertable | A TimescaleDB table split by time into chunks, used for data that grows all day: GPS pings, telemetry, traffic |
 | Redpanda, topic | Redpanda is the platform's message broker. It speaks the Kafka protocol, so any Kafka client can write to it or read from it. A topic is a named, ordered log of messages, such as `gps.pings` |
-| RustFS, bucket | The platform's S3-compatible object storage. The `bronze` bucket keeps batch files, API responses and photos as they arrived |
+| RustFS, bucket | The platform's S3-compatible object storage, which is its data lake. The `bronze` bucket keeps batch files, API responses and photos as they arrived |
 | Parquet | A columnar file format for tables. The file stores its column names and types once, in its footer, like a typed CSV header |
-| DIKW | Data, information, knowledge, wisdom: the hierarchy that phase 3 applies to the GPS ping |
+| DIKW | Data, Information, Knowledge, Action/Value (also called Wisdom): the hierarchy that phase 3 applies to the GPS ping |
 | PBF | Protocolbuffer Binary Format, the compressed binary format of OpenStreetMap extracts |
 | EXIF | Exchangeable Image File Format: tags a camera writes inside a JPEG file, such as when the photo was taken and the GPS position |
 | MINETUR | The Spanish ministry that publishes the price of every fuel at every service station through an open REST API (today part of MITECO) |
