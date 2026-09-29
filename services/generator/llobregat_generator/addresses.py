@@ -8,11 +8,13 @@ ETRS89 UTM zone 31N; they are converted to WGS84 here.
 
 All three are CC BY 4.0. Downloads are cached, so each file is fetched once. Only a complete
 download is cached: an HTTP 200 answer with as many bytes as the server announced, and a file that
-reads as what it should be (check_csv, check_icgc_zip). A download that passes is marked complete
-with a marker file next to it, `<file>.ok`, which records its size and SHA-256; a cached file
-without a marker that matches it is downloaded again, so an error page, a cut-off download or a
-file cached before these checks is never reused. A download that fails on the way, from a refused
-connection to a timeout, raises DownloadError too, and caches nothing.
+reads as what it should be (check_csv, check_icgc_zip), with at least as many rows as a complete
+file of that register has (MIN_ROWS_*), so a CSV cut exactly at a row boundary is rejected too. A
+download that passes is marked complete with a marker file next to it, `<file>.ok`, which records
+its size and SHA-256; a cached file without a marker that matches it is downloaded again, so an
+error page, a cut-off download or a file cached before these checks is never reused. A download
+that fails on the way, from a refused connection to a timeout, raises DownloadError too, and caches
+nothing.
 """
 
 from __future__ import annotations
@@ -61,12 +63,25 @@ def download_errors(url: str) -> Iterator[None]:
         raise DownloadError(f"{url} could not be downloaded: {str(reason) or type(reason).__name__}") from exc
 
 
+# Fewer rows than a complete file of each register has, far below what they publish (171,901
+# addresses and 4,770 streets in taula-direle and carrerer, 3,119 to 22,862 ICGC street addresses
+# in each of the five towns in 2026): a download with fewer is cut off, even at a row boundary.
+MIN_ROWS_TAULA_DIRELE = 100_000
+MIN_ROWS_CARRERER = 4_000
+MIN_ROWS_ICGC_PER_MUNICIPALITY = 1_000
+
+
 @dataclass(frozen=True)
 class Download:
     source_id: str
     url: str
     filename: str
     columns: tuple[str, ...] = ()  # columns the header of the CSV must have
+    min_rows: int = 1  # data rows a complete file has at least
+
+    def check(self, path: Path) -> str | None:
+        """Why a downloaded file is not this CSV, complete; None when it is (check_csv)."""
+        return check_csv(path, self.columns, self.min_rows)
 
 
 # CSV column (as published) -> bronze column.
@@ -121,6 +136,7 @@ TAULA_DIRELE = Download(
     "/resource/50c9b17f-d297-4668-bad4-e1c217580747/download",
     "adreces_postals_elementals.csv",
     tuple(TAULA_DIRELE_COLUMNS),
+    MIN_ROWS_TAULA_DIRELE,
 )
 CARRERER = Download(
     "opendata-bcn/carrerer",
@@ -128,6 +144,7 @@ CARRERER = Download(
     "/resource/2b010e59-6952-4b27-9c4e-47fcaf64c916/download",
     "carrerer.csv",
     tuple(CARRERER_COLUMNS),
+    MIN_ROWS_CARRERER,
 )
 ICGC_SOURCE_ID = "icgc/adreces-simplificat"
 ICGC_LISTING_URL = "https://datacloud.icgc.cat/datacloud/adreces-simplificat/csv/"
@@ -150,17 +167,18 @@ class Address:
     lon: float
 
 
-def check_csv(path: Path, columns: tuple[str, ...] = (), delimiter: str = ",") -> str | None:
-    """Why the file is not a complete CSV with these header columns; None when it is.
+def check_csv(path: Path, columns: tuple[str, ...] = (), min_rows: int = 1) -> str | None:
+    """Why the file is not a complete CSV with these header columns and min_rows data rows; None when it is.
 
     An error page has another header, an empty answer no data row, and a cut-off download a row
-    with fewer fields than the header or an open quote at the end. The published files may end
-    without a final newline, so every row is parsed rather than the last byte looked at.
+    with fewer fields than the header, an open quote at the end or, cut at a row boundary, fewer
+    rows than a complete file has. The published files may end without a final newline, so every
+    row is parsed rather than the last byte looked at.
     """
     rows = 0
     try:
         with path.open(encoding="utf-8", newline="") as f:
-            reader = csv.reader(f, delimiter=delimiter, strict=True)
+            reader = csv.reader(f, strict=True)
             header = next(reader, None)
             if header is None:
                 return "the file is empty"
@@ -176,15 +194,20 @@ def check_csv(path: Path, columns: tuple[str, ...] = (), delimiter: str = ",") -
                 rows += 1
     except (csv.Error, UnicodeDecodeError) as exc:
         return f"not a complete CSV file ({exc})"
-    return None if rows else "no data rows"
+    if not rows:
+        return "no data rows"
+    if rows < min_rows:
+        return f"{rows:,} data rows, fewer than the {min_rows:,} of a complete file: the file is cut off"
+    return None
 
 
-def check_icgc_zip(path: Path, full: bool = False) -> str | None:
+def check_icgc_zip(path: Path, zone_map: ZoneMap | None = None) -> str | None:
     """Why the file is not a complete ICGC address zip; None when it is.
 
     A cut-off zip has no central directory at its end and does not open. The municipality and street
-    address files must be in it, the address file with the columns the loader reads. With full, the
-    checksum of every member is verified too, which reads the whole archive (done once, on download).
+    address files must be in it, the address file with the columns the loader reads. With the zone
+    map, the whole archive is read, which is done once, on download: the checksum of every member is
+    verified, and every municipality of the zones must have MIN_ROWS_ICGC_PER_MUNICIPALITY addresses.
     """
     try:
         with zipfile.ZipFile(path) as archive:
@@ -195,8 +218,15 @@ def check_icgc_zip(path: Path, full: bool = False) -> str | None:
             missing = [c for c in ICGC_COLUMNS if c not in header]
             if missing:
                 return f"the address file has no {', '.join(missing)} column"
-            if full and (bad := archive.testzip()) is not None:
+            if zone_map is None:
+                return None
+            if (bad := archive.testzip()) is not None:
                 return f"{bad} is damaged"
+            counts = _zone_address_counts(archive, zone_map)
+            minimum = MIN_ROWS_ICGC_PER_MUNICIPALITY
+            short = [f"{zone_map.municipality(zone)} {n:,}" for zone, n in counts.items() if n < minimum]
+            if short:
+                return f"addresses in {', '.join(short)}, fewer than the {minimum:,} of a complete register"
     except (zipfile.BadZipFile, EOFError) as exc:
         return f"not a complete zip file ({exc})"
     except (RuntimeError, csv.Error, UnicodeDecodeError) as exc:  # _zip_member finds no such file
@@ -283,10 +313,10 @@ def fetch(url: str, target: Path, check: Callable[[Path], str | None]) -> Path:
 
 
 def fetch_download(download: Download, cache_dir: Path) -> Path:
-    return fetch(download.url, cache_dir / download.filename, lambda path: check_csv(path, download.columns))
+    return fetch(download.url, cache_dir / download.filename, download.check)
 
 
-def fetch_icgc(cache_dir: Path) -> Path:
+def fetch_icgc(cache_dir: Path, zone_map: ZoneMap) -> Path:
     """The ICGC zip in the cache, or the current one from the ICGC download folder.
 
     A cached zip that is not marked complete is removed and the current one downloaded instead.
@@ -302,7 +332,7 @@ def fetch_icgc(cache_dir: Path) -> Path:
     names = sorted(set(ICGC_ZIP_RE.findall(listing)))
     if not names:
         raise DownloadError(f"no adreces-simplificat zip listed at {ICGC_LISTING_URL}")
-    return fetch(ICGC_LISTING_URL + names[-1], cache_dir / names[-1], lambda path: check_icgc_zip(path, full=True))
+    return fetch(ICGC_LISTING_URL + names[-1], cache_dir / names[-1], lambda path: check_icgc_zip(path, zone_map))
 
 
 def _read_csv(path: Path, columns: Mapping[str, str]) -> list[dict]:
@@ -331,6 +361,21 @@ def _icgc_csv(archive: zipfile.ZipFile, kind: str) -> Iterator[list[str]]:
     """Rows of one CSV of the ICGC zip, header first. Plain lists: the address file has 1.7 million rows."""
     with archive.open(_zip_member(archive, kind)) as raw:
         yield from csv.reader(io.TextIOWrapper(raw, encoding="utf-8", newline=""), delimiter=";")
+
+
+def _zone_address_counts(archive: zipfile.ZipFile, zone_map: ZoneMap) -> dict[str, int]:
+    """Rows of the address file in each zone municipality, by zone; 0 for a municipality it lacks."""
+    municipalities = _icgc_csv(archive, "municipi")
+    header = next(municipalities)
+    code, name = header.index("codmuni"), header.index("nommuni")
+    zone_of = {row[code]: zone for row in municipalities if (zone := zone_map.for_municipality(row[name]))}
+    counts = dict.fromkeys(sorted(zone_map.by_municipality.values()), 0)
+    addresses = _icgc_csv(archive, "adrecavia")
+    column = next(addresses).index("codmuni")
+    for row in addresses:
+        if len(row) > column and (zone := zone_of.get(row[column])):
+            counts[zone] += 1
+    return counts
 
 
 def read_icgc(zip_path: Path, zone_map: ZoneMap) -> tuple[list[dict], int]:
