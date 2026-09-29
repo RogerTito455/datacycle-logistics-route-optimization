@@ -4,6 +4,7 @@
 #
 #   SKIP_OSRM=1        skip the routing checks (route and distance matrix)
 #   SMOKE_ROUTE=...    lon,lat;lon,lat pair for the routing checks (default: hub to Sagrada Familia)
+#   SMOKE_MAX_LAG=...  messages the stream consumer may have left to write (default 1000)
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
@@ -110,11 +111,31 @@ db_access() {  # grafana_reader, the dashboards' role, reads gold and ops and no
     ! "${reader[@]}" -c "SELECT 1 FROM $t LIMIT 1" >/dev/null 2>&1 || { echo "can read $t"; return 1; }
   done
   ! "${reader[@]}" -c "DELETE FROM ops.data_sources WHERE false" >/dev/null 2>&1 || { echo "can write to ops"; return 1; }
+  # Dead letters hold raw messages: the dashboards count them, they do not read the bytes.
+  "${reader[@]}" -c "SELECT count(*), max(reason) FROM ops.dead_letters" >/dev/null || { echo "cannot count dead letters"; return 1; }
+  ! "${reader[@]}" -c "SELECT payload FROM ops.dead_letters LIMIT 1" >/dev/null 2>&1 || { echo "can read dead letter payloads"; return 1; }
   local schemas; schemas=$(psql_admin -c "
     SELECT string_agg(n, ' ' ORDER BY n) FROM unnest(array['bronze', 'silver', 'gold', 'ops']) n
     WHERE has_schema_privilege('grafana_reader', n, 'USAGE')")
   [[ "$schemas" == "gold ops" ]] || { echo "grafana_reader can use schemas: $schemas"; return 1; }
-  echo "grafana_reader reads gold and ops only; bronze reads and ops writes denied"
+  echo "grafana_reader reads gold and ops only; bronze, dead letter payloads and ops writes denied"
+}
+
+consumer() {  # the stream consumer is healthy, measures its lag and keeps up with the topics
+  local health
+  health=$($COMPOSE exec -T consumer python -c \
+    "import urllib.request; print(urllib.request.urlopen('http://localhost:8000/health', timeout=4).read().decode())" 2>&1) \
+    || { echo "health endpoint not ok: $(echo "$health" | tail -1)"; return 1; }
+  local r topics lag age
+  r=$(psql_admin -c "
+    SELECT count(DISTINCT topic), coalesce(sum(lag), 0), coalesce(round(extract(epoch FROM now() - max(event_time))), -1)
+    FROM (SELECT DISTINCT ON (topic, kafka_partition) topic, lag, event_time FROM ops.consumer_lag
+          WHERE consumer_group = 'llobregat-consumer' ORDER BY topic, kafka_partition, event_time DESC) latest") || return 1
+  IFS='|' read -r topics lag age <<<"$r"
+  [[ "$topics" -eq 3 ]] || { echo "lag recorded for $topics of the 3 topics"; return 1; }
+  [[ "$age" -ge 0 && "$age" -le 60 ]] || { echo "last lag measurement ${age} s ago"; return 1; }
+  [[ "$lag" -le "${SMOKE_MAX_LAG:-1000}" ]] || { echo "lag of ${lag} messages"; return 1; }
+  echo "healthy, lag ${lag} messages over 3 topics, measured ${age} s ago"
 }
 
 rustfs() {
@@ -184,6 +205,7 @@ check migrations migrations
 check metadata metadata
 check bronze-raw bronze_raw
 check db-access db_access
+check consumer consumer
 check rustfs rustfs
 check grafana grafana
 check dagster dagster

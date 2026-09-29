@@ -119,12 +119,17 @@ make plan DATE=2026-09-28       # the baseline route plan of that day: 30 mornin
 make simulate DATE=2026-09-28   # the vans drive it: GPS, telemetry and handheld scans to Redpanda, at 60x
 ```
 
+The [stream consumer](services/consumer/README.md) runs with the platform and writes the three
+topics into `bronze.gps_pings`, `bronze.vehicle_telemetry` and `bronze.delivery_events` as the vans
+send them, with its lag in `ops.consumer_lag` and what it cannot store in `ops.dead_letters`.
+
 Measured on 28 September 2026 with every service idle:
 
 | Resource | Use |
 |---|---|
 | RAM, nine running services | 1.8 GB |
 | RAM, one-off road-graph build | 1.5 GB peak on top, for about 10 minutes |
+| RAM, stream consumer, added on 29 September 2026 after it wrote a simulated day | 0.12 GB |
 | Disk, images | 1.6 GB |
 | Disk, volumes | 0.8 GB, of which 0.4 GB is the road graph |
 
@@ -145,6 +150,7 @@ Measured on 28 September 2026 with every service idle:
 - [Data model](docs/data-model.md)
 - [Generator: reference data and daily orders](services/generator/README.md)
 - [Simulator: the baseline route plan and the vans' GPS, telemetry and handheld scans](services/simulator/README.md)
+- [Stream consumer: the topics into bronze, dead letters and lag](services/consumer/README.md)
 - [Open data sources research](docs/research/open-data-sources.md)
 - [Assignment phases](docs/phases/)
 - [Contributing and Git workflow](CONTRIBUTING.md)

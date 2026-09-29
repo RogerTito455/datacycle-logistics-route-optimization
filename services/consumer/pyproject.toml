@@ -1,0 +1,25 @@
+[project]
+name = "llobregat-consumer"
+version = "0.1.0"
+description = "Writes the vans' stream from Redpanda into the bronze tables of TimescaleDB"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+dependencies = ["confluent-kafka==2.15.1", "psycopg[binary]==3.3.6"]
+
+[project.scripts]
+llobregat-consumer = "llobregat_consumer.cli:main"
+
+[dependency-groups]
+dev = ["pytest==9.1.1"]
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = ["db: needs the platform's TimescaleDB with the migrations applied (skipped when it is not reachable)"]

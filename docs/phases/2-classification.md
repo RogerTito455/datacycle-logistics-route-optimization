@@ -482,9 +482,11 @@ flowchart LR
 - **Files and API responses are also kept as they arrived.** Batch files and API responses are
   stored in the RustFS `bronze` bucket, so their original category survives next to the
   structured rows. Stream messages are not stored there: the parsed row is their only copy, and
-  a topic keeps a message for 24 hours.
+  a topic keeps a message for 24 hours. A message the consumer cannot parse keeps its original
+  bytes in `ops.dead_letters`.
 - **Some semi-structure is kept on purpose.** Type-specific sensor readings stay as `jsonb`,
-  because their shape differs by vehicle type.
+  because their shape differs by vehicle type, and so does any field of a stream message that its
+  table has no column for (`extra_fields`).
 - **Unstructured data does not change category.** Notes and photos stay unstructured. The
   platform attaches structured references to them (the order row and the note's labels, the object
   key and the photo's EXIF tags) and, where it needs facts from them, extracts those facts as new

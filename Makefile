@@ -5,6 +5,7 @@ WAIT_TIMEOUT ?= 1800
 # The generator's pinned environment (services/generator/uv.lock); .env gives it the credentials.
 GENERATOR := uv run --project services/generator --frozen
 SIMULATOR := uv run --project services/simulator --frozen
+CONSUMER := uv run --project services/consumer --frozen
 SEED ?= 0
 COUNT ?= 20
 FUTURE = $(if $(ALLOW_FUTURE), --allow-future)
@@ -13,7 +14,7 @@ SPEED ?= 60
 
 .DEFAULT_GOAL := help
 .PHONY: help up down restart ps logs smoke migrate validate-seeds test-generator test-generator-db \
-	load-reference generate pod-sample test-simulator plan simulate config clean
+	load-reference generate pod-sample test-simulator plan simulate test-consumer test-consumer-stream config clean
 
 help:  ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-18s %s\n", $$1, $$2}'
@@ -80,6 +81,12 @@ plan: .env  ## Make the baseline route plan of a generated date: make plan DATE=
 simulate: .env  ## Drive a planned date: GPS, telemetry and handheld scans to Redpanda: make simulate DATE=2026-09-28 [SPEED=60] [WAVE=all] [SEED=0]
 	@test -n "$(DATE)" || { echo "usage: make simulate DATE=YYYY-MM-DD [SPEED=60] [WAVE=all|morning|afternoon] [SEED=0]"; exit 2; }
 	set -a && . ./.env && set +a && $(SIMULATOR) llobregat-simulator simulate --date $(DATE) --speed $(SPEED) --wave $(WAVE) --seed $(SEED)
+
+test-consumer: .env  ## Run the stream consumer's tests (the database ones in scratch schemas when the platform is up)
+	set -a && . ./.env && set +a && $(CONSUMER) pytest services/consumer/tests
+
+test-consumer-stream: .env  ## Send test messages through the running consumer and replay them (leaves test rows: CI's check)
+	./scripts/consumer-stream-test.sh
 
 config: .env  ## Validate docker-compose.yml
 	$(COMPOSE) config --quiet && echo "docker-compose.yml is valid"
