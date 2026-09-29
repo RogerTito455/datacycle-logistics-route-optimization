@@ -6,18 +6,22 @@ share; the rules that do not depend on chance are checked exactly.
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 
 import numpy as np
 import pytest
 from conftest import MONDAY, SEED
 from llobregat_generator import notes
+from llobregat_generator.config import GENERATOR_DIR
 from llobregat_generator.notes import (
     BUSINESS_CONTEXT_SHARE,
     NOTE_SHARE,
     NOTES_STREAM,
     PLACES,
+    Category,
     Context,
+    Language,
     NotePicker,
     attach_notes,
     context,
@@ -46,6 +50,13 @@ def corpus(seeds) -> dict[str, dict]:
 
 def with_note(orders) -> list[dict]:
     return [o for o in orders if o["note_id"] is not None]
+
+
+def test_the_languages_and_categories_are_those_of_the_schema():
+    schema = json.loads((GENERATOR_DIR / "seed" / "delivery_notes.schema.json").read_text(encoding="utf-8"))
+    note = schema["properties"]["notes"]["items"]["properties"]
+    assert [str(language) for language in Language] == note["language"]["enum"]
+    assert [str(category) for category in Category] == note["category"]["enum"]
 
 
 def test_about_a_third_of_orders_carry_a_note(week, saturday):

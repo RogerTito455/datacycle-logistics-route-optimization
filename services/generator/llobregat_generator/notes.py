@@ -63,6 +63,32 @@ PLACES = {
 NOTES_STREAM = 8
 
 
+class Language(StrEnum):
+    """The language of a note, as delivery_notes.json labels it."""
+
+    SPANISH = "es"
+    CATALAN = "ca"
+    ENGLISH = "en"
+    FRENCH = "fr"
+    ITALIAN = "it"
+    MIXED = "mixed"
+
+
+class Category(StrEnum):
+    """The category of a note, as the generating model labelled it in delivery_notes.json."""
+
+    ACCESS = "access"
+    SCHEDULE = "schedule"
+    NEIGHBOUR_OR_CONCIERGE = "neighbour or concierge"
+    BUSINESS_HOURS = "business hours"
+    CALL_BEFORE = "call before"
+    PETS_OR_CHILDREN = "pets or children"
+    FRAGILE_OR_SPECIAL_HANDLING = "fragile or special handling"
+    LOCATION_HINT = "location hint"
+    CONTRADICTORY = "contradictory"
+    OTHER = "other"
+
+
 class Context(StrEnum):
     """Who could have written a note (rule 2)."""
 
@@ -115,7 +141,7 @@ def context(note: Mapping) -> Context:
     note naming a home is a home's even if it names an office too ("leave it at the key collection
     office round the corner" of a holiday flat)."""
     text = note["text"]
-    if note["category"] == "business hours":
+    if Category(note["category"]) is Category.BUSINESS_HOURS:
         return Context.BUSINESS
     if HOME.search(text) or FLAT_DOOR.search(text):
         return Context.HOME
@@ -151,8 +177,8 @@ def fits_zone(note: dict, zone_id: str) -> bool:
     return zones_named(note["text"]) <= {zone_id}
 
 
-def language_shares(notes: Sequence[dict]) -> dict[str, float]:
-    counts = Counter(n["language"] for n in notes)
+def language_shares(notes: Sequence[dict]) -> dict[Language, float]:
+    counts = Counter(Language(n["language"]) for n in notes)
     return {language: n / len(notes) for language, n in counts.items()}
 
 
@@ -164,7 +190,9 @@ class Candidates:
     probabilities: np.ndarray
 
     @classmethod
-    def weighted(cls, groups: Sequence[tuple[Sequence[dict], float]], corpus_mix: Mapping[str, float]) -> Candidates:
+    def weighted(
+        cls, groups: Sequence[tuple[Sequence[dict], float]], corpus_mix: Mapping[Language, float]
+    ) -> Candidates:
         """The notes of the groups, each group with its share, languages weighted by rule 4.
 
         Each group in turn gives each of its languages what is left of that language's corpus share,
@@ -174,7 +202,7 @@ class Candidates:
         notes: list[dict] = []
         weights: list[float] = []
         for group, share in groups:
-            counts = Counter(n["language"] for n in group)
+            counts = Counter(Language(n["language"]) for n in group)
             wanted = {language: max(left.get(language, 0.0), 0.0) for language in counts}
             if sum(wanted.values()) <= 0:  # the earlier groups gave these languages their whole share
                 wanted = dict.fromkeys(counts, 1.0)
