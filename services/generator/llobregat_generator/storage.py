@@ -58,38 +58,35 @@ class Bucket:
         return key
 
     def put_parquet(self, key: str, table: pa.Table, checksum: str | None = None) -> str:
-        """Upload the table as a Parquet file.
-
-        With a checksum of its content, nothing is uploaded when the key already holds a file with
-        that checksum; the checksum is stored with the object for the next run to compare.
-        """
-        head = self.head(key) if checksum else None
-        if head is not None and head.get("Metadata", {}).get(CHECKSUM) == checksum:
-            return key
+        """Upload the table as a Parquet file, through put_bytes and with its checksum rule."""
         buffer = io.BytesIO()
         pq.write_table(table, buffer, compression="zstd")
-        self.client.put_object(
-            Bucket=self.name,
-            Key=key,
-            Body=buffer.getvalue(),
-            ContentType=CONTENT_TYPES[".parquet"],
-            Metadata={CHECKSUM: checksum} if checksum else {},
-        )
-        self.written.append(key)
-        return key
+        return self.put_bytes(key, buffer.getvalue(), checksum=checksum)
 
-    def put_bytes(self, key: str, body: bytes, metadata: dict[str, str] | None = None) -> str:
-        """Upload an object, such as a photo, with its content type from the key and its user metadata."""
-        suffix = Path(key).suffix
+    def put_bytes(
+        self, key: str, body: bytes, metadata: dict[str, str] | None = None, checksum: str | None = None
+    ) -> str:
+        """Upload an object with its content type from the key and its user metadata.
+
+        With a checksum of its content, nothing is uploaded when the key already holds an object
+        with that checksum; the checksum is stored with the object for the next upload to compare.
+        """
+        if checksum is not None and self.holds(key, checksum):
+            return key
         self.client.put_object(
             Bucket=self.name,
             Key=key,
             Body=body,
-            ContentType=CONTENT_TYPES.get(suffix, "application/octet-stream"),
-            Metadata=metadata or {},
+            ContentType=CONTENT_TYPES.get(Path(key).suffix, "application/octet-stream"),
+            Metadata={**(metadata or {}), **({CHECKSUM: checksum} if checksum else {})},
         )
         self.written.append(key)
         return key
+
+    def holds(self, key: str, checksum: str) -> bool:
+        """Whether the key holds an object stored with this checksum of its content."""
+        head = self.head(key)
+        return head is not None and head.get("Metadata", {}).get(CHECKSUM) == checksum
 
     def get_bytes(self, key: str) -> bytes:
         return self.client.get_object(Bucket=self.name, Key=key)["Body"].read()
