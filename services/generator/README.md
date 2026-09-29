@@ -46,14 +46,20 @@ Muntaner, 79, in the Eixample, at a point in Montjuïc 1.4 km away. Bronze keeps
 Downloads are cached in `services/generator/.cache/` (git-ignored): the first `make load-reference`
 fetches about 70 MB, later runs reuse them. Only a complete download is cached: the server must
 answer HTTP 200 with as many bytes as it announced, and the file must read as what it should be, a
-CSV with the published header and every row complete, or a zip with the ICGC municipality and
-address files whose checksums match. Anything else, such as an error page served with status 200 or
-a download cut off halfway, is discarded with an error that says why, and a cached file that fails
-the check is downloaded again on the next run. Only small extracts are committed: the zone boundaries
-and, for the tests, 560 sample addresses (40 per zone) as the registers publish them, in
-[`tests/fixtures/`](tests/fixtures/): `taula_direle_sample.csv` and `carrerer_sample.csv` for
-Barcelona, `icgc_sample.csv` for the five towns. [`scripts/build_fixtures.py`](scripts/build_fixtures.py)
-rebuilds them from the cache.
+CSV with the published header, every row complete and at least as many rows as a complete file has
+(100,000 for `taula-direle`, which publishes 171,901; 4,000 for `carrerer`, 4,770), or a zip with
+the ICGC municipality and address files whose checksums match and at least 1,000 street addresses
+in each of the five towns (3,119 to 22,862). The minimums catch a file cut exactly at a row
+boundary, which a server that announces no length can send. Anything else, such as an error page
+served with status 200, a download cut off halfway, a refused connection or a timeout, is discarded
+with an error that says why. A download that passes is marked complete with a file next to it,
+`<file>.ok`, holding its size and SHA-256, and a cached file is reused only while it matches its
+marker: a file without one, such as a file cached before these checks existed, is downloaded again.
+
+Only small extracts are committed: the zone boundaries and, for the tests, 560 sample addresses (40
+per zone) as the registers publish them, in [`tests/fixtures/`](tests/fixtures/):
+`taula_direle_sample.csv` and `carrerer_sample.csv` for Barcelona, `icgc_sample.csv` for the five
+towns. [`scripts/build_fixtures.py`](scripts/build_fixtures.py) rebuilds them from the cache.
 
 ## Outputs
 
