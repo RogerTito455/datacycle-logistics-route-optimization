@@ -8,15 +8,18 @@ from __future__ import annotations
 
 from collections import Counter
 
+import numpy as np
 import pytest
 from conftest import MONDAY, SEED
 from llobregat_generator import notes
 from llobregat_generator.notes import (
     BUSINESS_CONTEXT_SHARE,
     NOTE_SHARE,
+    NOTES_STREAM,
     PLACES,
     Context,
     NotePicker,
+    attach_notes,
     context,
     language_shares,
     names_places,
@@ -156,8 +159,19 @@ def test_the_same_date_and_seed_give_the_same_notes(seeds, pool, weekday):
     assert [o["note_id"] for o in other.orders[:200]] != [o["note_id"] for o in weekday.orders[:200]]
 
 
+def test_the_notes_are_drawn_from_their_own_random_stream_alone(seeds, weekday):
+    """A generator of their own, seeded with the seed, the date and NOTES_STREAM, draws the day's
+    notes again from the orders without them. Notes drawn from the orders' generator, even after
+    every order, would come out different."""
+    orders = [{**o, "note_id": None, "notes": None} for o in weekday.orders]
+    stream = np.random.default_rng([SEED, MONDAY.toordinal(), NOTES_STREAM])
+    attach_notes(orders, NotePicker(seeds.delivery_notes, zone_shares(seeds.company)), stream)
+    assert [o["note_id"] for o in orders] == [o["note_id"] for o in weekday.orders]
+
+
 def test_notes_have_their_own_random_stream(seeds, pool, weekday, monkeypatch):
-    """Without notes the day is the same: the notes change no other field of an order."""
+    """Without notes the day is the same: the notes change no other field of an order, which they
+    would if they were drawn from the orders' generator before the orders."""
     monkeypatch.setattr(notes, "NOTE_SHARE", 0.0)
     without = generate_day(MONDAY, SEED, seeds, pool)
     assert not with_note(without.orders)
