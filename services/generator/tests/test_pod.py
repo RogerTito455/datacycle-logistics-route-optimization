@@ -11,6 +11,7 @@ from conftest import MONDAY
 from llobregat_generator import cli, pod
 from llobregat_generator.metadata import FileMetadata
 from llobregat_generator.orders import LOCAL_TZ
+from llobregat_generator.rules import ParcelSize
 from llobregat_generator.storage import CHECKSUM
 from PIL import ExifTags, Image
 
@@ -93,6 +94,15 @@ def test_a_photo_is_a_jpeg_drawn_the_same_way_every_time():
 def test_a_delivery_needs_a_time_zone():
     with pytest.raises(ValueError, match="no time zone"):
         pod.Delivery("O-1", date(2026, 9, 28), datetime(2026, 9, 28, 10, 15), 41.39, 2.16)
+
+
+def test_a_delivery_takes_a_parcel_size_of_the_orders_and_no_other():
+    assert pod.Delivery("O-1", date(2026, 9, 28), SUMMER.delivered_at, 41.39, 2.16, 2, "medium").parcel_size is (
+        ParcelSize.MEDIUM
+    )
+    assert set(pod.BOX_SIZE) == set(ParcelSize)
+    with pytest.raises(ValueError, match="'huge' is not a valid ParcelSize"):
+        pod.Delivery("O-1", date(2026, 9, 28), SUMMER.delivered_at, 41.39, 2.16, 2, "huge")
 
 
 def test_object_keys():

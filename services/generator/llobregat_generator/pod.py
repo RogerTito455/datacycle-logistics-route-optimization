@@ -36,6 +36,7 @@ from PIL.TiffImagePlugin import IFDRational
 from llobregat_generator import __version__
 from llobregat_generator.metadata import FileMetadata
 from llobregat_generator.orders import LOCAL_TZ
+from llobregat_generator.rules import ParcelSize
 from llobregat_generator.storage import Bucket
 
 SOURCE_ID = "simulator/pod-photos"
@@ -59,7 +60,7 @@ WALLS = ((225, 196, 150), (236, 224, 200), (199, 128, 96), (230, 230, 224), (219
 DOORS = ((47, 84, 60), (40, 64, 112), (100, 64, 38), (126, 38, 38), (36, 36, 40), (108, 110, 114))
 CARDBOARD = (176, 134, 86)
 TAPE = (222, 202, 150)
-BOX_SIZE = {"small": (62, 44), "medium": (92, 64), "large": (128, 90)}  # front face in pixels
+BOX_SIZE = {ParcelSize.SMALL: (62, 44), ParcelSize.MEDIUM: (92, 64), ParcelSize.LARGE: (128, 90)}  # front, pixels
 MAX_BOXES = 3
 
 
@@ -73,11 +74,12 @@ class Delivery:
     lat: float
     lon: float
     parcels: int = 1
-    parcel_size: str = "small"
+    parcel_size: ParcelSize = ParcelSize.SMALL  # the text bronze.orders holds is taken too
 
     def __post_init__(self):
         if self.delivered_at.tzinfo is None:
             raise ValueError(f"delivered_at of {self.order_id} has no time zone")
+        object.__setattr__(self, "parcel_size", ParcelSize(self.parcel_size))  # ValueError for an unknown size
 
 
 @dataclass(frozen=True)
@@ -173,7 +175,7 @@ def _draw(delivery: Delivery) -> Image.Image:
         draw.ellipse([intercom + 14, y, intercom + 22, y + 8], fill=(226, 226, 226))
 
     boxes = min(max(delivery.parcels, 1), MAX_BOXES)
-    box_width, box_height = BOX_SIZE.get(delivery.parcel_size, BOX_SIZE["small"])
+    box_width, box_height = BOX_SIZE[delivery.parcel_size]
     x, bottom = 236, 414
     for n in range(boxes):
         scale = float(rng.uniform(0.9, 1.1))
