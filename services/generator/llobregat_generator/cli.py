@@ -11,6 +11,7 @@ import sys
 from datetime import UTC, date, datetime
 
 import psycopg
+from botocore.exceptions import BotoCoreError, ClientError
 
 from llobregat_generator import db, pod, publish
 from llobregat_generator.addresses import DownloadError
@@ -68,7 +69,11 @@ def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
 
 
 def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
-    """Photos for a few orders of a generated date under pod/samples/, each read back and checked."""
+    """Photos for some orders of a generated date under pod/samples/, each read back and checked.
+
+    The new photos are uploaded first; the photos of an earlier sample of the date that are not
+    among them are removed afterwards, so a run that fails halfway never leaves fewer photos.
+    """
     with db.connect(settings) as conn:
         orders = publish.read_day(conn, args.date)
         if not orders:
@@ -77,13 +82,11 @@ def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
         metadata = FileMetadata.for_table(conn, pod.TABLE, pod.SOURCE_ID, datetime.now(UTC))
     bucket = Bucket(settings)
     prefix = pod.sample_prefix(args.date)
-    removed = bucket.delete_prefix(prefix)
     print(f"Proof-of-delivery placeholders for {args.date}, synthetic images drawn by code")
-    if removed:
-        print(f"  {removed} photos of an earlier sample removed from bronze/{prefix}")
-    wrong = 0
+    keys, wrong = [], 0
     for delivery in pod.sample_deliveries(orders, args.count, args.seed):
         key = pod.upload(bucket, delivery, metadata, sample=True)
+        keys.append(key)
         body = bucket.get_bytes(key)
         capture = pod.read_exif(body)
         matches = (
@@ -96,11 +99,23 @@ def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
             f"  bronze/{key}  {len(body) / 1000:.1f} kB  EXIF {capture.taken_at.isoformat()}  "
             f"{capture.lat:.6f}, {capture.lon:.6f}" + ("" if matches else "  DOES NOT MATCH THE DELIVERY")
         )
-    written = len(bucket.written)
-    print(
-        f"{written} photos in bronze/{prefix}, read back: EXIF time and position match {written - wrong} of {written}"
-    )
+    removed = bucket.delete_prefix(prefix, keep=keys)
+    if removed:
+        print(f"  {removed} photos of an earlier sample, not in this one, removed from bronze/{prefix}")
+    photos = len(keys)
+    print(f"{photos} photos in bronze/{prefix}, read back: EXIF time and position match {photos - wrong} of {photos}")
     return 1 if wrong else 0
+
+
+def positive(text: str) -> int:
+    """An argparse type: a whole number above zero."""
+    try:
+        number = int(text)
+    except ValueError:
+        number = 0
+    if number <= 0:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a whole number above zero")
+    return number
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -130,7 +145,7 @@ def main(argv: list[str] | None = None) -> int:
         help="upload proof-of-delivery placeholder photos for some orders of a generated date, under pod/samples/",
     )
     sample.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")
-    sample.add_argument("--count", type=int, default=20, help="number of photos (default 20)")
+    sample.add_argument("--count", type=positive, default=20, help="number of photos, above zero (default 20)")
     sample.add_argument("--seed", type=int, default=0, help="random seed of the orders and times (default 0)")
     sample.set_defaults(run=cmd_pod_sample)
     args = parser.parse_args(argv)
@@ -151,6 +166,13 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"cannot reach TimescaleDB at {settings.postgres_host}:{settings.postgres_port} ({exc}); "
             "start the platform with `make up`",
+            file=sys.stderr,
+        )
+        return 1
+    except (BotoCoreError, ClientError) as exc:
+        print(
+            f"the RustFS bronze bucket at {settings.s3_endpoint} failed ({exc}); check that the platform is up "
+            "(`make up`) and the S3 credentials in .env",
             file=sys.stderr,
         )
         return 1

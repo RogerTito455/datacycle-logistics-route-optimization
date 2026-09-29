@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import io
+from collections.abc import Collection
 from pathlib import Path
 
 import boto3
@@ -91,13 +92,14 @@ class Bucket:
     def get_bytes(self, key: str) -> bytes:
         return self.client.get_object(Bucket=self.name, Key=key)["Body"].read()
 
-    def delete_prefix(self, prefix: str) -> int:
-        """Delete every object whose key starts with prefix; return how many there were."""
+    def delete_prefix(self, prefix: str, keep: Collection[str] = ()) -> int:
+        """Delete every object whose key starts with prefix, except the keys in keep; return how many."""
         deleted = 0
         for page in self.client.get_paginator("list_objects_v2").paginate(Bucket=self.name, Prefix=prefix):
             for item in page.get("Contents", []):
-                self.client.delete_object(Bucket=self.name, Key=item["Key"])
-                deleted += 1
+                if item["Key"] not in keep:
+                    self.client.delete_object(Bucket=self.name, Key=item["Key"])
+                    deleted += 1
         return deleted
 
     def get_parquet(self, key: str) -> pa.Table:
