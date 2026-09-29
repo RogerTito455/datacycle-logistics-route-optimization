@@ -330,7 +330,12 @@ def drive_day(
         photo = None
         if status == "delivered":
             photo = pod.Delivery(
-                order.order_id, service_date, clock.moment(t), order.lat, order.lon, order.parcels, order.parcel_size
+                order.order_id,
+                service_date,
+                clock.moment(t),
+                pod.LatLon(order.lat, order.lon),
+                order.parcels,
+                order.parcel_size,
             )
             value["pod_object_key"] = pod.object_key(photo)
         events.append(Message(t, EVENTS_TOPIC, van.vehicle_id, value, photo))

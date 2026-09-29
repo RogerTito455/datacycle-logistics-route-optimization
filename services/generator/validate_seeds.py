@@ -20,7 +20,7 @@ import sys
 from collections import Counter
 
 import jsonschema
-from llobregat_generator.notes import PLACES, NotePicker, places_named
+from llobregat_generator.notes import PLACES, Category, Context, Language, NotePicker, context, places_named
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
     RELIEF_POOL,
@@ -62,7 +62,7 @@ WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri")
 SAME_DAY_CUTOFF_HOUR = 11  # hours before this are "registered before the cut-off"
 NOTES_EXPECTED = 300  # prompt 008
 # Prompt 008: about 50% Spanish, 30% Catalan, 15% English, 5% other languages or mixed.
-LANGUAGE_TARGETS = {"es": 50, "ca": 30, "en": 15}
+LANGUAGE_TARGETS = {Language.SPANISH: 50, Language.CATALAN: 30, Language.ENGLISH: 15}
 OTHER_LANGUAGES_TARGET = 5
 
 
@@ -411,14 +411,14 @@ def check_delivery_notes(corpus: dict, company: dict) -> None:
         f"tolerance {LANGUAGE_TOLERANCE_PP} pp)",
     )
 
-    schema = read_json(SEED_DIR / "delivery_notes.schema.json")
-    categories = schema["properties"]["notes"]["items"]["properties"]["category"]["enum"]
-    used = Counter(n["category"] for n in notes)
-    unused = [c for c in categories if c not in used]
+    categories = list(Category)
+    used = Counter(Category(n["category"]) for n in notes)
+    unused = [str(c) for c in categories if c not in used]
     (fewest, low), (most, high) = used.most_common()[-1], used.most_common(1)[0]
     check(
         not unused,
-        f"all {len(categories)} categories used, from {low} {fewest!r} to {high} {most!r}; unused: {unused or 'none'}",
+        f"all {len(categories)} categories used, from {low} {fewest.value!r} to {high} {most.value!r}; "
+        f"unused: {unused or 'none'}",
     )
     for label, meaning in (
         ("likely_longer_stop", "a likely longer stop"),
@@ -436,6 +436,11 @@ def check_delivery_notes(corpus: dict, company: dict) -> None:
     check(not unnamed, f"every place of the generator is named by a note; not named: {unnamed or 'none'}")
     placed = ", ".join(f"{place} {' '.join(ids)}" for place, ids in named.items())
     print(f"  info   notes that name a place, attached only in its zone (outside the area: never): {placed}")
+    written_by = Counter(context(n) for n in notes)
+    print(
+        "  info   notes by who could write them, read from the text: "
+        + ", ".join(f"{kind} {written_by[kind]}" for kind in Context)
+    )
     try:
         NotePicker(corpus, zone_ids)
         problem = None

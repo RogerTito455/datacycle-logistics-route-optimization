@@ -149,7 +149,7 @@ def test_every_delivery_has_its_photo_and_every_failure_a_reason(messages):
     for m in delivered:
         assert m.value["pod_object_key"] == f"pod/{MONDAY}/{m.value['order_id']}.jpg" == pod.object_key(m.photo)
         assert m.photo.delivered_at == datetime.fromisoformat(m.value["event_time"])
-        assert (m.photo.lat, m.photo.lon) == pytest.approx((m.value["lat"], m.value["lon"]), abs=1e-6)
+        assert m.photo.position.near(pod.LatLon(m.value["lat"], m.value["lon"]))
     for m in failed:
         assert m.value["failure_reason"] in REASONS and "pod_object_key" not in m.value and m.photo is None
     assert all(m.photo is None for m in events if m.value["status"] not in ("delivered",))

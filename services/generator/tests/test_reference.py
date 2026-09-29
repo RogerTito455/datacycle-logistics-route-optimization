@@ -35,8 +35,9 @@ def test_seed_tables_match_the_seeds(seeds):
     }
     for table in tables.values():  # every row has the same columns, then source and raw_object_key
         assert all(list(row) == list(table.rows[0]) for row in table.rows)
-        from_file = table.name in ("bronze.vehicles", "bronze.drivers", "bronze.shippers", "bronze.delivery_notes")
+        from_file = table.name in reference.SEED_FILES
         assert table.columns[-2:] == (["source", "raw_object_key"] if from_file else [table.columns[-2], "source"])
+        assert table.raw_object_key == reference.SEED_FILES.get(table.name)
         assert (table.raw_object_key or "").endswith(".parquet") == from_file
 
 

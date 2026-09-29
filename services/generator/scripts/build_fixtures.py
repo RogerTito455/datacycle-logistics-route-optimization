@@ -144,7 +144,7 @@ def build_sample(seeds: Seeds, cache_dir: Path, boundaries: dict) -> dict[str, l
     zone_map = ZoneMap.from_company(seeds.company)
     direle = addresses.fetch_download(addresses.TAULA_DIRELE, cache_dir)
     carrerer = addresses.fetch_download(addresses.CARRERER, cache_dir)
-    subset = addresses.icgc_subset(addresses.fetch_icgc(cache_dir), zone_map)
+    subset = addresses.icgc_subset(addresses.fetch_icgc(cache_dir, zone_map), zone_map)
     names = {s["street_code"]: s["official_name"] for s in addresses.read_carrerer(carrerer)}
     pool = addresses.build_pool(
         addresses.read_taula_direle(direle), names, addresses.read_icgc_subset(subset)[0], zone_map

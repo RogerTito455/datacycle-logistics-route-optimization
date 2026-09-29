@@ -64,7 +64,7 @@ Four rules settle the edge cases:
 | 6 | Vehicle status (sensors) | JSON message on topic `vehicle.telemetry`, keys vary by vehicle type | Semi-structured | Rows in `bronze.vehicle_telemetry`, type-specific sensors in a `jsonb` column | Structured |
 | 7 | Weather (Open-Meteo) | JSON document from a REST API | Semi-structured | Rows in `bronze.weather` | Structured |
 | + | Delivery notes | Free text inside about a third of the orders, from a corpus of 300 AI-generated notes | Unstructured | `notes` column of `bronze.orders`; `note_id` joins the note's labels in `bronze.delivery_notes` | Unstructured text, structured labels |
-| + | Proof-of-delivery photos | JPEG image per delivered parcel, with its time and position in EXIF tags | Unstructured | Object `pod/<service date>/<order id>.jpg` in the RustFS `bronze` bucket, key in `bronze.delivery_events.pod_object_key` | Unstructured pixels, structured EXIF metadata |
+| + | Proof-of-delivery photos | JPEG image per delivered parcel, with its time and position in EXIF tags | Unstructured | Object `pod/<service date>/<order id>.jpg` in the RustFS `bronze` bucket, stored by the simulator; its key in `bronze.delivery_events.pod_object_key` | Unstructured pixels, structured EXIF metadata |
 | R | Company profile | One nested JSON document, `company.json` | Semi-structured | `bronze.hubs`, `zones`, `shifts`, `vehicle_types` | Structured |
 | R | Fleet register and driver roster | Parquet files in the `bronze` bucket, one row per vehicle or driver | Structured | `bronze.vehicles`, `bronze.drivers` | Structured |
 | R | Demand model | JSON document of the order generator's parameters | Semi-structured | Shippers in `bronze.shippers`; the order generator reads the other parameters | Structured |
@@ -277,15 +277,15 @@ also handles unstructured data every day, so two datasets extend the list. They 
 Recipients write instructions for the driver when they place an order. The platform's notes come
 from a corpus of 300 that prompt 008 generated the way people in Barcelona type them on a phone,
 and the order generator attaches one to about a third of each day's orders
-([generator](../../services/generator/README.md#delivery-notes)): 1,108 of the 3,363 orders of
+([generator](../../services/generator/README.md#delivery-notes)): 1,119 of the 3,363 orders of
 28 September 2026. Four of them, as `bronze.orders` and `bronze.delivery_notes` hold them:
 
 | Order | `notes` | `language` | `category` | `likely_longer_stop` | `likely_failed_attempt` |
 |---|---|---|---|---|---|
-| O-20260928-00061, a business in L'Hospitalet | Es L'Hospitalet, NO Barcelona!! la calle se llama igual | es | location hint | true | true |
-| O-20260928-01574, a consumer in Gràcia | deixeu-lo a la porteria. no hi ha porteria, deixeu-lo al veí. millor en mà | ca | contradictory | true | true |
-| O-20260928-01703, a consumer in Ciutat Vella | baby sleeping, please DON'T ring the bell. knock softly | en | pets or children | false | false |
-| O-20260928-01013, a business in the Eixample | bar, obrim a les 12, abans la persiana està abaixada | ca | business hours | false | true |
+| O-20260928-02534, a business in L'Hospitalet | Es L'Hospitalet, NO Barcelona!! la calle se llama igual | es | location hint | true | true |
+| O-20260928-01140, a consumer in Sants-Montjuïc | deixeu-lo a la porteria. no hi ha porteria, deixeu-lo al veí. millor en mà | ca | contradictory | true | true |
+| O-20260928-00001, a consumer in Nou Barris i Sant Andreu | Escalera B, not A! both have a 3rd floor door 1 | en | location hint | true | false |
+| O-20260928-00152, a business in Sant Martí | edifici d'oficines al 22@, les entregues pel moll de càrrega, no per la recepció principal | ca | access | true | false |
 
 The text arrives in the `notes` field of the order and is kept as typed in the `notes` column of
 `bronze.orders`. The column is structured; its content is not. There are no fields inside a note:
@@ -298,26 +298,44 @@ The labels next to the text are the opposite: a language, a category and two yes
 same fields with one value each for every note, in typed columns of `bronze.delivery_notes`, which
 `note_id` on the order joins. They are structured data about unstructured content: with them a
 dashboard can count the stops whose note makes a failed attempt more likely without reading a single
-note, and the generator gives business recipients business-like notes. Here the model that wrote the
-notes also wrote the labels. In a real company they would come from the step that phase 3 describes
-as going from data to information: tagging each note that mentions a neighbour, a concierge or a
-time limit, by hand or by text analysis.
+note. Here the model that wrote the notes also wrote the labels. In a real company they would come
+from the step that phase 3 describes as going from data to information: tagging each note that
+mentions a neighbour, a concierge or a time limit, by hand or by text analysis.
+
+The generator does a small piece of that analysis itself, because the category is too coarse to
+decide who gets a note: a location hint can describe a flat ("Escalera B, not A!") as well as a
+warehouse, and the notes of 22@ offices about their loading dock are labelled access. It reads who
+could have written a note from its words: a business when the note is about opening hours or names
+business premises (an office, a reception, a loading dock), a home when it names a flat, a
+staircase, a letterbox, the neighbours or a baby, anyone otherwise. A business recipient draws 80%
+of its notes from the business ones and the rest from the neutral ones, a consumer from all but the
+business ones, and both get the corpus language mix
+([rules](../../services/generator/README.md#delivery-notes)). On the two loaded dates:
+
+| | Saturday 26 September | Monday 28 September |
+|---|---|---|
+| Orders with a note | 301 of 923 | 1,119 of 3,363 |
+| Languages: es, ca, en, fr, it, mixed | 161, 81, 49, 5, 2, 3 | 565, 320, 179, 16, 17, 22 |
+| Categories: access, business hours, neighbour or concierge, location hint, schedule | 47, 27, 53, 28, 30 | 176, 173, 151, 119, 113 |
+| Categories: fragile or special handling, call before, pets or children, contradictory, other | 29, 24, 24, 19, 20 | 106, 90, 68, 62, 61 |
+| Business recipients' notes written by a business, and by a home | 28 of 31, none | 179 of 225, none |
+| Location hints read at consumers' doors, and of them describing a home | 27, 12 | 99, 51 |
 
 ### Proof-of-delivery photos
 
 **The pixels: unstructured. The EXIF metadata and the object key: structured.**
 
-When a parcel is delivered, the handheld takes a photo of it at the door. The image is stored as a
-JPEG object in the RustFS `bronze` bucket at `pod/<service date>/<order id>.jpg`, and the
-`delivered` event records the key in `bronze.delivery_events.pod_object_key`. The simulator stores
-one for every delivered stop before it sends the event: 2,292 for 28 September 2026. `make
+When a parcel is delivered, the handheld takes a photo of it at the door. The simulator stores the
+image as a JPEG object in the RustFS `bronze` bucket at `pod/<service date>/<order id>.jpg` before it
+sends the `delivered` event, which names the key; the consumer (#8) records it in
+`bronze.delivery_events.pod_object_key`. The run of 28 September 2026 stored 2,292 of them. `make
 pod-sample` also puts sample objects in the bucket, under `pod/samples/2026-09-28/`, drawn for
 orders of that day at a time inside their windows. On this platform a photo is a **synthetic placeholder drawn by code**
 (Pillow), not a photograph and not an AI-generated image, and it says so in its caption. What it
 shares with a real one is what matters here: a JPEG with the metadata a handheld camera writes.
 
-This is `pod/samples/2026-09-28/O-20260928-00593.jpg`, for the order at Carrer de Còrsega, 220,
-whose note says "conté líquids, mantenir vertical":
+This is `pod/samples/2026-09-28/O-20260928-00593.jpg`, for a consumer's order at Carrer de
+Còrsega, 220, in the Eixample:
 
 ![Synthetic proof-of-delivery placeholder: a grey door, a parcel on the doorstep and the caption O-20260928-00593, 28/09/2026 15:42](images/pod-O-20260928-00593.jpg)
 
@@ -345,13 +363,13 @@ therefore unstructured content that carries structured metadata in the same file
 carries its schema in its footer, except that the tags describe how the image was taken, not what it
 shows.
 
-The platform reaches the photos through structured references only: the row in
-`bronze.delivery_events` (which order, when, where, and the key), the object's metadata in storage
-(content type and size, and `source`, `owner`, `schema-version`, `ingested-at` and `order-id` as
-user metadata) and the EXIF tags. The planned gold model `gold.fct_deliveries` carries the photo's
-key next to each delivery (issue #10), so a dashboard can link to the image without reading it.
-This split, unstructured content addressed by structured references, is how the platform handles all
-binary data.
+The platform reaches the photos through structured references only: the object's metadata in
+storage (content type and size, and `source`, `owner`, `schema-version`, `ingested-at` and
+`order-id` as user metadata), the EXIF tags and, once the simulator writes it, the row in
+`bronze.delivery_events` (which order, when, where, and the key). The planned gold model
+`gold.fct_deliveries` will carry the photo's key next to each delivery (issue #10), so a dashboard
+can link to the image without reading it. This split, unstructured content addressed by structured
+references, is how the platform handles all binary data.
 
 ## Reference data
 

@@ -1,8 +1,10 @@
 #!/usr/bin/env bash
 # Integration test of the generator against the running stack: load the reference data, load it
 # again, generate one service date, generate it again, and check the bronze tables with SQL. Then
-# upload the date's sample of proof-of-delivery photos (make pod-sample, 20 by default, replacing
-# an earlier sample of the date) and read their EXIF back.
+# upload the date's sample of proof-of-delivery photos (make pod-sample, 20 by default) twice: each
+# run reads back every photo's EXIF and S3 user metadata, the second must write nothing, so the
+# sample in the bucket is only written when it changes, and the test reads the S3 metadata of one
+# photo straight from RustFS.
 #
 #   ./scripts/generator-db-test.sh [--sample] [DATE]    DATE defaults to 2026-09-28, a past Monday
 #
@@ -101,9 +103,40 @@ failed=$(psql_admin -c "
   SELECT coalesce(string_agg(name, '; '), '') FROM checks WHERE NOT ok")
 [[ -z "$failed" ]] || { echo "FAIL: $failed"; exit 1; }
 
-echo "== proof-of-delivery photos of ${DATE}"
+echo "== proof-of-delivery photos of ${DATE}, twice"
+PHOTOS_OK="read back: EXIF time and position match 20 of 20, S3 user metadata matches 20 of 20"
 photos=$(make --no-print-directory pod-sample DATE="$DATE" 2>&1) || { echo "$photos"; echo "FAIL: pod-sample"; exit 1; }
 echo "$photos"
-grep -q "EXIF time and position match 20 of 20" <<<"$photos" || { echo "FAIL: the photo sample"; exit 1; }
+grep -qF "$PHOTOS_OK" <<<"$photos" || { echo "FAIL: the photo sample"; exit 1; }
+again=$(make --no-print-directory pod-sample DATE="$DATE" 2>&1) || { echo "$again"; echo "FAIL: pod-sample"; exit 1; }
+echo "$again" | tail -2
+grep -qF "20 photos in bronze/pod/samples/${DATE}/: 0 written, 20 unchanged, 0 of an earlier sample removed" \
+  <<<"$again" && grep -qF "$PHOTOS_OK" <<<"$again" || { echo "FAIL: the second run of the sample wrote photos"; exit 1; }
+
+# The metadata of one photo as RustFS returns it, read with boto3 alone.
+photo=$(grep -oE "pod/samples/${DATE}/O-[0-9]+-[0-9]+\.jpg" <<<"$photos" | head -1)
+stored=$(uv run --project services/generator --frozen python - "$photo" <<'PY'
+import os
+import sys
+
+import boto3
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url=os.environ.get("S3_ENDPOINT", "http://localhost:9000"),
+    aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+    aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+    region_name="us-east-1",
+)
+head = s3.head_object(Bucket="bronze", Key=sys.argv[1])
+print(head["ContentType"], *(f"{name}={value}" for name, value in sorted(head["Metadata"].items())))
+PY
+)
+echo "bronze/${photo}: ${stored}"
+order_id=$(basename "$photo" .jpg)
+for expected in "image/jpeg " " source=simulator/pod-photos" " owner=" " schema-version=" " ingested-at=20" \
+                " order-id=${order_id}"; do
+  grep -qF -- "$expected" <<<"$stored" || { echo "FAIL: the S3 metadata of ${photo} has no '${expected# }'"; exit 1; }
+done
 echo "PASS: reference data loaded once, ${DATE} generated twice with the same ${twice%% *} orders, 10 checks," \
-     "20 photos with their EXIF"
+     "20 photos with their EXIF and S3 metadata, written once"
