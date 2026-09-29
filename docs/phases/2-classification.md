@@ -164,9 +164,9 @@ failed, distance. Every row has the same columns, so the file is structured and 
 into `bronze.route_history`. It is batch data by nature: it describes the past and arrives once a
 night, which is why the assignment hints at batch processing for it.
 
-The optimizer's live plans (`bronze.route_plans` and `bronze.route_plan_stops`) are the same kind
-of data for today's routes. The optimizer writes them as rows directly, so they are structured
-from the moment they exist.
+The route plans (`bronze.route_plans` and `bronze.route_plan_stops`) are the same kind of data for
+today's routes: the baseline plan made before each wave and the optimizer's re-plans. The planner
+and the optimizer write them as rows directly, so they are structured from the moment they exist.
 
 ### 5 · Fuel consumption
 

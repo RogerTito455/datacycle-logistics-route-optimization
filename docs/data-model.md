@@ -9,7 +9,7 @@ migrations in [`infra/postgres/migrations/`](../infra/postgres/migrations/).
 | Layer | Where | What it holds | Written by |
 |---|---|---|---|
 | Raw payloads | RustFS bucket `bronze` | Every batch file and API response exactly as it arrived, plus proof-of-delivery photos (synthetic placeholders drawn by code) | Loaders, generator, simulator |
-| `bronze` | TimescaleDB | The same records parsed into typed rows, with their metadata. Append-only, and no record is rejected for its values | Stream consumer, loaders, optimizer |
+| `bronze` | TimescaleDB | The same records parsed into typed rows, with their metadata. Append-only, and no record is rejected for its values | Stream consumer, loaders, baseline planner, optimizer |
 | `silver` | TimescaleDB | Cleaned, deduplicated and joined data: dimensions and facts | dbt |
 | `gold` | TimescaleDB | The KPI and the marts the dashboards read | dbt |
 | `ops` | TimescaleDB | Platform bookkeeping: data source registry, migrations, health checks | Platform |
@@ -161,6 +161,7 @@ erDiagram
     smallint stop_sequence PK
     text order_id
     timestamptz planned_arrival
+    timestamptz window_start "promised"
   }
   route_history {
     text route_id PK
@@ -286,8 +287,8 @@ Events and measurements:
 |---|---|---|---|
 | `orders` | One row per order: shipper, destination at a real address, priority, wave, time window and the recipient's free-text `notes`, with the `note_id` of the note in `delivery_notes` when there is one (about a third of the orders) | Order generator: the demand model (prompt 004) at real addresses of Open Data BCN and ICGC, notes from prompt 008 ([generator](../services/generator/README.md)) | One Parquet file per service date in the RustFS `bronze` bucket, written with the rows |
 | `delivery_events` | Every scan of the driver's handheld: loaded, arrived, delivered, failed, returned. `pod_object_key` is the key of the proof-of-delivery photo, `pod/<service date>/<order id>.jpg` in the `bronze` bucket: a synthetic placeholder JPEG drawn by code, with the delivery time and position in its EXIF metadata ([generator](../services/generator/README.md#proof-of-delivery-photos)) | Simulated handheld, topic `delivery.events` | Stream |
-| `route_plans` | One row per plan of a route: version 0 is the baseline plan made before departure, later versions are re-plans by the optimizer | Optimizer | On departure and on every re-plan |
-| `route_plan_stops` | The stops of each plan, in order, with planned arrival times | Optimizer | With its plan |
+| `route_plans` | One row per plan of a route: version 0 is the baseline plan made before the wave, later versions are re-plans by the optimizer. Wave, main zone, van, driver, stops, planned departure and completion, kilometres to the last stop | The baseline planner, the company's fixed plan (source `planner/baseline`, [simulator](../services/simulator/README.md#baseline-plan)); the optimizer (`optimizer/route-planner`, issue #16) | Before each wave, and on every re-plan |
+| `route_plan_stops` | The stops of each plan, in order, with the planned arrival, the leg from the previous stop and the 120-minute window promised to the customer (`window_start`, `window_end`): for an order that accepted the whole wave it is set from the baseline plan, for the others it is the order's own | The baseline planner and the optimizer, as above | With its plan |
 | `route_history` | Ninety days of completed routes: departure, completion, stops delivered and failed. The KPI's baseline | AI-generated route history | Nightly batch file |
 | `gps_pings` | Position, speed and heading of every van | Simulated GPS along OSRM routes, topic `gps.pings` | Stream, every 5 s per van |
 | `vehicle_telemetry` | Speed, odometer, ignition, battery or fuel level, energy counter and cargo door; type-specific sensors in `readings` (JSON) | Simulated telemetry, topic `vehicle.telemetry` | Stream, every 30 s per van |
@@ -410,6 +411,7 @@ same migration.
 | 009 | `shippers`, `streets` and `icgc_addresses`; the fields of the fleet register and the driver roster on `vehicles` and `drivers`; `shipper_id`, `wave` and `window_type` on `orders`; their data sources |
 | 010 | `raw_object_key` on `vehicles`, `drivers` and `shippers`, the key of the Parquet file each is loaded from |
 | 011 | `delivery_notes`, the corpus of prompt 008; `note_id` on `orders`; the data source of the notes and the descriptions of the orders and of the proof-of-delivery photos (issue #25) |
+| 012 | The `planner/baseline` data source of the baseline plan; `window_start` and `window_end` on `route_plan_stops`, the promised window; the descriptions of the optimizer's and the handheld's sources (issue #7) |
 
 ## Silver and gold (dbt, issue #10)
 
