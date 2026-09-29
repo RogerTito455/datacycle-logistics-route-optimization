@@ -35,6 +35,8 @@ jobs:
         run: uv run --project services/generator --frozen pytest services/generator/tests
       - name: Planner and simulator tests (offline)
         run: uv run --project services/simulator --frozen pytest services/simulator/tests
+      - name: Stream consumer tests (offline; the database tests run in the compose job)
+        run: uv run --project services/consumer --frozen pytest services/consumer/tests
 
   compose-smoke:
     name: Compose smoke test
@@ -61,6 +63,10 @@ jobs:
         # Loads the reference data twice, from the committed sample addresses so the job needs no open-data
         # portal, and generates a fixed past Monday twice, then checks bronze with SQL.
         run: ./scripts/generator-db-test.sh --sample 2026-09-28
+      - name: Stream consumer against the database and the broker
+        # Its tests with the database, then a fixed set of messages, a few valid and one malformed per
+        # topic, through the running consumer, checked in bronze and ops.dead_letters, and a replay.
+        run: ./scripts/consumer-stream-test.sh
       - name: Logs on failure
         if: failure()
         run: docker compose logs --no-color --tail=200
