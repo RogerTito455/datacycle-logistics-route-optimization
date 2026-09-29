@@ -20,7 +20,7 @@ import sys
 from collections import Counter
 
 import jsonschema
-from llobregat_generator.notes import PLACES, NotePicker, places_named
+from llobregat_generator.notes import PLACES, Context, NotePicker, context, places_named
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
     RELIEF_POOL,
@@ -436,6 +436,11 @@ def check_delivery_notes(corpus: dict, company: dict) -> None:
     check(not unnamed, f"every place of the generator is named by a note; not named: {unnamed or 'none'}")
     placed = ", ".join(f"{place} {' '.join(ids)}" for place, ids in named.items())
     print(f"  info   notes that name a place, attached only in its zone (outside the area: never): {placed}")
+    written_by = Counter(context(n) for n in notes)
+    print(
+        "  info   notes by who could write them, read from the text: "
+        + ", ".join(f"{kind} {written_by[kind]}" for kind in Context)
+    )
     try:
         NotePicker(corpus, zone_ids)
         problem = None
