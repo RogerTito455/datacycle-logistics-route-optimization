@@ -286,17 +286,24 @@ rule, waves and windows, registration hours, parcels per stop, parcel mix, that 
 a real address of its zone, and that the same date and seed give identical orders and an identical
 Parquet file. Shares pooled over the week are compared within four standard errors, computed from
 the orders themselves; zone shares, split exactly, within 5% of each zone's share on a single day.
-The delivery notes are checked on the same week: a third of the orders carry one, 80% of the
-business recipients' notes and none of the consumers' come from the two business categories, the
-corpus language mix is kept (exactly, in every group of candidates), a note that names a place only
-reaches its zone, an order's text is its note's, and the same date and seed give the same notes
-while a day generated without notes is otherwise identical. The photos are checked for an EXIF round
-trip in summer and winter time, both hemispheres, the same bytes for the same delivery, the object
-key and metadata of an upload, and a sample inside the orders' windows. Other tests cover the ICGC
-reading with its conversion to WGS84, the file metadata, the checksum of the reference files, the
-refusal of future dates and the download cache, which a local HTTP server feeds cut-off files, error
-pages and HTTP errors that must not be cached. The figures the seeds must satisfy on their own are
-the seed validators' job, not the tests'.
+The delivery notes are checked on the same week: a third of the orders carry one; who could have
+written a note is read right from notes that name business premises, a home, or a bar as a
+neighbour; 80% of the business recipients' notes are a business's and none a home's, no consumer
+gets a business's note and the home location hints reach consumers; every kind of recipient gets
+the corpus language mix (exactly, in every zone); a note that names a place only reaches its zone;
+an order's text is its note's; the same date and seed give the same notes, drawn from their own
+random stream, and a day generated without notes is otherwise identical. The photos are checked for
+an EXIF round trip in summer and winter time, both hemispheres and GPS seconds just below a minute,
+the same bytes for the same delivery, the object key and metadata of an upload, that an identical
+photo is not written again, a sample inside the orders' windows, and `pod-sample` against a bucket
+in memory: every upload before the removal of stale photos, nothing rewritten, a photo whose metadata
+does not read back failing the run. Other tests cover the ICGC reading with its conversion to
+WGS84, the file metadata, the checksum of the reference files, the refusal of future dates and of a
+sample count below one, and the download cache, which a local HTTP server feeds files cut off before
+their announced length or at a row boundary without one, a chunk cut in half, error pages and HTTP
+errors, and a closed port and a silent server stand for a failing network: none may be cached, and
+a cached file without its completion marker is downloaded again. The figures the seeds must satisfy
+on their own are the seed validators' job, not the tests'.
 
 CI runs the tests and the seed validators on every pull request. Its compose smoke job also loads
 the reference data into a fresh stack twice, generates a past Monday twice and checks bronze with
