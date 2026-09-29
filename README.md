@@ -107,13 +107,15 @@ make down    # stop, keep the data
 The first `make up` downloads the Catalonia road network (258 MB) and builds the routing graph,
 which takes about ten minutes. Later starts take under a minute.
 
-With the platform up, load the reference data and generate orders
-([generator](services/generator/README.md)):
+With the platform up, load the reference data, generate orders
+([generator](services/generator/README.md)) and plan the day's routes
+([simulator](services/simulator/README.md)):
 
 ```bash
 make load-reference             # hub, zones, fleet, drivers, shippers, delivery notes and real addresses into bronze
 make generate DATE=2026-09-28   # one day of orders: a Parquet file in RustFS and rows in bronze.orders
 make pod-sample DATE=2026-09-28 # 20 proof-of-delivery placeholder photos of that day, with EXIF, in RustFS
+make plan DATE=2026-09-28       # the baseline route plan of that day: 30 morning and 10 afternoon routes
 ```
 
 Measured on 28 September 2026 with every service idle:
@@ -141,6 +143,7 @@ Measured on 28 September 2026 with every service idle:
 - [Architecture decisions](docs/decisions/)
 - [Data model](docs/data-model.md)
 - [Generator: reference data and daily orders](services/generator/README.md)
+- [Simulator: the baseline route plan](services/simulator/README.md)
 - [Open data sources research](docs/research/open-data-sources.md)
 - [Assignment phases](docs/phases/)
 - [Contributing and Git workflow](CONTRIBUTING.md)

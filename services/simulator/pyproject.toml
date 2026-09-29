@@ -1,0 +1,29 @@
+[project]
+name = "llobregat-simulator"
+version = "0.1.0"
+description = "Simulates the daily operation of Llobregat Express: the baseline route plan and the vans that drive it"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.12"
+# The generator brings the seeds, the database and bucket access and the proof-of-delivery photos,
+# with its exact pins: the simulator draws from numpy and must repeat itself for a date and a seed.
+dependencies = ["llobregat-generator"]
+
+[project.scripts]
+llobregat-simulator = "llobregat_simulator.cli:main"
+
+[dependency-groups]
+dev = ["pytest==9.1.1"]
+
+[tool.uv.sources]
+llobregat-generator = { path = "../generator", editable = true }
+
+[build-system]
+requires = ["uv_build>=0.11,<0.12"]
+build-backend = "uv_build"
+
+[tool.uv.build-backend]
+module-root = ""
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

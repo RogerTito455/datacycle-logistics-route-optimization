@@ -4,13 +4,15 @@ COMPOSE := docker compose
 WAIT_TIMEOUT ?= 1800
 # The generator's pinned environment (services/generator/uv.lock); .env gives it the credentials.
 GENERATOR := uv run --project services/generator --frozen
+SIMULATOR := uv run --project services/simulator --frozen
 SEED ?= 0
 COUNT ?= 20
 FUTURE = $(if $(ALLOW_FUTURE), --allow-future)
+WAVE ?= all
 
 .DEFAULT_GOAL := help
 .PHONY: help up down restart ps logs smoke migrate validate-seeds test-generator test-generator-db \
-	load-reference generate pod-sample config clean
+	load-reference generate pod-sample test-simulator plan config clean
 
 help:  ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-18s %s\n", $$1, $$2}'
@@ -66,6 +68,13 @@ generate: .env  ## Generate one day of orders: make generate DATE=2026-09-28 [SE
 pod-sample: .env  ## Upload sample proof-of-delivery photos of a generated date: make pod-sample DATE=2026-09-28 [COUNT=20]
 	@test -n "$(DATE)" || { echo "usage: make pod-sample DATE=YYYY-MM-DD [COUNT=20] [SEED=0]"; exit 2; }
 	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator pod-sample --date $(DATE) --count $(COUNT) --seed $(SEED)
+
+test-simulator:  ## Run the planner's and the simulator's tests (offline)
+	$(SIMULATOR) pytest services/simulator/tests
+
+plan: .env  ## Make the baseline route plan of a generated date: make plan DATE=2026-09-28 [WAVE=all|morning|afternoon]
+	@test -n "$(DATE)" || { echo "usage: make plan DATE=YYYY-MM-DD [WAVE=all|morning|afternoon]"; exit 2; }
+	set -a && . ./.env && set +a && $(SIMULATOR) llobregat-simulator plan --date $(DATE) --wave $(WAVE)
 
 config: .env  ## Validate docker-compose.yml
 	$(COMPOSE) config --quiet && echo "docker-compose.yml is valid"
