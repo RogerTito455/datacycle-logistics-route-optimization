@@ -18,7 +18,7 @@ describes something that runs. The deadline is 11 October 2026, thirteen days fr
 |---|---|---|---|
 | 1 | Build a **working end-to-end pipeline**, not only diagrams | Conceptual only; hybrid with a small runnable piece | A live dashboard has more impact in a ten-minute presentation, and the team has the time budget |
 | 2 | Model an **urban last-mile parcel carrier** with a hub in Barcelona's Zona Franca logistics area, serving the metropolitan area | Long-haul trucking | Many events per minute, the KPI moves visibly in real time, urban traffic data is available for free |
-| 3 | **Fictional brand**, explicitly documented as modeled on a real Spanish parcel network | Use the real company's name | Avoids trademark and logo issues while keeping the operation realistic |
+| 3 | **Fictional brand, Llobregat Express**, explicitly documented as modeled on Spain's large parcel networks. Named after the river delta next to the hub | Use a real company's name; "Meridiana Logistics" and "Delta Express" (both collide with existing companies) | Avoids trademark and logo issues while keeping the operation realistic |
 | 4 | **Hybrid data**: real open APIs for traffic, weather, road geometry and fuel prices; AI-generated business data for company, fleet, drivers, orders and history; GPS pings simulated along real route geometry | All generated; all real | Meets the assignment's requirement to generate data with AI and submit the prompts, while keeping the external signals real |
 | 5 | **Real route optimization** with Google OR-Tools over a distance matrix from a self-hosted OSRM | Simulated "before/after" numbers | Demonstrates the optimization instead of describing it. Fallback to simulation is possible without touching the rest of the pipeline |
 | 6 | **KPI definition**: per route, time from hub departure to last completed delivery; averaged over a window, segmented by zone and hour. Supporting KPIs: average delay vs. plan, share of on-time deliveries | Time per stop | Matches the KPI name literally; supporting KPIs give it context on the dashboard |
@@ -45,11 +45,12 @@ describes something that runs. The deadline is 11 October 2026, thirteen days fr
 | 17 | Slides as a **PowerPoint file** built on a Canva design provided by the team | Marp; Slidev | Team preference for the visual result |
 | 18 | Git workflow: protected `main`, feature branches, one PR per change with one approval, Conventional Commits, CI on every PR | Direct pushes | Shows process, not only result |
 
-## Open at the time of writing
+### Resolved later the same day
 
-- Zero-cost hosting for the public URL (no VPS budget). See ADR 0002 when decided.
-- Final company name.
-- The three mandatory metadata elements for phase 5.
+| # | Decision | Alternatives considered | Rationale |
+|---|---|---|---|
+| 19 | **Hosting on GitHub Codespaces**, see [ADR 0002](0002-hosting-codespaces.md) | Laptop + Cloudflare tunnel; Oracle Cloud Free Tier | Zero cost, one-click start for every member, public port forwarding |
+| 20 | **Three mandatory metadata elements** on every table and file: `source` (origin system and license), `ingested_at` next to `event_time` (freshness and delay), `owner` with `schema_version` | `quality_score`; `retention_policy` | Implemented by dbt on every model and surfaced by Dagster as asset metadata, so definition and implementation are the same thing |
 
 ## Consequences
 

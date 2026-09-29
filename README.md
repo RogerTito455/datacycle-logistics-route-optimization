@@ -3,8 +3,9 @@
 > **Design the Data Lifecycle of a Real Company** — Case 3, Logistics (Route Optimization).
 > Datacycle · Unit 1 · DAW2 2026-27.
 
-A working, end-to-end data platform for a simulated Barcelona last-mile parcel carrier that
-re-plans delivery routes in real time. Everything in this repository runs with a single
+A working, end-to-end data platform for **Llobregat Express**, a fictional Barcelona last-mile
+parcel carrier modeled on Spain's large parcel networks, that re-plans delivery routes in real
+time. Everything in this repository runs with a single
 `docker compose up`, and every diagram in the documentation describes something that actually
 executes.
 
@@ -82,6 +83,7 @@ flowchart LR
 | Route optimization | Google OR-Tools + self-hosted OSRM | Real vehicle-routing solver over real road distances |
 | Dashboard | Grafana | Live map, KPI, before/after optimizer panels |
 | Landing and docs | Astro Starlight on GitHub Pages | One site for the pitch and the full write-up |
+| Runtime hosting | GitHub Codespaces | Zero cost, public port forwarding for the live demo (ADR 0002) |
 | Diagrams | Mermaid | Versioned, renders on GitHub and in the docs |
 
 Real external data (traffic, weather, road geometry, fuel prices) comes from free open sources
