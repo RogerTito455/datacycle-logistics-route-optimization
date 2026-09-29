@@ -286,7 +286,7 @@ Events and measurements:
 | Table | Holds | Comes from | Arrives |
 |---|---|---|---|
 | `orders` | One row per order: shipper, destination at a real address, priority, wave, time window and the recipient's free-text `notes`, with the `note_id` of the note in `delivery_notes` when there is one (about a third of the orders) | Order generator: the demand model (prompt 004) at real addresses of Open Data BCN and ICGC, notes from prompt 008 ([generator](../services/generator/README.md)) | One Parquet file per service date in the RustFS `bronze` bucket, written with the rows |
-| `delivery_events` | Every scan of the driver's handheld: loaded, arrived, delivered, failed, returned. `pod_object_key` is the key of the proof-of-delivery photo, `pod/<service date>/<order id>.jpg` in the `bronze` bucket: a synthetic placeholder JPEG drawn by code, with the delivery time and position in its EXIF metadata ([generator](../services/generator/README.md#proof-of-delivery-photos)) | Simulated handheld, topic `delivery.events` | Stream |
+| `delivery_events` | Every scan of the driver's handheld: `out_for_delivery` when the van leaves the hub, `arrived` at the stop, then `delivered` or `failed` (with a `failure_reason`). `pod_object_key` is the key of the proof-of-delivery photo, `pod/<service date>/<order id>.jpg` in the `bronze` bucket: a synthetic placeholder JPEG drawn by code, with the delivery time and position in its EXIF metadata ([generator](../services/generator/README.md#proof-of-delivery-photos)) | Simulated handheld ([simulator](../services/simulator/README.md)), topic `delivery.events` | Stream |
 | `route_plans` | One row per plan of a route: version 0 is the baseline plan made before the wave, later versions are re-plans by the optimizer. Wave, main zone, van, driver, stops, planned departure and completion, kilometres to the last stop | The baseline planner, the company's fixed plan (source `planner/baseline`, [simulator](../services/simulator/README.md#baseline-plan)); the optimizer (`optimizer/route-planner`, issue #16) | Before each wave, and on every re-plan |
 | `route_plan_stops` | The stops of each plan, in order, with the planned arrival, the leg from the previous stop and the 120-minute window promised to the customer (`window_start`, `window_end`): for an order that accepted the whole wave it is set from the baseline plan, for the others it is the order's own | The baseline planner and the optimizer, as above | With its plan |
 | `route_history` | Ninety days of completed routes: departure, completion, stops delivered and failed. The KPI's baseline | AI-generated route history | Nightly batch file |
@@ -341,8 +341,10 @@ Platform tables in `ops`:
   overwrites it. A date is never duplicated. The prefix `pod/samples/` of the `bronze` bucket is
   outside the rule too: it holds the demonstration photos of `make pod-sample`, which leaves an
   unchanged photo as it is but replaces one that changed and removes the photos a date's new
-  sample no longer has. No row points to those objects. The photos the simulator (issue #7) will
-  write under `pod/<service date>/`, whose keys `delivery_events` records, are write-once.
+  sample no longer has. No row points to those objects. The photos the simulator writes under
+  `pod/<service date>/`, whose keys `delivery_events` records, are write-once: simulating a date
+  again with the same seed draws the same photos, and the upload leaves an unchanged photo as it
+  is. A date is simulated with one seed.
 - **No cascades.** A plan's stops have no `ON DELETE CASCADE`, so deleting a plan that has stops
   fails instead of taking them along.
 

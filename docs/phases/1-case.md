@@ -169,15 +169,15 @@ categories; they extend the list and replace nothing.
 
 | # | Assignment data type | Dataset in the platform | Origin | Produced by | Arrives | Role in the KPI |
 |---|---|---|---|---|---|---|
-| 1 | Vehicle GPS location (real time) | topic `gps.pings` → `bronze.gps_pings` | Simulated on real roads | GPS simulator moving each van along its OSRM route, slowed by the live traffic state | Stream, one ping per van every 5 s | Marks when a van leaves the hub and how long every leg takes |
-| 2 | Orders (origin, destination, priority) | `bronze.orders`, plus topic `delivery.events` for status changes | AI-generated, with real addresses | Order generator driven by the demand model (prompt 004) and the Open Data BCN and ICGC address registers; status events from the driver's simulated handheld | One Parquet file of orders per service date, with registration times spread through the day by the demand model's hourly curve; publishing them in micro-batches through the day is planned with Dagster (#11). Status events as a stream | Defines the stops of each route; the last `delivered` or `failed` event ends the route |
+| 1 | Vehicle GPS location (real time) | topic `gps.pings` → `bronze.gps_pings` | Simulated on real roads | GPS simulator moving each van along its OSRM route, slowed by a time-of-day traffic profile until the live traffic state is loaded (#9) ([simulator](../../services/simulator/README.md)) | Stream, one ping per van every 5 s | Marks when a van leaves the hub and how long every leg takes |
+| 2 | Orders (origin, destination, priority) | `bronze.orders`, plus topic `delivery.events` for status changes (`out_for_delivery`, `arrived`, `delivered`, `failed`) | AI-generated, with real addresses | Order generator driven by the demand model (prompt 004) and the Open Data BCN and ICGC address registers; status events from the driver's simulated handheld | One Parquet file of orders per service date, with registration times spread through the day by the demand model's hourly curve; publishing them in micro-batches through the day is planned with Dagster (#11). Status events as a stream | Defines the stops of each route; the last `delivered` or `failed` event ends the route |
 | 3 | Road traffic data (external API) | `bronze.traffic_state` | Real: Open Data BCN traffic state, which covers Barcelona city only. The SCT incidents feed (DATEX II on the DGT National Access Point) covers the ring roads and the Llobregat bridges and is planned in issue #9. AI-generated fallback, prompt 005 | Loader polling the `itineraris` and `trams` feeds | Every 5 minutes | Explains slow legs and triggers re-optimization |
 | 4 | Route history | `bronze.route_history` | AI-generated | Generator seeded by a history prompt: 90 days of past routes | Nightly batch | Gives the KPI its baseline and the patterns the optimizer learns from |
 | 5 | Fuel consumption | `bronze.fuel_consumption`, `bronze.fuel_prices` | Derived from telemetry. Diesel and CNG prices are real (MINETUR); electricity is priced at a documented fixed tariff, an assumption (issue #9) | Consumption aggregated per vehicle and route from telemetry; loader for prices | Per completed route; prices polled hourly, updated daily by MINETUR | Cost side of every re-plan |
 | 6 | Vehicle status (sensor data) | topic `vehicle.telemetry` → `bronze.vehicle_telemetry` | Simulated | Simulator emitting battery or fuel level, ignition, cargo door and speed | Stream, every 30 s | Cargo-door events measure time at each stop; battery level limits re-planning |
 | 7 | Weather conditions | `bronze.weather` | Real: Open-Meteo (AI-generated fallback, prompt 006) | Loader | Hourly | Rain slows legs; the KPI is segmented by weather |
 | + | Delivery notes | `notes` and `note_id` on `bronze.orders`; the corpus and its labels in `bronze.delivery_notes` | AI-generated: a corpus of 300 notes ([prompt 008](../../prompts/008-delivery-notes.md)) | Order generator, on about a third of the orders | With the orders | Explains long or failed stops; unstructured text |
-| + | Proof-of-delivery photos | RustFS objects `bronze/pod/<service date>/<order id>.jpg`, key in `bronze.delivery_events` | Synthetic placeholder images drawn by code, not AI-generated, with the real time and position in their EXIF metadata | Simulator (issue #7), one per completed delivery; a sample from `make pod-sample` until then | With each `delivered` event | Evidence of delivery; unstructured binary |
+| + | Proof-of-delivery photos | RustFS objects `bronze/pod/<service date>/<order id>.jpg`, key in `bronze.delivery_events` | Synthetic placeholder images drawn by code, not AI-generated, with the real time and position in their EXIF metadata | Simulator, one per delivered stop, stored before its `delivered` event is sent; `make pod-sample` uploads a sample | With each `delivered` event | Evidence of delivery; unstructured binary |
 
 Reference data that every dataset above depends on:
 
@@ -200,9 +200,10 @@ uses three origins and says which one every dataset has:
   drivers, orders, delivery notes and history. The prompts are in [`prompts/`](../../prompts/), verbatim, with
   model, date and version, and every generated file is validated before it is used.
 - **Simulated.** The live signals of the vans: GPS pings, telemetry and delivery events, and the
-  proof-of-delivery photos, placeholders drawn by code. The simulator is code, but it moves the
-  vans over the real road network and reacts to the real traffic state, so the stream behaves like
-  a real fleet.
+  proof-of-delivery photos, placeholders drawn by code. The simulator is code, but it drives the
+  vans over the real road network at OSRM's speeds, slowed by the time of day and, once the traffic
+  loader (#9) fills it, by the real traffic state, so the stream behaves like a real fleet. The
+  plan they drive is simulated too: the baseline plan of the company's planners.
 - **Real.** Signals the company would buy or download in real life: traffic state, weather,
   fuel prices, addresses and roads. All are free, open and need no API key.
 

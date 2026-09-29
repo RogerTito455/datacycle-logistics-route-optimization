@@ -13,11 +13,11 @@ offset in OffsetTimeOriginal, and GPSDateStamp and GPSTimeStamp in UTC) and wher
 GPSLongitude of the delivery address, WGS84).
 
 upload() stores a photo in the RustFS bronze bucket at pod/<service date>/<order id>.jpg and
-returns the key, which the simulator (issue #7) will write into bronze.delivery_events.pod_object_key
-of the `delivered` event. The object carries the metadata elements of ADR 0001, decision 20, as S3
-user metadata, and a key that already holds the same photo is left as it is. `llobregat-generator
-pod-sample` uploads a few for one generated date under pod/samples/, so the documentation can point
-at real objects before the simulator exists.
+returns the key, which the simulator (services/simulator) writes into the pod_object_key of the
+`delivered` event, and the stream consumer (issue #8) into bronze.delivery_events. The object
+carries the metadata elements of ADR 0001, decision 20, as S3 user metadata, and a key that already
+holds the same photo is left as it is. `llobregat-generator pod-sample` uploads a few for one
+generated date under pod/samples/, for the documentation.
 """
 
 from __future__ import annotations
@@ -324,7 +324,7 @@ def sample_deliveries(orders: Sequence[dict], count: int, seed: int = 0) -> Iter
 
     The orders and times are drawn from a random stream of the date and the seed: a larger count
     keeps the orders and times of a smaller one. Placeholders for the documentation only; the
-    simulator (issue #7) delivers the real stops.
+    simulator delivers the real stops.
     """
     if not orders:
         return

@@ -7,9 +7,10 @@ from datetime import date
 import psycopg
 from llobregat_generator import db, publish
 from llobregat_generator.rules import Wave
+from psycopg.rows import dict_row
 
-from llobregat_simulator.company import DEFAULT_GEOFENCE_M, Order
-from llobregat_simulator.planner import PLAN_VERSION, PLANNER, REPLAN_REASON, SOURCE_ID, WavePlan
+from llobregat_simulator.company import DEFAULT_GEOFENCE_M, Company, Order
+from llobregat_simulator.planner import PLAN_VERSION, PLANNER, REPLAN_REASON, SOURCE_ID, Route, Stop, WavePlan
 
 PLAN_COLUMNS = (
     "route_id",
@@ -122,6 +123,59 @@ def write_plans(conn: psycopg.Connection, service_date: date, plans: list[WavePl
         db.copy_rows(conn, "bronze.route_plans", PLAN_COLUMNS, plan_rows)
         db.copy_rows(conn, "bronze.route_plan_stops", STOP_COLUMNS, stop_rows)
     return replaced
+
+
+def read_plan(conn: psycopg.Connection, service_date: date, waves: list[Wave], company: Company) -> list[Route]:
+    """The baseline plan of the date's waves, with each stop's order, in order of departure.
+
+    The simulator drives version 0. When the optimizer (issue #16) writes re-plans, this is where
+    a van would pick up the latest version of its route between stops.
+    """
+    with conn.cursor(row_factory=dict_row) as cur:
+        rows = cur.execute(
+            """SELECT p.route_id, p.wave AS route_wave, p.zone_id, p.vehicle_id, p.driver_id,
+                      p.planned_departure, p.planned_completion,
+                      s.stop_sequence, s.planned_arrival, s.leg_distance_km, s.leg_duration_s,
+                      s.window_start AS promised_start, s.window_end AS promised_end,
+                      o.order_id, o.destination_lat, o.destination_lon, o.destination_zone_id, o.parcels,
+                      o.parcel_size, o.customer_type, o.wave, o.window_type, o.window_start, o.window_end, o.note_id
+               FROM bronze.route_plans p
+               JOIN bronze.route_plan_stops s USING (route_id, plan_version)
+               JOIN bronze.orders o ON o.order_id = s.order_id
+               WHERE p.service_date = %s AND p.plan_version = %s AND p.source = %s AND p.wave = ANY(%s)
+               ORDER BY p.planned_departure, p.route_id, s.stop_sequence""",
+            (service_date, PLAN_VERSION, SOURCE_ID, [w.value for w in waves]),
+        ).fetchall()
+    vans = {v.vehicle_id: v for v in company.vehicles}
+    routes: dict[str, Route] = {}
+    for row in rows:
+        if row["vehicle_id"] not in vans:
+            raise PlanError(f"{row['route_id']} is planned for {row['vehicle_id']}, which is not in the fleet register")
+        route = routes.get(row["route_id"])
+        if route is None:
+            route = routes[row["route_id"]] = Route(
+                row["route_id"],
+                Wave(row["route_wave"]),
+                row["zone_id"],
+                vans[row["vehicle_id"]],
+                row["planned_departure"],
+                [],
+                row["planned_completion"],
+                row["driver_id"],
+            )
+        order = Order.from_row(row)
+        route.stops.append(
+            Stop(
+                order,
+                row["stop_sequence"],
+                row["planned_arrival"],
+                float(row["leg_distance_km"] or 0) * 1000,
+                float(row["leg_duration_s"] or 0),
+                row["promised_start"] or order.window_start,
+                row["promised_end"] or order.window_end,
+            )
+        )
+    return list(routes.values())
 
 
 def waves_of(name: str) -> list[Wave]:

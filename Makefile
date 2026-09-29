@@ -9,10 +9,11 @@ SEED ?= 0
 COUNT ?= 20
 FUTURE = $(if $(ALLOW_FUTURE), --allow-future)
 WAVE ?= all
+SPEED ?= 60
 
 .DEFAULT_GOAL := help
 .PHONY: help up down restart ps logs smoke migrate validate-seeds test-generator test-generator-db \
-	load-reference generate pod-sample test-simulator plan config clean
+	load-reference generate pod-sample test-simulator plan simulate config clean
 
 help:  ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-18s %s\n", $$1, $$2}'
@@ -75,6 +76,10 @@ test-simulator:  ## Run the planner's and the simulator's tests (offline)
 plan: .env  ## Make the baseline route plan of a generated date: make plan DATE=2026-09-28 [WAVE=all|morning|afternoon]
 	@test -n "$(DATE)" || { echo "usage: make plan DATE=YYYY-MM-DD [WAVE=all|morning|afternoon]"; exit 2; }
 	set -a && . ./.env && set +a && $(SIMULATOR) llobregat-simulator plan --date $(DATE) --wave $(WAVE)
+
+simulate: .env  ## Drive a planned date: GPS, telemetry and handheld scans to Redpanda: make simulate DATE=2026-09-28 [SPEED=60] [WAVE=all] [SEED=0]
+	@test -n "$(DATE)" || { echo "usage: make simulate DATE=YYYY-MM-DD [SPEED=60] [WAVE=all|morning|afternoon] [SEED=0]"; exit 2; }
+	set -a && . ./.env && set +a && $(SIMULATOR) llobregat-simulator simulate --date $(DATE) --speed $(SPEED) --wave $(WAVE) --seed $(SEED)
 
 config: .env  ## Validate docker-compose.yml
 	$(COMPOSE) config --quiet && echo "docker-compose.yml is valid"

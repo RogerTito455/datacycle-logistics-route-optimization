@@ -64,7 +64,7 @@ Four rules settle the edge cases:
 | 6 | Vehicle status (sensors) | JSON message on topic `vehicle.telemetry`, keys vary by vehicle type | Semi-structured | Rows in `bronze.vehicle_telemetry`, type-specific sensors in a `jsonb` column | Structured |
 | 7 | Weather (Open-Meteo) | JSON document from a REST API | Semi-structured | Rows in `bronze.weather` | Structured |
 | + | Delivery notes | Free text inside about a third of the orders, from a corpus of 300 AI-generated notes | Unstructured | `notes` column of `bronze.orders`; `note_id` joins the note's labels in `bronze.delivery_notes` | Unstructured text, structured labels |
-| + | Proof-of-delivery photos | JPEG image per delivered parcel, with its time and position in EXIF tags | Unstructured | Object in the RustFS `bronze` bucket: the simulator (#7) will write `pod/<service date>/<order id>.jpg` and its key in `bronze.delivery_events.pod_object_key`; today 20 samples under `pod/samples/2026-09-28/` | Unstructured pixels, structured EXIF metadata |
+| + | Proof-of-delivery photos | JPEG image per delivered parcel, with its time and position in EXIF tags | Unstructured | Object `pod/<service date>/<order id>.jpg` in the RustFS `bronze` bucket, stored by the simulator; its key in `bronze.delivery_events.pod_object_key` | Unstructured pixels, structured EXIF metadata |
 | R | Company profile | One nested JSON document, `company.json` | Semi-structured | `bronze.hubs`, `zones`, `shifts`, `vehicle_types` | Structured |
 | R | Fleet register and driver roster | Parquet files in the `bronze` bucket, one row per vehicle or driver | Structured | `bronze.vehicles`, `bronze.drivers` | Structured |
 | R | Demand model | JSON document of the order generator's parameters | Semi-structured | Shippers in `bronze.shippers`; the order generator reads the other parameters | Structured |
@@ -83,11 +83,13 @@ in the same format as the real feed they replace, so each has the same category 
 **On the topic: semi-structured. In the hypertable: structured.**
 
 The GPS simulator publishes one JSON message per van every five seconds to the Redpanda topic
-`gps.pings`:
+`gps.pings`. This one was sent by van V-08 on its first Eixample route of 28 September 2026, at
+08:15:05 in Barcelona:
 
 ```json
-{"vehicle_id": "V07", "route_id": "R-20261001-Z02-1", "event_time": "2026-10-01T08:14:05Z",
- "lat": 41.3921, "lon": 2.1614, "speed_kmh": 18.4, "heading_deg": 92, "accuracy_m": 4.0}
+{"vehicle_id": "V-08", "route_id": "R-20260928-Z02-M1", "event_time": "2026-09-28T06:15:05Z",
+ "lat": 41.378359, "lon": 2.159104, "speed_kmh": 14.6, "heading_deg": 134, "accuracy_m": 6.0,
+ "source": "simulator/gps", "schema_version": 1}
 ```
 
 Each value travels with its key, the key order does not matter, and `route_id` is simply absent
@@ -116,12 +118,25 @@ value carries its own key, so it is a table: structured, and it loads one-to-one
 One field of the row differs: `notes`, the recipient's free text, classified on its own below.
 `note_id`, next to it, is a plain key into the corpus the notes come from.
 
-As the parcels move, the driver's handheld emits status events (`loaded`, `arrived`,
-`delivered`, `failed`, `returned`) as JSON messages on the topic `delivery.events`, which is
-created together with the simulator that produces them (issue #7). Like GPS pings, they are
+As the parcels move, the driver's handheld emits status events (`out_for_delivery`, `arrived`,
+`delivered`, `failed`) as JSON messages on the topic `delivery.events`; the
+[simulator](../../services/simulator/README.md) produces them. Like GPS pings, they are
 semi-structured in transit: a failed attempt carries a `failure_reason` key and a delivery carries
-a `pod_object_key`, so the fields depend on the status. The consumer lands them in
-`bronze.delivery_events`, where those fields are nullable columns. At rest they are structured.
+a `pod_object_key`, so the fields depend on the status. Two scans of 28 September 2026:
+
+```json
+{"event_id": "e6097e9f-baee-5004-b099-a39d71e9a2e1", "order_id": "O-20260928-01152",
+ "route_id": "R-20260928-Z02-M1", "stop_sequence": 1, "vehicle_id": "V-08", "driver_id": "D-008",
+ "status": "delivered", "lat": 41.380303, "lon": 2.161758, "event_time": "2026-09-28T05:57:13Z",
+ "pod_object_key": "pod/2026-09-28/O-20260928-01152.jpg", "source": "simulator/handheld", "schema_version": 1}
+{"event_id": "46895084-c32a-55e9-94d3-f14e87634ecc", "order_id": "O-20260928-01507",
+ "route_id": "R-20260928-Z05-M2", "stop_sequence": 1, "vehicle_id": "V-23", "driver_id": "D-032",
+ "status": "failed", "lat": 41.39331, "lon": 2.124281, "event_time": "2026-09-28T06:06:24Z",
+ "failure_reason": "recipient_absent", "source": "simulator/handheld", "schema_version": 1}
+```
+
+The consumer (#8) lands them in `bronze.delivery_events`, where those fields are nullable columns.
+At rest they are structured.
 
 ### 3 · Road traffic data (external API)
 
@@ -203,14 +218,19 @@ at a documented fixed tariff, a constant rather than a dataset (issue #9).
 **On the topic: semi-structured. In the table: structured.**
 
 Every thirty seconds each van publishes its sensor readings to `vehicle.telemetry`. The company
-profile gives each vehicle type a different sensor list, so the messages genuinely differ:
+profile gives each vehicle type a different sensor list, so the messages genuinely differ. Two
+readings of the same moment, 08:14:30 on 28 September 2026, both vans parked at a stop with the
+cargo door open:
 
 ```json
-{"vehicle_id": "V03", "event_time": "2026-10-01T08:14:30Z", "energy_level_pct": 64.5,
- "energy_unit": "kWh", "cargo_door_open": true, "charging": false,
- "tyre_pressure_bar": [4.8, 4.8, 5.1, 5.0]}
-{"vehicle_id": "V29", "event_time": "2026-10-01T08:14:30Z", "energy_level_pct": 71.0,
- "energy_unit": "l", "cargo_door_open": false, "adblue_level_pct": 58, "engine_rpm": 820}
+{"vehicle_id": "V-03", "route_id": "R-20260928-Z04-M1", "event_time": "2026-09-28T06:14:30Z",
+ "speed_kmh": 0.0, "odometer_km": 106250.1, "ignition_on": false, "energy_level_pct": 88.6,
+ "energy_used_total": 28687.518, "energy_unit": "kWh", "cargo_door_open": true, "charging": false,
+ "tyre_pressure_bar": [4.76, 4.74, 5.13, 5.19], "source": "simulator/telemetry", "schema_version": 1}
+{"vehicle_id": "V-29", "route_id": "R-20260928-Z11-M1", "event_time": "2026-09-28T06:14:30Z",
+ "speed_kmh": 0.0, "odometer_km": 149765.4, "ignition_on": false, "energy_level_pct": 48.9,
+ "energy_used_total": 15725.37, "energy_unit": "l", "cargo_door_open": true, "engine_rpm": 0,
+ "adblue_level_pct": 40.0, "source": "simulator/telemetry", "schema_version": 1}
 ```
 
 The electric van reports its battery and charging state; the diesel van reports AdBlue and
@@ -305,12 +325,12 @@ business ones, and both get the corpus language mix
 
 **The pixels: unstructured. The EXIF metadata and the object key: structured.**
 
-When a parcel is delivered, the handheld takes a photo of it at the door. The simulator that
-delivers the stops (issue #7) will store each image as a JPEG object in the RustFS `bronze` bucket at
-`pod/<service date>/<order id>.jpg` and record its key in `bronze.delivery_events.pod_object_key`
-of the `delivered` event; neither exists yet. What exists today are 20 samples that
-`make pod-sample` put in the bucket for 28 September 2026, under `pod/samples/2026-09-28/`, drawn
-for orders of that day at a time inside their windows. On this platform a photo is a **synthetic placeholder drawn by code**
+When a parcel is delivered, the handheld takes a photo of it at the door. The simulator stores the
+image as a JPEG object in the RustFS `bronze` bucket at `pod/<service date>/<order id>.jpg` before it
+sends the `delivered` event, which names the key; the consumer (#8) records it in
+`bronze.delivery_events.pod_object_key`. The run of 28 September 2026 stored 2,292 of them. `make
+pod-sample` also puts sample objects in the bucket, under `pod/samples/2026-09-28/`, drawn for
+orders of that day at a time inside their windows. On this platform a photo is a **synthetic placeholder drawn by code**
 (Pillow), not a photograph and not an AI-generated image, and it says so in its caption. What it
 shares with a real one is what matters here: a JPEG with the metadata a handheld camera writes.
 

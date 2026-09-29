@@ -89,9 +89,10 @@ Rows loaded from a file keep `raw_object_key`, the key of that file in the bucke
 drivers, shippers, delivery notes, streets, addresses and orders. The orders file records the
 service date, the seed and the generator version in its Parquet metadata.
 
-Proof-of-delivery photos are objects, not rows: the simulator (issue #7) will store one per
-delivered stop at `pod/<service date>/<order id>.jpg` in the `bronze` bucket and write its key into
-`bronze.delivery_events.pod_object_key`. Until then `pod-sample` writes a sample under
+Proof-of-delivery photos are objects, not rows: the [simulator](../simulator/README.md) stores one
+per delivered stop at `pod/<service date>/<order id>.jpg` in the `bronze` bucket and names it in the
+`pod_object_key` of the `delivered` event, which the consumer (issue #8) writes into
+`bronze.delivery_events`. `pod-sample` writes a sample under
 `pod/samples/<service date>/` ([below](#proof-of-delivery-photos)).
 
 **Re-running.** Bronze is write-once, so `load-reference` inserts only the rows whose key is not in
@@ -205,8 +206,9 @@ the corpus against them:
 | The languages keep the corpus mix as closely as the notes an order can get allow: the groups of notes are taken in turn, each gives each of its languages what is left of that language's corpus share, and the notes of one language in a group are equally likely | The business notes are all Spanish, Catalan or English, so the neutral notes of a business recipient make up for the French, Italian and mixed ones, and both kinds of recipient get the corpus mix: 50 / 30 / 15 / 1.3 / 1.3 / 2.3% Spanish, Catalan, English, French, Italian and mixed. The few neutral French, Italian and mixed notes therefore reach businesses more often than the other neutral notes: N-221, the only neutral mixed one, is 2.3% of a business's notes |
 | A note that names a place goes only to orders of that zone: L'Hospitalet, El Prat, Cornellà, Esplugues and Sant Boi to their zones, 22@ to Sant Martí, Vallvidrera to Sarrià-Sant Gervasi. N-033 names Sant Joan Despí, outside the service area, and is never attached | "Es L'Hospitalet, NO Barcelona!!" is never read at a door in Gràcia |
 
-The two labels are not used by the generator; they are there for the simulator (issue #7) and for
-analysis. The two dates loaded on 29 September 2026 carry these notes:
+The two labels are not used by the generator; the [simulator](../simulator/README.md) uses them (a
+likely longer stop takes longer, a likely failed attempt fails more often), and analysis can. The
+two dates loaded on 29 September 2026 carry these notes:
 
 | | Saturday 26 September | Monday 28 September |
 |---|---|---|
@@ -258,13 +260,13 @@ at the pixels:
 `pod.upload()` stores a photo at `pod/<service date>/<order id>.jpg` in the `bronze` bucket, with
 content type `image/jpeg` and the metadata elements of ADR 0001, decision 20, as S3 user metadata:
 `source` (`simulator/pod-photos`), `owner` and `schema-version` (those of
-`bronze.delivery_events`, which will record the key), `ingested-at` and `order-id`, and a
+`bronze.delivery_events`, which records the key), `ingested-at` and `order-id`, and a
 `content-sha256` of the image and those elements without `ingested-at`. When the key already holds
 the same photo with the same elements, nothing is written, so the photo keeps the `ingested-at` of
-the upload that wrote it. `upload()` returns the key, which the simulator (issue #7) will write into
+the upload that wrote it. `upload()` returns the key, which the simulator writes into
 `pod_object_key` of the `delivered` event.
 
-Until the simulator exists, `make pod-sample DATE=2026-09-28` uploads photos for 20 orders of a
+For the documentation, `make pod-sample DATE=2026-09-28` uploads photos for 20 orders of a
 generated date under `pod/samples/<service date>/`, each at a time drawn inside the order's window,
 and reads every one back: its EXIF time and position must be the delivery's and its S3 user
 metadata the elements above. It uploads the new photos first and then removes the photos of an
