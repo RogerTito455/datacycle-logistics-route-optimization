@@ -134,8 +134,9 @@ uv run --project services/generator --frozen llobregat-generator summary --date 
 
 `generate` prints a sanity summary of the day, and `summary --date` prints it again from
 `bronze.orders`: orders, parcels, business and same-day shares against the demand model, the parcel
-mix, the largest gap between a zone's share and `company.json`, and the share of orders inside
-their zone's official boundary.
+mix, the largest gap between a zone's share and `company.json`, the share of orders inside their
+zone's official boundary, and the delivery notes by language, by category and, for each kind of
+recipient, by who could have written them.
 
 ## How a day of orders is generated
 
@@ -199,16 +200,37 @@ the corpus against them:
 | Rule | Why |
 |---|---|
 | An order carries a note with probability 1/3 | "About a third of the orders" (prompt 008) |
-| A business recipient draws 80% of its notes from `business hours` and `location hint` (67 notes), the other 20% from the other eight categories | A shop writes when it opens and how to find it; "abrimos a las 10" makes no sense at a flat |
-| A consumer draws from the other eight categories (233 notes): access, schedule, neighbour or concierge, call before, pets or children, fragile or special handling, contradictory, other | Night shifts, babies sleeping and the neighbour on the second floor belong to homes |
-| Every language keeps its corpus share: a note weighs its language's share of the corpus divided by the number of notes of that language it competes with | Each group of notes keeps the corpus mix among the languages it has, so the notes read at the doors are about 50 / 30 / 15% Spanish, Catalan and English, like the corpus. The business notes have no French or Italian one |
+| Who could have written a note is read from its text. A business: its category is `business hours`, or it names business premises (an office, a reception, a loading dock, the 22@, an industrial estate, or a shop, bar or restaurant it opens with). A home: it names a home or a part of one (a flat, a house, a flat's floor and door, the staircase, the intercom, the letterbox, a concierge), the neighbours, the family, the pets, or a recipient who works or sleeps there or elsewhere. Anyone (neutral): neither. The corpus has 32 business notes, 137 home notes and 131 neutral ones | The category alone is too coarse: 15 of the 39 location hints describe a home ("entresuelo 1ª, en el telefonillo pone ENTLO"), and three `access` notes are about the loading dock of a 22@ office. A shop or a bar named as a neighbour or a landmark ("dejadlo en el bar de abajo", "la puerta al lado de la farmacia") does not make the recipient a business |
+| A business recipient draws 80% of its notes from the business notes and 20% from the neutral ones, never a home note. A consumer draws from every note that is not a business's | "Abrimos a las 10" makes no sense at a flat, nor a sleeping baby at an office |
+| The languages keep the corpus mix as closely as the notes an order can get allow: the groups of notes are taken in turn, each gives each of its languages what is left of that language's corpus share, and the notes of one language in a group are equally likely | The business notes are all Spanish, Catalan or English, so the neutral notes of a business recipient make up for the French, Italian and mixed ones, and both kinds of recipient get the corpus mix: 50 / 30 / 15 / 1.3 / 1.3 / 2.3% Spanish, Catalan, English, French, Italian and mixed. The few neutral French, Italian and mixed notes therefore reach businesses more often than the other neutral notes: N-221, the only neutral mixed one, is 2.3% of a business's notes |
 | A note that names a place goes only to orders of that zone: L'Hospitalet, El Prat, Cornellà, Esplugues and Sant Boi to their zones, 22@ to Sant Martí, Vallvidrera to Sarrià-Sant Gervasi. N-033 names Sant Joan Despí, outside the service area, and is never attached | "Es L'Hospitalet, NO Barcelona!!" is never read at a door in Gràcia |
 
-The category is the model's label, and a coarse one: a few location hints describe a house (N-012
-"la casa del final de la cuesta"), and business recipients can still get them. The two labels are
-not used by the generator; they are there for the simulator (issue #7) and for analysis. On the
-two dates loaded on 29 September 2026, 32.4% of the Saturday's orders and 32.9% of the Monday's
-carry a note, and 79.1% of the business recipients' notes are business hours or location hints.
+The two labels are not used by the generator; they are there for the simulator (issue #7) and for
+analysis. The two dates loaded on 29 September 2026 carry these notes:
+
+| | Saturday 26 September | Monday 28 September |
+|---|---|---|
+| Orders with a note | 301 of 923 (32.6%) | 1,119 of 3,363 (33.3%) |
+| Business recipients' notes | 31: 28 written by a business (90.3%), 3 neutral, no home note | 225: 179 written by a business (79.6%), 46 neutral, no home note |
+| Consumers' notes | 270: 143 written by a home, 127 neutral, no business note | 894: 468 written by a home, 426 neutral, no business note |
+| Location hints | 27 to consumers, 12 of them describing a home; 1 to a business | 99 to consumers, 51 of them describing a home; 20 to businesses |
+| Languages: es, ca, en, fr, it, mixed | 161, 81, 49, 5, 2, 3 (53.5 / 26.9 / 16.3 / 1.7 / 0.7 / 1.0%) | 565, 320, 179, 16, 17, 22 (50.5 / 28.6 / 16.0 / 1.4 / 1.5 / 2.0%) |
+
+| Category, business recipients / consumers | Saturday | Monday |
+|---|---|---|
+| access | 1 / 46 | 13 / 163 |
+| business hours | 27 / 0 | 173 / 0 |
+| neighbour or concierge | 0 / 53 | 1 / 150 |
+| location hint | 1 / 27 | 20 / 99 |
+| schedule | 0 / 30 | 5 / 108 |
+| fragile or special handling | 2 / 27 | 2 / 104 |
+| call before | 0 / 24 | 2 / 88 |
+| pets or children | 0 / 24 | 0 / 68 |
+| contradictory | 0 / 19 | 1 / 61 |
+| other | 0 / 20 | 8 / 53 |
+
+On Saturday only shops and pharmacies receive business parcels, so its 31 business notes move the
+business share and the language mix by several points with a note or two.
 
 `bronze.orders` keeps the text as the recipient typed it in `notes`, like a real order would, and
 `note_id` says which note of `bronze.delivery_notes` it is, so the labels can be joined.
