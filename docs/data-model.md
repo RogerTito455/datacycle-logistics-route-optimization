@@ -12,7 +12,7 @@ migrations in [`infra/postgres/migrations/`](../infra/postgres/migrations/).
 | `bronze` | TimescaleDB | The same records parsed into typed rows, with their metadata. Append-only, and no record is rejected for its values | Stream consumer, loaders, baseline planner, optimizer |
 | `silver` | TimescaleDB | Cleaned, deduplicated and joined data: dimensions and facts | dbt |
 | `gold` | TimescaleDB | The KPI and the marts the dashboards read | dbt |
-| `ops` | TimescaleDB | Platform bookkeeping: data source registry, migrations, health checks | Platform |
+| `ops` | TimescaleDB | Platform bookkeeping: data source registry, migrations, health checks, the stream consumer's lag and dead letters | Platform, stream consumer |
 
 This version defines `bronze` and `ops`. The `silver` and `gold` models are dbt models, so dbt
 creates them; they are listed at the end of this document.
@@ -43,6 +43,12 @@ as EXIF metadata inside the JPEG.
 
 Rows that come from a file or an API response also keep `raw_object_key`, the key of that payload
 in the RustFS `bronze` bucket, so each row can be traced back to the bytes it was parsed from.
+
+Rows that come from a topic carry the metadata the message carried: `source` and `event_time` from
+the message, `ingested_at` from the database when the [stream consumer](../services/consumer/README.md)
+wrote the batch, and in a `schema_version` column the version of the message format the row was
+parsed from (migration 013), next to the table's own version in its comment. A message the consumer
+cannot store as a row is kept, bytes and all, in `ops.dead_letters`.
 
 ```sql
 -- Which tables exist, who owns them, and do they carry the metadata columns?
@@ -286,12 +292,12 @@ Events and measurements:
 | Table | Holds | Comes from | Arrives |
 |---|---|---|---|
 | `orders` | One row per order: shipper, destination at a real address, priority, wave, time window and the recipient's free-text `notes`, with the `note_id` of the note in `delivery_notes` when there is one (about a third of the orders) | Order generator: the demand model (prompt 004) at real addresses of Open Data BCN and ICGC, notes from prompt 008 ([generator](../services/generator/README.md)) | One Parquet file per service date in the RustFS `bronze` bucket, written with the rows |
-| `delivery_events` | Every scan of the driver's handheld: `out_for_delivery` when the van leaves the hub, `arrived` at the stop, then `delivered` or `failed` (with a `failure_reason`). `pod_object_key` is the key of the proof-of-delivery photo, `pod/<service date>/<order id>.jpg` in the `bronze` bucket: a synthetic placeholder JPEG drawn by code, with the delivery time and position in its EXIF metadata ([generator](../services/generator/README.md#proof-of-delivery-photos)) | Simulated handheld ([simulator](../services/simulator/README.md)), topic `delivery.events` | Stream |
+| `delivery_events` | Every scan of the driver's handheld: `out_for_delivery` when the van leaves the hub, `arrived` at the stop, then `delivered` or `failed` (with a `failure_reason`). Fields of a message without a column go to `extra_fields`. `pod_object_key` is the key of the proof-of-delivery photo, `pod/<service date>/<order id>.jpg` in the `bronze` bucket: a synthetic placeholder JPEG drawn by code, with the delivery time and position in its EXIF metadata ([generator](../services/generator/README.md#proof-of-delivery-photos)) | Simulated handheld ([simulator](../services/simulator/README.md)), topic `delivery.events` | Stream |
 | `route_plans` | One row per plan of a route: version 0 is the baseline plan made before the wave, later versions are re-plans by the optimizer. Wave, main zone, van, driver, stops, planned departure and completion, kilometres to the last stop | The baseline planner, the company's fixed plan (source `planner/baseline`, [simulator](../services/simulator/README.md#baseline-plan)); the optimizer (`optimizer/route-planner`, issue #16) | Before each wave, and on every re-plan |
 | `route_plan_stops` | The stops of each plan, in order, with the planned arrival, the leg from the previous stop and the 120-minute window promised to the customer (`window_start`, `window_end`): for an order that accepted the whole wave it is set from the baseline plan, for the others it is the order's own | The baseline planner and the optimizer, as above | With its plan |
 | `route_history` | Ninety days of completed routes: departure, completion, stops delivered and failed. The KPI's baseline | AI-generated route history | Nightly batch file |
-| `gps_pings` | Position, speed and heading of every van | Simulated GPS along OSRM routes, topic `gps.pings` | Stream, every 5 s per van |
-| `vehicle_telemetry` | Speed, odometer, ignition, battery or fuel level, energy counter and cargo door; type-specific sensors in `readings` (JSON) | Simulated telemetry, topic `vehicle.telemetry` | Stream, every 30 s per van |
+| `gps_pings` | Position, speed and heading of every van; fields of a message without a column in `extra_fields` | Simulated GPS along OSRM routes, topic `gps.pings` | Stream, every 5 s per van, written by the [stream consumer](../services/consumer/README.md) |
+| `vehicle_telemetry` | Speed, odometer, ignition, battery or fuel level, energy counter and cargo door; type-specific sensors, and any other field of the message without a column, in `readings` (JSON) | Simulated telemetry, topic `vehicle.telemetry` | Stream, every 30 s per van, written by the stream consumer |
 | `fuel_consumption` | One row per route: distance, energy used, idle time and consumption per 100 km | Derived by the platform from `vehicle_telemetry` (source `derived/vehicle_telemetry`), see below | When a route ends |
 | `traffic_state` | Traffic state per section (`trams`) and travel times per itinerary (`itineraris`), with the original `#`-delimited line; `feed_item_id` is the section or the itinerary | Open Data BCN, real | Every 5 minutes |
 | `weather` | Current conditions at the hub and at every zone centroid | Open-Meteo, real | Hourly |
@@ -312,19 +318,24 @@ Platform tables in `ops`:
 | `table_metadata` | View: owner, schema version and metadata columns of every table |
 | `schema_migrations` | Every migration applied, with its checksum and when it ran |
 | `service_health` | Health probes of every service, written by Dagster every 5 minutes |
+| `dead_letters` | Every stream message the consumer could not store as a bronze row: the raw bytes of its value and key, its topic, partition, offset and timestamp, a short `reason` and the `error`. Keyed by topic, partition and offset, so a replay records it once |
+| `consumer_lag` | Every 10 seconds, per topic and partition: the consumer group's committed offset, the end offset, the lag between them, the newest `event_time` written and when a row was last written. A hypertable kept 30 days |
 
 ### Keys and constraints
 
 - **Idempotent keys.** Every event table has a natural key, so replaying a Kafka topic or
   reloading a file writes nothing twice (`INSERT ... ON CONFLICT DO NOTHING`): `(vehicle_id,
   event_time)` for pings and telemetry, the handheld's `event_id` for delivery events,
-  `(feed, feed_item_id, event_time)` for traffic.
+  `(feed, feed_item_id, event_time)` for traffic. A dead letter is keyed by its place in the topic:
+  `(topic, kafka_partition, kafka_offset)`.
 - **Bronze accepts every raw record.** Bronze keeps its primary and unique keys, the foreign keys
   above, and `NOT NULL` on key and metadata columns. It has no `CHECK` constraints: a ping outside
   Catalonia, an unknown status or a route that ends before it starts is stored as it arrived.
   Validation happens in silver, where dbt tests flag or filter such rows (issue #10), so a bad
   value is counted and visible instead of lost at the door. Version 1 of the tables had those
-  checks in bronze; migration 007 removed them.
+  checks in bronze; migration 007 removed them. A stream message that cannot be a row at all (not
+  JSON, a key field missing, a value its column's type cannot hold) is not dropped either: it goes to
+  `ops.dead_letters` with its bytes, and its partition goes on.
 - **What silver tests.** Coordinates inside a bounding box of Catalonia, the area the road graph
   covers, which also catches swapped latitude and longitude; a failed delivery has a reason; only
   a delivered parcel has a proof-of-delivery photo; an order's `notes` is the text of its
@@ -362,13 +373,17 @@ The high-volume tables are TimescaleDB hypertables, partitioned by `event_time` 
 Compression moves a chunk to TimescaleDB's columnstore, segmented by vehicle or feed item, which
 keeps queries fast and the disk small.
 
-No chunk is dropped yet. For GPS pings and telemetry the hypertable is the only copy: the RustFS
+No bronze chunk is dropped yet. For GPS pings and telemetry the hypertable is the only copy: the RustFS
 `bronze` bucket holds batch files, API responses and photos, not stream messages, and Redpanda
 keeps a topic for 24 hours. Retention policies come back with the archiving job (issue #20),
 which exports a chunk to the RustFS `archive` bucket before it is dropped. Version 1 had 30-,
 90- and 365-day retention policies; migration 007 removed them. What the KPI needs over long
 periods also lives in smaller tables: `route_history`, `route_plans`, `delivery_events` and
 `fuel_consumption`.
+
+`ops.consumer_lag` is a hypertable too, with one chunk per day, and the one table with a retention
+policy: 30 days. It measures the pipeline rather than holding raw data, and no dashboard window
+needs more. `ops.dead_letters` is kept, like bronze.
 
 ## Access
 
@@ -384,6 +399,8 @@ on `bronze`.
   every new `gold` model is readable by Grafana without another grant.
 - The role keeps PostgreSQL's default `USAGE` on schema `public`, where the TimescaleDB functions
   live (`time_bucket` and others); the dashboards' queries need them. `public` holds no tables.
+- `ops.dead_letters` holds raw messages, so the role reads every column but `payload` and
+  `message_key` (migration 013): a panel can count dead letters by topic and reason, not read them.
 
 ## Migrations
 
@@ -418,6 +435,7 @@ same migration.
 | 010 | `raw_object_key` on `vehicles`, `drivers` and `shippers`, the key of the Parquet file each is loaded from |
 | 011 | `delivery_notes`, the corpus of prompt 008; `note_id` on `orders`; the data source of the notes and the descriptions of the orders and of the proof-of-delivery photos (issue #25) |
 | 012 | The `planner/baseline` data source of the baseline plan; `window_start` and `window_end` on `route_plan_stops`, the promised window; the descriptions of the optimizer's and the handheld's sources (issue #7) |
+| 013 | The stream consumer: `schema_version` on `gps_pings`, `vehicle_telemetry` and `delivery_events`, `extra_fields` on pings and scans, `ops.dead_letters` and `ops.consumer_lag` with their data sources, and the dashboards' access to the dead letters without their payload (issue #8) |
 
 ## Silver and gold (dbt, issue #10)
 
