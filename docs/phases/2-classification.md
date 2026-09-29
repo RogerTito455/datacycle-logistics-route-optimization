@@ -64,7 +64,7 @@ Four rules settle the edge cases:
 | 6 | Vehicle status (sensors) | JSON message on topic `vehicle.telemetry`, keys vary by vehicle type | Semi-structured | Rows in `bronze.vehicle_telemetry`, type-specific sensors in a `jsonb` column | Structured |
 | 7 | Weather (Open-Meteo) | JSON document from a REST API | Semi-structured | Rows in `bronze.weather` | Structured |
 | + | Delivery notes | Free text inside about a third of the orders, from a corpus of 300 AI-generated notes | Unstructured | `notes` column of `bronze.orders`; `note_id` joins the note's labels in `bronze.delivery_notes` | Unstructured text, structured labels |
-| + | Proof-of-delivery photos | JPEG image per delivered parcel, with its time and position in EXIF tags | Unstructured | Object `pod/<service date>/<order id>.jpg` in the RustFS `bronze` bucket, key in `bronze.delivery_events.pod_object_key` | Unstructured pixels, structured EXIF metadata |
+| + | Proof-of-delivery photos | JPEG image per delivered parcel, with its time and position in EXIF tags | Unstructured | Object in the RustFS `bronze` bucket: the simulator (#7) will write `pod/<service date>/<order id>.jpg` and its key in `bronze.delivery_events.pod_object_key`; today 20 samples under `pod/samples/2026-09-28/` | Unstructured pixels, structured EXIF metadata |
 | R | Company profile | One nested JSON document, `company.json` | Semi-structured | `bronze.hubs`, `zones`, `shifts`, `vehicle_types` | Structured |
 | R | Fleet register and driver roster | Parquet files in the `bronze` bucket, one row per vehicle or driver | Structured | `bronze.vehicles`, `bronze.drivers` | Structured |
 | R | Demand model | JSON document of the order generator's parameters | Semi-structured | Shippers in `bronze.shippers`; the order generator reads the other parameters | Structured |
@@ -305,17 +305,17 @@ business ones, and both get the corpus language mix
 
 **The pixels: unstructured. The EXIF metadata and the object key: structured.**
 
-When a parcel is delivered, the handheld takes a photo of it at the door. The image is stored as a
-JPEG object in the RustFS `bronze` bucket at `pod/<service date>/<order id>.jpg`, and the
-`delivered` event records the key in `bronze.delivery_events.pod_object_key`. The simulator that
-delivers the stops is issue #7. Until it exists, `make pod-sample` has put 20 real objects in the
-bucket for 28 September 2026, under `pod/samples/2026-09-28/`, drawn for orders of that day at a time
-inside their windows. On this platform a photo is a **synthetic placeholder drawn by code**
+When a parcel is delivered, the handheld takes a photo of it at the door. The simulator that
+delivers the stops (issue #7) will store each image as a JPEG object in the RustFS `bronze` bucket at
+`pod/<service date>/<order id>.jpg` and record its key in `bronze.delivery_events.pod_object_key`
+of the `delivered` event; neither exists yet. What exists today are 20 samples that
+`make pod-sample` put in the bucket for 28 September 2026, under `pod/samples/2026-09-28/`, drawn
+for orders of that day at a time inside their windows. On this platform a photo is a **synthetic placeholder drawn by code**
 (Pillow), not a photograph and not an AI-generated image, and it says so in its caption. What it
 shares with a real one is what matters here: a JPEG with the metadata a handheld camera writes.
 
-This is `pod/samples/2026-09-28/O-20260928-00593.jpg`, for the order at Carrer de Còrsega, 220,
-whose note says "conté líquids, mantenir vertical":
+This is `pod/samples/2026-09-28/O-20260928-00593.jpg`, for a consumer's order at Carrer de
+Còrsega, 220, in the Eixample:
 
 ![Synthetic proof-of-delivery placeholder: a grey door, a parcel on the doorstep and the caption O-20260928-00593, 28/09/2026 15:42](images/pod-O-20260928-00593.jpg)
 
@@ -343,13 +343,13 @@ therefore unstructured content that carries structured metadata in the same file
 carries its schema in its footer, except that the tags describe how the image was taken, not what it
 shows.
 
-The platform reaches the photos through structured references only: the row in
-`bronze.delivery_events` (which order, when, where, and the key), the object's metadata in storage
-(content type and size, and `source`, `owner`, `schema-version`, `ingested-at` and `order-id` as
-user metadata) and the EXIF tags. The planned gold model `gold.fct_deliveries` carries the photo's
-key next to each delivery (issue #10), so a dashboard can link to the image without reading it.
-This split, unstructured content addressed by structured references, is how the platform handles all
-binary data.
+The platform reaches the photos through structured references only: the object's metadata in
+storage (content type and size, and `source`, `owner`, `schema-version`, `ingested-at` and
+`order-id` as user metadata), the EXIF tags and, once the simulator writes it, the row in
+`bronze.delivery_events` (which order, when, where, and the key). The planned gold model
+`gold.fct_deliveries` will carry the photo's key next to each delivery (issue #10), so a dashboard
+can link to the image without reading it. This split, unstructured content addressed by structured
+references, is how the platform handles all binary data.
 
 ## Reference data
 
