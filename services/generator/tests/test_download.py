@@ -1,11 +1,13 @@
 """The download cache keeps only complete, valid files, and replaces a bad cached one.
 
 A local HTTP server plays the open-data portals, so the tests run offline: it can send a file whole,
-cut it off before its announced Content-Length, answer with an error page or an HTTP error.
+cut it off before its announced Content-Length or in the middle of a chunk, answer with an error
+page or an HTTP error. A closed port and a server that never answers stand for the network failing.
 """
 
 from __future__ import annotations
 
+import socket
 import sys
 import threading
 import zipfile
@@ -31,11 +33,14 @@ class Portal:
     """What the local server answers for each path, and the paths it was asked for."""
 
     def __init__(self):
-        self.answers: dict[str, tuple[int, bytes, int | None]] = {}  # status, body, announced length
+        # status, body, announced length, and whether the body is sent as a chunk cut in half
+        self.answers: dict[str, tuple[int, bytes, int | None, bool]] = {}
         self.requests: list[str] = []
 
-    def serve(self, path: str, body: bytes, status: int = 200, announced: int | None = None) -> None:
-        self.answers[path] = (status, body, announced)
+    def serve(
+        self, path: str, body: bytes, status: int = 200, announced: int | None = None, cut_chunk: bool = False
+    ) -> None:
+        self.answers[path] = (status, body, announced, cut_chunk)
 
 
 @pytest.fixture
@@ -45,8 +50,13 @@ def portal():
     class Handler(BaseHTTPRequestHandler):
         def do_GET(self):  # noqa: N802, the name http.server calls
             state.requests.append(self.path)
-            status, body, announced = state.answers[self.path]
+            status, body, announced, cut_chunk = state.answers[self.path]
             self.send_response(status)
+            if cut_chunk:  # one chunk announced whole, half of it sent
+                self.send_header("Transfer-Encoding", "chunked")
+                self.end_headers()
+                self.wfile.write(f"{len(body):x}\r\n".encode() + body[: len(body) // 2])
+                return
             self.send_header("Content-Length", str(len(body) if announced is None else announced))
             self.end_headers()
             self.wfile.write(body)  # then the connection closes, even when fewer bytes than announced
@@ -91,6 +101,44 @@ def test_a_bad_download_is_not_cached(portal, tmp_path, status, body, announced,
     with pytest.raises(DownloadError, match=reason):
         fetch(f"{portal.url}/carrerer.csv", target, carrerer_check)
     assert list(tmp_path.iterdir()) == []  # neither the file nor a partial one is left
+
+
+def test_a_chunk_cut_off_is_a_download_error(portal, tmp_path):
+    """http.client raises IncompleteRead when a chunked answer stops in the middle of a chunk."""
+    portal.serve("/carrerer.csv", GOOD_CSV, cut_chunk=True)
+    with pytest.raises(DownloadError, match="could not be downloaded: IncompleteRead"):
+        fetch(f"{portal.url}/carrerer.csv", tmp_path / "carrerer.csv", carrerer_check)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_refused_connection_is_a_download_error(tmp_path):
+    with socket.socket() as closed:
+        closed.bind(("127.0.0.1", 0))
+        port = closed.getsockname()[1]  # nothing listens on it once the socket is closed
+    with pytest.raises(DownloadError, match="could not be downloaded: .*[Rr]efused"):
+        fetch(f"http://127.0.0.1:{port}/carrerer.csv", tmp_path / "carrerer.csv", carrerer_check)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_server_that_never_answers_is_a_download_error(tmp_path, monkeypatch):
+    monkeypatch.setattr(addresses, "HTTP_TIMEOUT_S", 0.2)
+    with socket.socket() as silent:
+        silent.bind(("127.0.0.1", 0))
+        silent.listen()  # the connection is accepted, the request never answered
+        url = f"http://127.0.0.1:{silent.getsockname()[1]}/carrerer.csv"
+        with pytest.raises(DownloadError, match="could not be downloaded: timed out"):
+            fetch(url, tmp_path / "carrerer.csv", carrerer_check)
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_an_icgc_listing_that_fails_is_a_download_error(portal, tmp_path, monkeypatch):
+    portal.serve("/icgc/", ERROR_PAGE, status=503)
+    monkeypatch.setattr(addresses, "ICGC_LISTING_URL", f"{portal.url}/icgc/")
+    with pytest.raises(DownloadError, match="HTTP 503"):
+        addresses.fetch_icgc(tmp_path)
+    portal.serve("/icgc/", b"<html>no zip here</html>")
+    with pytest.raises(DownloadError, match="no adreces-simplificat zip listed"):
+        addresses.fetch_icgc(tmp_path)
 
 
 def test_a_bad_cached_file_is_downloaded_again(portal, tmp_path):

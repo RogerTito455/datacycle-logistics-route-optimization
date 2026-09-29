@@ -9,18 +9,21 @@ ETRS89 UTM zone 31N; they are converted to WGS84 here.
 All three are CC BY 4.0. Downloads are cached, so each file is fetched once. Only a complete
 download is cached: an HTTP 200 answer with as many bytes as the server announced, and a file that
 reads as what it should be (check_csv, check_icgc_zip). A cached file that fails the check is
-downloaded again, so an error page or a cut-off download is never reused.
+downloaded again, so an error page or a cut-off download is never reused. A download that fails on
+the way, from a refused connection to a timeout, raises DownloadError too, and caches nothing.
 """
 
 from __future__ import annotations
 
 import csv
+import http.client
 import io
 import re
 import urllib.error
 import urllib.request
 import zipfile
 from collections.abc import Callable, Iterator, Mapping
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -33,10 +36,25 @@ USER_AGENT = (
     "(student project; https://github.com/RogerTito455/datacycle-logistics-route-optimization)"
 )
 HTTP_TIMEOUT_S = 120
+# What urllib raises when the server or the network fails: no connection, a reset or a timeout, an
+# answer cut off in the middle of a read, an HTTP error status (HTTPError is a URLError).
+NETWORK_ERRORS = (urllib.error.URLError, http.client.HTTPException, TimeoutError, ConnectionError)
 
 
 class DownloadError(RuntimeError):
-    """A download that is not complete or not the file it should be. It is not cached."""
+    """A download that failed, is not complete or is not the file it should be. It is not cached."""
+
+
+@contextmanager
+def download_errors(url: str) -> Iterator[None]:
+    """Raise what urllib raises while downloading url as a DownloadError that says why."""
+    try:
+        yield
+    except urllib.error.HTTPError as exc:
+        raise DownloadError(f"{url} answered HTTP {exc.code} {exc.reason}") from exc
+    except NETWORK_ERRORS as exc:
+        reason = getattr(exc, "reason", None) or exc
+        raise DownloadError(f"{url} could not be downloaded: {str(reason) or type(reason).__name__}") from exc
 
 
 @dataclass(frozen=True)
@@ -187,8 +205,9 @@ def fetch(url: str, target: Path, check: Callable[[Path], str | None]) -> Path:
 
     `check` returns why a file is not what the url should give, or None. A download is cached only
     when the server answered 200, sent as many bytes as its Content-Length announced and the file
-    passes the check; otherwise nothing is cached and DownloadError says why. A cached file that
-    fails the check, such as a cut-off file cached before this rule, is downloaded again.
+    passes the check; otherwise, or when the connection fails or times out, nothing is cached and
+    DownloadError says why. A cached file that fails the check, such as a cut-off file cached
+    before this rule, is downloaded again.
     """
     if target.exists():
         problem = check(target)
@@ -201,7 +220,11 @@ def fetch(url: str, target: Path, check: Callable[[Path], str | None]) -> Path:
     print(f"  downloading {url}")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     try:
-        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_S) as response, partial.open("wb") as out:
+        with (
+            download_errors(url),
+            urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_S) as response,
+            partial.open("wb") as out,
+        ):
             if response.status != 200:
                 raise DownloadError(f"{url} answered HTTP {response.status}, not 200")
             announced = response.headers.get("Content-Length")
@@ -212,9 +235,6 @@ def fetch(url: str, target: Path, check: Callable[[Path], str | None]) -> Path:
             raise DownloadError(f"{url} sent {received} of the {announced} bytes it announced: the download is cut off")
         if (problem := check(partial)) is not None:
             raise DownloadError(f"{url} did not send the expected file: {problem}")
-    except urllib.error.HTTPError as exc:
-        partial.unlink(missing_ok=True)
-        raise DownloadError(f"{url} answered HTTP {exc.code} {exc.reason}") from exc
     except BaseException:
         partial.unlink(missing_ok=True)
         raise
@@ -239,11 +259,11 @@ def fetch_icgc(cache_dir: Path) -> Path:
         print(f"  cached {cached} is not a complete download ({problem}); removing it")
         cached.unlink()
     request = urllib.request.Request(ICGC_LISTING_URL, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_S) as response:
+    with download_errors(ICGC_LISTING_URL), urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_S) as response:
         listing = response.read().decode("utf-8", "replace")
     names = sorted(set(ICGC_ZIP_RE.findall(listing)))
     if not names:
-        raise RuntimeError(f"no adreces-simplificat zip listed at {ICGC_LISTING_URL}")
+        raise DownloadError(f"no adreces-simplificat zip listed at {ICGC_LISTING_URL}")
     return fetch(ICGC_LISTING_URL + names[-1], cache_dir / names[-1], lambda path: check_icgc_zip(path, full=True))
 
 
