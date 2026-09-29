@@ -33,6 +33,8 @@ jobs:
           uv run --project services/generator --frozen python services/generator/validate_seeds.py
       - name: Generator tests (offline)
         run: uv run --project services/generator --frozen pytest services/generator/tests
+      - name: Planner and simulator tests (offline)
+        run: uv run --project services/simulator --frozen pytest services/simulator/tests
 
   compose-smoke:
     name: Compose smoke test
