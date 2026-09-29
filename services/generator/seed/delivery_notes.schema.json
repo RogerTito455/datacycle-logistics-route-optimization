@@ -1,0 +1,77 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/RogerTito455/datacycle-logistics-route-optimization/services/generator/seed/delivery_notes.schema.json",
+  "title": "Llobregat Express delivery notes corpus",
+  "description": "Structure of the AI-generated delivery notes (prompt 008): the free text recipients type for the driver, each with its language, a category and two labels. The count, the language mix, the categories and the absence of personal data are checked by validate_seeds.py.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version",
+    "generated_for",
+    "notes"
+  ],
+  "properties": {
+    "schema_version": {
+      "const": 1
+    },
+    "generated_for": {
+      "const": "Llobregat Express delivery notes corpus"
+    },
+    "notes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "additionalProperties": false,
+        "required": [
+          "note_id",
+          "text",
+          "language",
+          "category",
+          "likely_longer_stop",
+          "likely_failed_attempt"
+        ],
+        "properties": {
+          "note_id": {
+            "type": "string",
+            "pattern": "^N-\\d{3}$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1
+          },
+          "language": {
+            "enum": [
+              "es",
+              "ca",
+              "en",
+              "fr",
+              "it",
+              "mixed"
+            ]
+          },
+          "category": {
+            "enum": [
+              "access",
+              "schedule",
+              "neighbour or concierge",
+              "business hours",
+              "call before",
+              "pets or children",
+              "fragile or special handling",
+              "location hint",
+              "contradictory",
+              "other"
+            ]
+          },
+          "likely_longer_stop": {
+            "type": "boolean"
+          },
+          "likely_failed_attempt": {
+            "type": "boolean"
+          }
+        }
+      }
+    }
+  }
+}

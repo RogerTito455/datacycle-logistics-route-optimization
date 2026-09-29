@@ -1,4 +1,8 @@
-"""Command line: llobregat-generator load-reference | orders --date D [--seed N] [--allow-future] | summary --date D."""
+"""Command line of the generator.
+
+llobregat-generator load-reference | orders --date D [--seed N] [--allow-future] | summary --date D
+                    | pod-sample --date D [--count N] [--seed N]
+"""
 
 from __future__ import annotations
 
@@ -7,9 +11,12 @@ import sys
 from datetime import UTC, date, datetime
 
 import psycopg
+from botocore.exceptions import BotoCoreError, ClientError
 
-from llobregat_generator import db, publish
+from llobregat_generator import db, pod, publish
+from llobregat_generator.addresses import DownloadError
 from llobregat_generator.config import Settings
+from llobregat_generator.metadata import FileMetadata
 from llobregat_generator.orders import LOCAL_TZ, NoServiceError, generate_day
 from llobregat_generator.reference import load_reference
 from llobregat_generator.rules import SeedError
@@ -45,7 +52,7 @@ def cmd_orders(settings: Settings, args: argparse.Namespace) -> int:
     print(
         f"bronze.orders: {written} rows written" + (f", {deleted} rows of an earlier run replaced" if deleted else "")
     )
-    figures = summarise(day.orders, seeds.company, load_boundaries())
+    figures = summarise(day.orders, seeds, load_boundaries())
     print(report(args.date, figures, seeds))
     return 0
 
@@ -57,8 +64,69 @@ def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
     if not orders:
         print(f"no generated orders for {args.date} in bronze.orders")
         return 1
-    print(report(args.date, summarise(orders, seeds.company, load_boundaries()), seeds))
+    print(report(args.date, summarise(orders, seeds, load_boundaries()), seeds))
     return 0
+
+
+def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
+    """Photos for some orders of a generated date under pod/samples/, each read back and checked.
+
+    A photo the bucket already holds, the same bytes with the same metadata elements, is left as it
+    is, so running the sample again writes nothing. New photos are uploaded first; the photos of an
+    earlier sample of the date that are not among them are removed afterwards, so a run that fails
+    halfway never leaves fewer photos. Every photo is read back: its EXIF time and position must be
+    the delivery's, and its S3 user metadata the elements of decision 20 and the order id.
+    """
+    with db.connect(settings) as conn:
+        orders = publish.read_day(conn, args.date)
+        if not orders:
+            print(f"no generated orders for {args.date} in bronze.orders; run make generate first", file=sys.stderr)
+            return 1
+        metadata = FileMetadata.for_table(conn, pod.TABLE, pod.SOURCE_ID, datetime.now(UTC))
+    bucket = Bucket(settings)
+    prefix = pod.sample_prefix(args.date)
+    print(f"Proof-of-delivery placeholders for {args.date}, synthetic images drawn by code")
+    keys, wrong_exif, wrong_metadata = [], 0, 0
+    for delivery in pod.sample_deliveries(orders, args.count, args.seed):
+        key = pod.upload(bucket, delivery, metadata, sample=True)
+        keys.append(key)
+        body, stored = bucket.get_bytes(key), bucket.user_metadata(key)
+        capture = pod.read_exif(body)
+        exif_ok = capture.matches(delivery)
+        metadata_ok = pod.metadata_matches(stored, delivery, metadata)
+        wrong_exif += not exif_ok
+        wrong_metadata += not metadata_ok
+        print(
+            f"  bronze/{key}  {len(body) / 1000:.1f} kB  {'written' if key in bucket.written else 'unchanged':<9}  "
+            f"EXIF {capture.taken_at.isoformat()}  {capture.position.lat:.6f}, {capture.position.lon:.6f}"
+            + ("" if exif_ok else "  EXIF DOES NOT MATCH THE DELIVERY")
+            + ("" if metadata_ok else "  S3 METADATA DOES NOT MATCH")
+        )
+    removed = bucket.delete_prefix(prefix, keep=keys)
+    photos, written = len(keys), len(bucket.written)
+    if keys:
+        shown = ", ".join(f"{name}={value}" for name, value in sorted(bucket.user_metadata(keys[0]).items()))
+        print(f"  S3 user metadata of bronze/{keys[0]}: {shown}")
+    print(
+        f"{photos} photos in bronze/{prefix}: {written} written, {photos - written} unchanged, "
+        f"{removed} of an earlier sample removed"
+    )
+    print(
+        f"read back: EXIF time and position match {photos - wrong_exif} of {photos}, "
+        f"S3 user metadata matches {photos - wrong_metadata} of {photos}"
+    )
+    return 1 if wrong_exif or wrong_metadata else 0
+
+
+def positive(text: str) -> int:
+    """An argparse type: a whole number above zero."""
+    try:
+        number = int(text)
+    except ValueError:
+        number = 0
+    if number <= 0:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a whole number above zero")
+    return number
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -69,7 +137,7 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser(
         "load-reference",
-        help="load hub, zones, shifts, vehicle types, vehicles, drivers, shippers, streets and addresses",
+        help="load hub, zones, shifts, vehicle types, vehicles, drivers, shippers, delivery notes and addresses",
     ).set_defaults(run=cmd_load_reference)
     orders = commands.add_parser("orders", help="generate the orders of one service date")
     orders.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")
@@ -83,6 +151,14 @@ def main(argv: list[str] | None = None) -> int:
     summary = commands.add_parser("summary", help="sanity figures of a generated date, read from bronze.orders")
     summary.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")
     summary.set_defaults(run=cmd_summary)
+    sample = commands.add_parser(
+        "pod-sample",
+        help="upload proof-of-delivery placeholder photos for some orders of a generated date, under pod/samples/",
+    )
+    sample.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")
+    sample.add_argument("--count", type=positive, default=20, help="number of photos, above zero (default 20)")
+    sample.add_argument("--seed", type=int, default=0, help="random seed of the orders and times (default 0)")
+    sample.set_defaults(run=cmd_pod_sample)
     args = parser.parse_args(argv)
 
     settings = Settings.from_env()
@@ -94,10 +170,20 @@ def main(argv: list[str] | None = None) -> int:
     except SeedError as exc:
         print(f"the seeds cannot be used: {exc}", file=sys.stderr)
         return 2
+    except DownloadError as exc:
+        print(f"download failed, nothing was cached: {exc}", file=sys.stderr)
+        return 1
     except psycopg.OperationalError as exc:
         print(
             f"cannot reach TimescaleDB at {settings.postgres_host}:{settings.postgres_port} ({exc}); "
             "start the platform with `make up`",
+            file=sys.stderr,
+        )
+        return 1
+    except (BotoCoreError, ClientError) as exc:
+        print(
+            f"the RustFS bronze bucket at {settings.s3_endpoint} failed ({exc}); check that the platform is up "
+            "(`make up`) and the S3 credentials in .env",
             file=sys.stderr,
         )
         return 1

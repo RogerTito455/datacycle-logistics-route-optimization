@@ -1,6 +1,10 @@
 #!/usr/bin/env bash
 # Integration test of the generator against the running stack: load the reference data, load it
-# again, generate one service date, generate it again, and check the bronze tables with SQL.
+# again, generate one service date, generate it again, and check the bronze tables with SQL. Then
+# upload the date's sample of proof-of-delivery photos (make pod-sample, 20 by default) twice: each
+# run reads back every photo's EXIF and S3 user metadata, the second must write nothing, so the
+# sample in the bucket is only written when it changes, and the test reads the S3 metadata of one
+# photo straight from RustFS.
 #
 #   ./scripts/generator-db-test.sh [--sample] [DATE]    DATE defaults to 2026-09-28, a past Monday
 #
@@ -34,6 +38,7 @@ reference_state() {
       UNION ALL SELECT 'vehicles', count(*), max(ingested_at) FROM bronze.vehicles
       UNION ALL SELECT 'drivers', count(*), max(ingested_at) FROM bronze.drivers
       UNION ALL SELECT 'shippers', count(*), max(ingested_at) FROM bronze.shippers
+      UNION ALL SELECT 'delivery_notes', count(*), max(ingested_at) FROM bronze.delivery_notes
       UNION ALL SELECT 'streets', count(*), max(ingested_at) FROM bronze.streets
       UNION ALL SELECT 'addresses', count(*), max(ingested_at) FROM bronze.addresses
       UNION ALL SELECT 'icgc_addresses', count(*), max(ingested_at) FROM bronze.icgc_addresses) s"
@@ -66,9 +71,9 @@ failed=$(psql_admin -c "
     ('1 hub, 14 zones, 2 shifts, 6 vehicle types',
      (SELECT count(*) FROM bronze.hubs) = 1 AND (SELECT count(*) FROM bronze.zones) = 14
      AND (SELECT count(*) FROM bronze.shifts) = 2 AND (SELECT count(*) FROM bronze.vehicle_types) = 6),
-    ('30 vehicles, 48 drivers, 40 shippers',
+    ('30 vehicles, 48 drivers, 40 shippers, 300 delivery notes',
      (SELECT count(*) FROM bronze.vehicles) = 30 AND (SELECT count(*) FROM bronze.drivers) = 48
-     AND (SELECT count(*) FROM bronze.shippers) = 40),
+     AND (SELECT count(*) FROM bronze.shippers) = 40 AND (SELECT count(*) FROM bronze.delivery_notes) = 300),
     ('streets and addresses loaded',
      (SELECT count(*) FROM bronze.streets) > 0 AND (SELECT count(*) FROM bronze.addresses) > 0
      AND (SELECT count(*) FROM bronze.icgc_addresses) > 0),
@@ -76,6 +81,7 @@ failed=$(psql_admin -c "
      NOT EXISTS (SELECT 1 FROM bronze.vehicles WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.drivers WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.shippers WHERE raw_object_key IS NULL)
+     AND NOT EXISTS (SELECT 1 FROM bronze.delivery_notes WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.streets WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.addresses WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.icgc_addresses WHERE raw_object_key IS NULL)),
@@ -89,7 +95,48 @@ failed=$(psql_admin -c "
     ('every address_ref resolves',
      NOT EXISTS (SELECT 1 FROM day o WHERE NOT EXISTS (SELECT 1 FROM bronze.addresses a WHERE a.address_ref = o.address_ref)
                  AND NOT EXISTS (SELECT 1 FROM bronze.icgc_addresses i WHERE i.address_id = o.address_ref))),
-    ('orders in all 14 zones', (SELECT count(DISTINCT destination_zone_id) FROM day) = 14))
+    ('orders in all 14 zones', (SELECT count(DISTINCT destination_zone_id) FROM day) = 14),
+    ('about a third of the orders carry a note of the corpus, its text in notes',
+     (SELECT avg((note_id IS NOT NULL)::int) FROM day) BETWEEN 0.28 AND 0.39
+     AND NOT EXISTS (SELECT 1 FROM day o LEFT JOIN bronze.delivery_notes n USING (note_id)
+                     WHERE (o.note_id IS NULL) <> (o.notes IS NULL) OR n.text IS DISTINCT FROM o.notes)))
   SELECT coalesce(string_agg(name, '; '), '') FROM checks WHERE NOT ok")
 [[ -z "$failed" ]] || { echo "FAIL: $failed"; exit 1; }
-echo "PASS: reference data loaded once, ${DATE} generated twice with the same ${twice%% *} orders, 9 checks"
+
+echo "== proof-of-delivery photos of ${DATE}, twice"
+PHOTOS_OK="read back: EXIF time and position match 20 of 20, S3 user metadata matches 20 of 20"
+photos=$(make --no-print-directory pod-sample DATE="$DATE" 2>&1) || { echo "$photos"; echo "FAIL: pod-sample"; exit 1; }
+echo "$photos"
+grep -qF "$PHOTOS_OK" <<<"$photos" || { echo "FAIL: the photo sample"; exit 1; }
+again=$(make --no-print-directory pod-sample DATE="$DATE" 2>&1) || { echo "$again"; echo "FAIL: pod-sample"; exit 1; }
+echo "$again" | tail -2
+grep -qF "20 photos in bronze/pod/samples/${DATE}/: 0 written, 20 unchanged, 0 of an earlier sample removed" \
+  <<<"$again" && grep -qF "$PHOTOS_OK" <<<"$again" || { echo "FAIL: the second run of the sample wrote photos"; exit 1; }
+
+# The metadata of one photo as RustFS returns it, read with boto3 alone.
+photo=$(grep -oE "pod/samples/${DATE}/O-[0-9]+-[0-9]+\.jpg" <<<"$photos" | head -1)
+stored=$(uv run --project services/generator --frozen python - "$photo" <<'PY'
+import os
+import sys
+
+import boto3
+
+s3 = boto3.client(
+    "s3",
+    endpoint_url=os.environ.get("S3_ENDPOINT", "http://localhost:9000"),
+    aws_access_key_id=os.environ["S3_ACCESS_KEY"],
+    aws_secret_access_key=os.environ["S3_SECRET_KEY"],
+    region_name="us-east-1",
+)
+head = s3.head_object(Bucket="bronze", Key=sys.argv[1])
+print(head["ContentType"], *(f"{name}={value}" for name, value in sorted(head["Metadata"].items())))
+PY
+)
+echo "bronze/${photo}: ${stored}"
+order_id=$(basename "$photo" .jpg)
+for expected in "image/jpeg " " source=simulator/pod-photos" " owner=" " schema-version=" " ingested-at=20" \
+                " order-id=${order_id}"; do
+  grep -qF -- "$expected" <<<"$stored" || { echo "FAIL: the S3 metadata of ${photo} has no '${expected# }'"; exit 1; }
+done
+echo "PASS: reference data loaded once, ${DATE} generated twice with the same ${twice%% *} orders, 10 checks," \
+     "20 photos with their EXIF and S3 metadata, written once"

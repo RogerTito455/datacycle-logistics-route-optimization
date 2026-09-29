@@ -24,17 +24,20 @@ def test_seed_tables_match_the_seeds(seeds):
         "bronze.vehicles": 30,
         "bronze.drivers": 48,
         "bronze.shippers": 40,
+        "bronze.delivery_notes": 300,
     }
     assert {t.source for t in tables.values()} == {
         "generator/company-profile",
         "generator/fleet",
         "generator/drivers",
         "generator/demand-model",
+        "generator/delivery-notes",
     }
     for table in tables.values():  # every row has the same columns, then source and raw_object_key
         assert all(list(row) == list(table.rows[0]) for row in table.rows)
-        from_file = table.name in ("bronze.vehicles", "bronze.drivers", "bronze.shippers")
+        from_file = table.name in reference.SEED_FILES
         assert table.columns[-2:] == (["source", "raw_object_key"] if from_file else [table.columns[-2], "source"])
+        assert table.raw_object_key == reference.SEED_FILES.get(table.name)
         assert (table.raw_object_key or "").endswith(".parquet") == from_file
 
 
@@ -62,6 +65,13 @@ def test_a_seed_file_is_written_again_only_when_its_content_changes(seeds):
     assert content_checksum(changed, later) != content_checksum(rows, later)
     new_version = FileMetadata("generator/demand-model", "operations", 3, later.ingested_at)
     assert content_checksum(rows, new_version) != content_checksum(rows, later)
+
+
+def test_delivery_note_rows_are_the_corpus(seeds):
+    rows = reference.delivery_notes(seeds.delivery_notes)
+    assert rows == seeds.delivery_notes["notes"]  # every field, as generated, in the corpus order
+    table = next(t for t in reference.seed_tables(seeds) if t.name == "bronze.delivery_notes")
+    assert table.raw_object_key == "reference/generator/delivery-notes/delivery_notes.parquet"
 
 
 def test_hub_and_shift_ids(seeds):
@@ -192,12 +202,12 @@ def test_the_registers_put_each_sample_address_inside_its_zone(pool, boundaries)
     assert len(outside) <= len(sample) // 100, outside
 
 
-@pytest.mark.parametrize("name", ["fleet", "drivers", "demand"])
+@pytest.mark.parametrize("name", ["fleet", "drivers", "demand", "delivery_notes"])
 def test_schemas_accept_the_seed_and_reject_a_broken_one(name):
     schema = json.loads((GENERATOR_DIR / "seed" / f"{name}.schema.json").read_text(encoding="utf-8"))
     seed = json.loads((GENERATOR_DIR / "seed" / f"{name}.json").read_text(encoding="utf-8"))
     validator = jsonschema.Draft202012Validator(schema)
     assert not list(validator.iter_errors(seed))
-    records = {"fleet": "vehicles", "drivers": "drivers", "demand": "shippers"}[name]
+    records = {"fleet": "vehicles", "drivers": "drivers", "demand": "shippers", "delivery_notes": "notes"}[name]
     seed[records][0]["unexpected"] = True
     assert list(validator.iter_errors(seed))

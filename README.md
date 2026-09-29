@@ -88,8 +88,9 @@ flowchart LR
 
 Real external data (traffic, weather, road geometry, fuel prices) comes from free open sources
 verified in [`docs/research/open-data-sources.md`](docs/research/open-data-sources.md).
-Business data (company, fleet, drivers, orders, route history) is generated with AI; the prompts
-live in [`prompts/`](prompts/).
+Business data (company, fleet, drivers, orders, delivery notes, route history) is generated with
+AI; the prompts live in [`prompts/`](prompts/). Proof-of-delivery photos are synthetic placeholders
+drawn by code.
 
 ## Quick start
 
@@ -110,8 +111,9 @@ With the platform up, load the reference data and generate orders
 ([generator](services/generator/README.md)):
 
 ```bash
-make load-reference             # hub, zones, fleet, drivers, shippers and real addresses into bronze
+make load-reference             # hub, zones, fleet, drivers, shippers, delivery notes and real addresses into bronze
 make generate DATE=2026-09-28   # one day of orders: a Parquet file in RustFS and rows in bronze.orders
+make pod-sample DATE=2026-09-28 # 20 proof-of-delivery placeholder photos of that day, with EXIF, in RustFS
 ```
 
 Measured on 28 September 2026 with every service idle:

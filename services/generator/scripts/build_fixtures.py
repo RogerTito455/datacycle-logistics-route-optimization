@@ -33,6 +33,7 @@ DISTRICTS = addresses.Download(
     "https://opendata-ajuntament.barcelona.cat/data/dataset/808daafa-d9ce-48c0-925a-fa5afdb1ed41"
     "/resource/576bc645-9481-4bc4-b8bf-f5972c20df3f/download",
     "BarcelonaCiutat_Districtes.csv",
+    ("Codi_Districte", "nom_districte", "geometria_wgs84"),
 )
 MUNICIPALITIES = addresses.Download(
     "icgc/divisions-administratives",
@@ -73,6 +74,17 @@ def simplify(ring: list[tuple[float, float]], tolerance_m: float) -> list[tuple[
     return points if len(points) >= 4 else ring
 
 
+def check_feature_collection(path: Path) -> str | None:
+    """Why the file is not a complete GeoJSON FeatureCollection; None when it is (addresses.fetch)."""
+    try:
+        document = json.loads(path.read_text(encoding="utf-8"))
+    except (ValueError, UnicodeDecodeError) as exc:
+        return f"not a complete JSON document ({exc})"
+    if not isinstance(document, dict) or not document.get("features"):
+        return "not a GeoJSON FeatureCollection with features"
+    return None
+
+
 def parse_wkt(wkt: str) -> list[list[list[tuple[float, float]]]]:
     """POLYGON or MULTIPOLYGON in WKT to GeoJSON-like nested lists."""
     body = wkt[wkt.index("(") :]
@@ -90,7 +102,8 @@ def build_boundaries(seeds: Seeds, cache_dir: Path) -> dict:
         for row in csv.DictReader(f):
             assert norm(row["nom_districte"]) == norm(BARCELONA_DISTRICTS[row["Codi_Districte"]])
             polygons[zone_map.for_district(row["Codi_Districte"])] += parse_wkt(row["geometria_wgs84"])
-    towns = json.loads(addresses.fetch_download(MUNICIPALITIES, cache_dir).read_text(encoding="utf-8"))
+    towns_path = addresses.fetch(MUNICIPALITIES.url, cache_dir / MUNICIPALITIES.filename, check_feature_collection)
+    towns = json.loads(towns_path.read_text(encoding="utf-8"))
     for feature in towns["features"]:
         zone_id = zone_map.for_municipality(feature["properties"]["NOMMUNI"])
         if zone_id:
@@ -131,7 +144,7 @@ def build_sample(seeds: Seeds, cache_dir: Path, boundaries: dict) -> dict[str, l
     zone_map = ZoneMap.from_company(seeds.company)
     direle = addresses.fetch_download(addresses.TAULA_DIRELE, cache_dir)
     carrerer = addresses.fetch_download(addresses.CARRERER, cache_dir)
-    subset = addresses.icgc_subset(addresses.fetch_icgc(cache_dir), zone_map)
+    subset = addresses.icgc_subset(addresses.fetch_icgc(cache_dir, zone_map), zone_map)
     names = {s["street_code"]: s["official_name"] for s in addresses.read_carrerer(carrerer)}
     pool = addresses.build_pool(
         addresses.read_taula_direle(direle), names, addresses.read_icgc_subset(subset)[0], zone_map

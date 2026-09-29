@@ -176,8 +176,8 @@ categories; they extend the list and replace nothing.
 | 5 | Fuel consumption | `bronze.fuel_consumption`, `bronze.fuel_prices` | Derived from telemetry. Diesel and CNG prices are real (MINETUR); electricity is priced at a documented fixed tariff, an assumption (issue #9) | Consumption aggregated per vehicle and route from telemetry; loader for prices | Per completed route; prices polled hourly, updated daily by MINETUR | Cost side of every re-plan |
 | 6 | Vehicle status (sensor data) | topic `vehicle.telemetry` → `bronze.vehicle_telemetry` | Simulated | Simulator emitting battery or fuel level, ignition, cargo door and speed | Stream, every 30 s | Cargo-door events measure time at each stop; battery level limits re-planning |
 | 7 | Weather conditions | `bronze.weather` | Real: Open-Meteo (AI-generated fallback, prompt 006) | Loader | Hourly | Rain slows legs; the KPI is segmented by weather |
-| + | Delivery notes | `notes` column on `bronze.orders` | AI-generated (prompt 008) | Order generator | With the orders | Explains long or failed stops; unstructured text |
-| + | Proof-of-delivery photos | RustFS `bronze/pod/` objects | AI-generated placeholder images | Simulator, one per completed delivery | With each `delivered` event | Evidence of delivery; unstructured binary |
+| + | Delivery notes | `notes` and `note_id` on `bronze.orders`; the corpus and its labels in `bronze.delivery_notes` | AI-generated: a corpus of 300 notes ([prompt 008](../../prompts/008-delivery-notes.md)) | Order generator, on about a third of the orders | With the orders | Explains long or failed stops; unstructured text |
+| + | Proof-of-delivery photos | RustFS objects `bronze/pod/<service date>/<order id>.jpg`, key in `bronze.delivery_events` | Synthetic placeholder images drawn by code, not AI-generated, with the real time and position in their EXIF metadata | Simulator (issue #7), one per completed delivery; a sample from `make pod-sample` until then | With each `delivered` event | Evidence of delivery; unstructured binary |
 
 Reference data that every dataset above depends on:
 
@@ -197,11 +197,12 @@ The assignment asks for data generated with AI and for the prompts to be submitt
 uses three origins and says which one every dataset has:
 
 - **Generated with AI.** Everything that belongs to the company itself: its profile, fleet,
-  drivers, orders and history. The prompts are in [`prompts/`](../../prompts/), verbatim, with
+  drivers, orders, delivery notes and history. The prompts are in [`prompts/`](../../prompts/), verbatim, with
   model, date and version, and every generated file is validated before it is used.
-- **Simulated.** The live signals of the vans: GPS pings, telemetry and delivery events. The
-  simulator is code, but it moves the vans over the real road network and reacts to the real
-  traffic state, so the stream behaves like a real fleet.
+- **Simulated.** The live signals of the vans: GPS pings, telemetry and delivery events, and the
+  proof-of-delivery photos, placeholders drawn by code. The simulator is code, but it moves the
+  vans over the real road network and reacts to the real traffic state, so the stream behaves like
+  a real fleet.
 - **Real.** Signals the company would buy or download in real life: traffic state, weather,
   fuel prices, addresses and roads. All are free, open and need no API key.
 

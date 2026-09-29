@@ -1,11 +1,13 @@
-"""Validate the AI-generated fleet register, driver roster and demand model (prompts 002-004).
+"""Validate the AI-generated fleet register, driver roster, demand model and delivery notes
+(prompts 002-004 and 008).
 
 Two layers of checks for each seed, all offline:
 
-1. Structure: the JSON matches its schema in seed/ (fleet, drivers, demand).
+1. Structure: the JSON matches its schema in seed/ (fleet, drivers, demand, delivery_notes).
 2. Consistency: the figures agree with each other and with the company profile (company.json,
    prompt 001), which fixed the vehicle types and counts, the zones, the shifts and the volumes
-   that the three prompts repeat.
+   that prompts 002-004 repeat. The delivery notes are checked against what prompt 008 asked for
+   (count, language mix, no personal data) and against the rules the generator applies to them.
 
 Usage:
     uv run --project services/generator python services/generator/validate_seeds.py
@@ -18,6 +20,7 @@ import sys
 from collections import Counter
 
 import jsonschema
+from llobregat_generator.notes import PLACES, Category, Context, Language, NotePicker, context, places_named
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
     RELIEF_POOL,
@@ -43,6 +46,8 @@ PLATE_RE = re.compile(r"^\d{4} [BCDFGHJKLMNPRSTVWXYZ]{3}$")
 # Contact details must not appear anywhere in the roster (prompt 003).
 PHONE_RE = re.compile(r"(?:\+34[\s.-]?)?\b[6789]\d{2}[\s.-]?\d{3}[\s.-]?\d{3}\b")
 EMAIL_RE = re.compile(r"\b[\w.+-]+@[\w-]+\.[\w.]+\b")
+# Nor identity documents in the delivery notes (prompt 008): Spanish DNI and NIE numbers.
+ID_DOCUMENT_RE = re.compile(r"\b(?:\d{8}|[XYZ]\d{7})[\s-]?[A-Z]\b", re.IGNORECASE)
 
 # Tolerances for figures the model computes by hand.
 SUM_TOLERANCE = 0.00005  # "shares sum to exactly 1.0", at the four decimals the model uses
@@ -50,10 +55,15 @@ DIST_TOLERANCE = 0.001  # a distribution given with two or three decimals sums t
 FIXED_TOTAL_TOLERANCE_PP = 0.5  # weighted parcel mix and B2B share against company.json (prompt 004)
 MULTIPLIER_TOLERANCE = 0.0005  # Monday-Friday average and the Saturday ratio
 FIRST_ATTEMPT_TOLERANCE_PP = 0.05  # expected first-attempt failure against the target, rounding slack
+LANGUAGE_TOLERANCE_PP = 5  # the notes' language mix against the "about" shares of prompt 008
 
 MIN_MORNING_ZONE_COVERAGE = 2  # every zone known by at least two morning drivers (prompt 003)
 WEEKDAYS = ("Mon", "Tue", "Wed", "Thu", "Fri")
 SAME_DAY_CUTOFF_HOUR = 11  # hours before this are "registered before the cut-off"
+NOTES_EXPECTED = 300  # prompt 008
+# Prompt 008: about 50% Spanish, 30% Catalan, 15% English, 5% other languages or mixed.
+LANGUAGE_TARGETS = {Language.SPANISH: 50, Language.CATALAN: 30, Language.ENGLISH: 15}
+OTHER_LANGUAGES_TARGET = 5
 
 
 def check_structure(seeds: dict[str, dict]) -> None:
@@ -369,9 +379,83 @@ def check_demand(seeds: Seeds) -> None:
     )
 
 
+def check_delivery_notes(corpus: dict, company: dict) -> None:
+    print("Delivery notes (prompt 008)")
+    notes = corpus["notes"]
+    check(len(notes) == NOTES_EXPECTED, f"{len(notes)} notes (prompt: {NOTES_EXPECTED})")
+    for field, name in (("note_id", "note ids"), ("text", "texts")):
+        repeated = duplicates([n[field] for n in notes])
+        check(repeated == "none", f"duplicated {name}: {repeated}")
+    lengths = sorted(len(n["text"]) for n in notes)
+    print(f"  info   texts of {lengths[0]} to {lengths[-1]} characters, median {lengths[len(lengths) // 2]}")
+
+    contact = [n["note_id"] for n in notes if PHONE_RE.search(n["text"]) or EMAIL_RE.search(n["text"])]
+    check(not contact, f"phone numbers or e-mail addresses: {contact or 'none'}")
+    documents = [n["note_id"] for n in notes if ID_DOCUMENT_RE.search(n["text"])]
+    check(not documents, f"identity document numbers (DNI, NIE): {documents or 'none'}")
+
+    languages = Counter(n["language"] for n in notes)
+    pct = {language: 100 * count / len(notes) for language, count in languages.items()}
+    other = 100 - sum(pct.get(language, 0) for language in LANGUAGE_TARGETS)
+    off = max(
+        [abs(pct.get(language, 0) - target) for language, target in LANGUAGE_TARGETS.items()]
+        + [abs(other - OTHER_LANGUAGES_TARGET)]
+    )
+    counts = ", ".join(f"{language} {count}" for language, count in languages.most_common())
+    targets = " / ".join(f"{target}" for target in [*LANGUAGE_TARGETS.values(), OTHER_LANGUAGES_TARGET])
+    check(
+        off <= LANGUAGE_TOLERANCE_PP,
+        f"languages {counts}: "
+        + ", ".join(f"{lang} {pct.get(lang, 0):.1f}%" for lang in LANGUAGE_TARGETS)
+        + f", other or mixed {other:.1f}% (prompt: about {targets}%, off by {off:.1f} pp, "
+        f"tolerance {LANGUAGE_TOLERANCE_PP} pp)",
+    )
+
+    categories = list(Category)
+    used = Counter(Category(n["category"]) for n in notes)
+    unused = [str(c) for c in categories if c not in used]
+    (fewest, low), (most, high) = used.most_common()[-1], used.most_common(1)[0]
+    check(
+        not unused,
+        f"all {len(categories)} categories used, from {low} {fewest.value!r} to {high} {most.value!r}; "
+        f"unused: {unused or 'none'}",
+    )
+    for label, meaning in (
+        ("likely_longer_stop", "a likely longer stop"),
+        ("likely_failed_attempt", "a likely failed attempt"),
+    ):
+        flagged = sum(n[label] for n in notes)
+        check(0 < flagged < len(notes), f"{flagged} of {len(notes)} flagged as {meaning} (the label takes both values)")
+
+    # The generator's rules (notes.py): a note that names a place goes only to orders of its zone.
+    zone_ids = {z["zone_id"] for z in company["zones"]}
+    unknown = sorted(f"{place} {zone}" for place, zone in PLACES.items() if zone is not None and zone not in zone_ids)
+    check(not unknown, f"places of the generator in zones of company.json; unknown zones: {unknown or 'none'}")
+    named = {place: [n["note_id"] for n in notes if place in places_named(n["text"])] for place in PLACES}
+    unnamed = sorted(place for place, ids in named.items() if not ids)
+    check(not unnamed, f"every place of the generator is named by a note; not named: {unnamed or 'none'}")
+    placed = ", ".join(f"{place} {' '.join(ids)}" for place, ids in named.items())
+    print(f"  info   notes that name a place, attached only in its zone (outside the area: never): {placed}")
+    written_by = Counter(context(n) for n in notes)
+    print(
+        "  info   notes by who could write them, read from the text: "
+        + ", ".join(f"{kind} {written_by[kind]}" for kind in Context)
+    )
+    try:
+        NotePicker(corpus, zone_ids)
+        problem = None
+    except SeedError as exc:
+        problem = str(exc)
+    check(
+        problem is None,
+        f"business and consumer notes to draw from in every zone; {problem or f'all {len(zone_ids)} have both'}",
+    )
+
+
 def main() -> int:
     company = read_json(SEED_DIR / "company.json")
-    seeds = {name: read_json(SEED_DIR / f"{name}.json") for name in ("fleet", "drivers", "demand")}
+    names = ("fleet", "drivers", "demand", "delivery_notes")
+    seeds = {name: read_json(SEED_DIR / f"{name}.json") for name in names}
     check_structure(seeds)
     if errors:
         print(f"\n{len(errors)} structural errors; fix those first.")
@@ -379,6 +463,7 @@ def main() -> int:
     check_fleet(seeds["fleet"], company)
     check_drivers(seeds["drivers"], company)
     check_demand(Seeds(company=company, **seeds))
+    check_delivery_notes(seeds["delivery_notes"], company)
     print(f"\n{len(errors)} errors, {len(warnings)} warnings")
     return 1 if errors else 0
 

@@ -42,6 +42,7 @@ ORDER_SCHEMA = pa.schema(
         ("window_start", TIMESTAMP),
         ("window_end", TIMESTAMP),
         ("notes", pa.string()),
+        ("note_id", pa.string()),
         ("source", pa.string()),
         ("event_time", TIMESTAMP),
         ("ingested_at", TIMESTAMP),
