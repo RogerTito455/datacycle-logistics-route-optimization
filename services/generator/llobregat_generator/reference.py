@@ -1,4 +1,5 @@
-"""Reference data for the bronze tables: the company profile, fleet, drivers, shippers and addresses.
+"""Reference data for the bronze tables: the company profile, fleet, drivers, shippers, delivery notes
+and addresses.
 
 Each table's rows are built from one seed or one open-data file, and every row names it in
 `source`. Loading is write-once and idempotent: a row whose key is already in the table is left
@@ -27,12 +28,14 @@ COMPANY = "generator/company-profile"
 FLEET = "generator/fleet"
 DRIVERS = "generator/drivers"
 DEMAND = "generator/demand-model"
+NOTES = "generator/delivery-notes"
 # The seeds with one record per row are also stored in the bronze bucket, one Parquet file per
 # table, and their rows keep its key. The company profile is one document spread over four tables.
 SEED_FILES = {
     "bronze.vehicles": "reference/generator/fleet/vehicles.parquet",
     "bronze.drivers": "reference/generator/drivers/drivers.parquet",
     "bronze.shippers": "reference/generator/demand-model/shippers.parquet",
+    "bronze.delivery_notes": "reference/generator/delivery-notes/delivery_notes.parquet",
 }
 
 
@@ -226,6 +229,20 @@ def shippers(demand: dict) -> list[dict]:
     ]
 
 
+def delivery_notes(corpus: dict) -> list[dict]:
+    return [
+        {
+            "note_id": n["note_id"],
+            "text": n["text"],
+            "language": n["language"],
+            "category": n["category"],
+            "likely_longer_stop": n["likely_longer_stop"],
+            "likely_failed_attempt": n["likely_failed_attempt"],
+        }
+        for n in corpus["notes"]
+    ]
+
+
 def blank_to_none(rows: list[dict], columns: tuple[str, ...]) -> list[dict]:
     """Numeric columns cannot take an empty string; an empty published value becomes NULL."""
     for row in rows:
@@ -252,6 +269,12 @@ def seed_tables(seeds: Seeds) -> list[Table]:
         Table("bronze.vehicles", vehicles(seeds.fleet), FLEET, SEED_FILES["bronze.vehicles"]),
         Table("bronze.drivers", drivers(seeds.drivers, company), DRIVERS, SEED_FILES["bronze.drivers"]),
         Table("bronze.shippers", shippers(seeds.demand), DEMAND, SEED_FILES["bronze.shippers"]),
+        Table(
+            "bronze.delivery_notes",
+            delivery_notes(seeds.delivery_notes),
+            NOTES,
+            SEED_FILES["bronze.delivery_notes"],
+        ),
     ]
 
 
@@ -284,7 +307,7 @@ def address_tables(settings: Settings, zone_map: ZoneMap, bucket: Bucket) -> lis
 
 
 def seed_parquet(conn: psycopg.Connection, tables: list[Table], bucket: Bucket, ingested_at: datetime) -> None:
-    """The fleet register, driver roster and shipper list as Parquet files in the bronze bucket.
+    """The fleet register, driver roster, shipper list and delivery notes as Parquet files in the bucket.
 
     A file whose content has not changed since the last load is not written again: the bucket
     compares checksums, so its ingested_at stays that of the load that wrote it.

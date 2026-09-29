@@ -43,7 +43,7 @@ from llobregat_generator.rules import (
 )
 
 WINDOW = 120
-METADATA = FileMetadata("generator/orders", "operations", 3, datetime(2026, 9, 29, 6, 30, tzinfo=UTC))
+METADATA = FileMetadata("generator/orders", "operations", 4, datetime(2026, 9, 29, 6, 30, tzinfo=UTC))
 
 
 def parcels(orders, predicate=lambda o: True) -> int:
@@ -372,7 +372,7 @@ def test_parquet_file_has_the_bronze_columns_and_metadata(weekday):
     assert metadata == {
         "source": "generator/orders",
         "owner": "operations",
-        "schema_version": "3",
+        "schema_version": "4",
         "ingested_at": "2026-09-29T06:30:00+00:00",
         "service_date": MONDAY.isoformat(),
         "seed": str(SEED),
@@ -380,4 +380,6 @@ def test_parquet_file_has_the_bronze_columns_and_metadata(weekday):
     }
     assert set(table.column("source").to_pylist()) == {"generator/orders"}
     assert set(table.column("ingested_at").to_pylist()) == {METADATA.ingested_at}
-    assert table.column("notes").null_count == table.num_rows  # filled by issue #25
+    notes, note_ids = table.column("notes").to_pylist(), table.column("note_id").to_pylist()
+    assert 0 < table.column("note_id").null_count < table.num_rows
+    assert all((text is None) == (note_id is None) for text, note_id in zip(notes, note_ids, strict=True))

@@ -23,9 +23,12 @@ model's fields and its written assumptions:
    parcels in the morning wave, other consumer parcels by the consumer window choice. Consumers
    pick a 120-minute slot with specific_slot_share, otherwise accept the whole wave; business
    recipients get a 120-minute window inside their opening hours.
+7. Delivery notes: about a third of the orders carry a note of the corpus (prompt 008), by the
+   rules in notes.py.
 
-Everything random comes from one generator seeded with (seed, date), so a date and a seed always
-give the same orders.
+Everything random in steps 1-6 comes from one generator seeded with (seed, date), and the notes of
+step 7 from a second one seeded with (seed, date, NOTES_STREAM), so a date and a seed always give
+the same orders, and the notes change none of their other fields.
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ from zoneinfo import ZoneInfo
 import numpy as np
 
 from llobregat_generator.addresses import Address
+from llobregat_generator.notes import NOTES_STREAM, NotePicker, attach_notes
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
     Recipient,
@@ -100,6 +104,7 @@ COLUMNS = (
     "window_start",
     "window_end",
     "notes",
+    "note_id",
     "source",
     "event_time",
 )
@@ -370,7 +375,8 @@ def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str,
                     "window_type": window_type.value,
                     "window_start": local_datetime(service_date, start),
                     "window_end": local_datetime(service_date, end),
-                    "notes": None,  # delivery notes are attached by issue #25
+                    "notes": None,  # step 7, attach_notes
+                    "note_id": None,
                     "source": SOURCE_ID,
                     "event_time": local_datetime(registered_on, minute_of_day) + timedelta(seconds=second),
                 }
@@ -380,4 +386,6 @@ def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str,
     ordered = sorted(enumerate(orders), key=lambda item: (item[1]["event_time"], item[0]))
     stamp = service_date.strftime("%Y%m%d")
     rows = [{"order_id": f"O-{stamp}-{n:05d}", **order} for n, (_, order) in enumerate(ordered, start=1)]
+    notes_rng = np.random.default_rng([seed, service_date.toordinal(), NOTES_STREAM])
+    attach_notes(rows, NotePicker(seeds.delivery_notes, zone_share), notes_rng)
     return Day(service_date, seed, total, [{column: row[column] for column in COLUMNS} for row in rows])

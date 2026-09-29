@@ -46,7 +46,7 @@ def cmd_orders(settings: Settings, args: argparse.Namespace) -> int:
     print(
         f"bronze.orders: {written} rows written" + (f", {deleted} rows of an earlier run replaced" if deleted else "")
     )
-    figures = summarise(day.orders, seeds.company, load_boundaries())
+    figures = summarise(day.orders, seeds, load_boundaries())
     print(report(args.date, figures, seeds))
     return 0
 
@@ -58,7 +58,7 @@ def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
     if not orders:
         print(f"no generated orders for {args.date} in bronze.orders")
         return 1
-    print(report(args.date, summarise(orders, seeds.company, load_boundaries()), seeds))
+    print(report(args.date, summarise(orders, seeds, load_boundaries()), seeds))
     return 0
 
 
@@ -70,7 +70,7 @@ def main(argv: list[str] | None = None) -> int:
     commands = parser.add_subparsers(dest="command", required=True)
     commands.add_parser(
         "load-reference",
-        help="load hub, zones, shifts, vehicle types, vehicles, drivers, shippers, streets and addresses",
+        help="load hub, zones, shifts, vehicle types, vehicles, drivers, shippers, delivery notes and addresses",
     ).set_defaults(run=cmd_load_reference)
     orders = commands.add_parser("orders", help="generate the orders of one service date")
     orders.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")

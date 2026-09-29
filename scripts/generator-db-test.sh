@@ -34,6 +34,7 @@ reference_state() {
       UNION ALL SELECT 'vehicles', count(*), max(ingested_at) FROM bronze.vehicles
       UNION ALL SELECT 'drivers', count(*), max(ingested_at) FROM bronze.drivers
       UNION ALL SELECT 'shippers', count(*), max(ingested_at) FROM bronze.shippers
+      UNION ALL SELECT 'delivery_notes', count(*), max(ingested_at) FROM bronze.delivery_notes
       UNION ALL SELECT 'streets', count(*), max(ingested_at) FROM bronze.streets
       UNION ALL SELECT 'addresses', count(*), max(ingested_at) FROM bronze.addresses
       UNION ALL SELECT 'icgc_addresses', count(*), max(ingested_at) FROM bronze.icgc_addresses) s"
@@ -66,9 +67,9 @@ failed=$(psql_admin -c "
     ('1 hub, 14 zones, 2 shifts, 6 vehicle types',
      (SELECT count(*) FROM bronze.hubs) = 1 AND (SELECT count(*) FROM bronze.zones) = 14
      AND (SELECT count(*) FROM bronze.shifts) = 2 AND (SELECT count(*) FROM bronze.vehicle_types) = 6),
-    ('30 vehicles, 48 drivers, 40 shippers',
+    ('30 vehicles, 48 drivers, 40 shippers, 300 delivery notes',
      (SELECT count(*) FROM bronze.vehicles) = 30 AND (SELECT count(*) FROM bronze.drivers) = 48
-     AND (SELECT count(*) FROM bronze.shippers) = 40),
+     AND (SELECT count(*) FROM bronze.shippers) = 40 AND (SELECT count(*) FROM bronze.delivery_notes) = 300),
     ('streets and addresses loaded',
      (SELECT count(*) FROM bronze.streets) > 0 AND (SELECT count(*) FROM bronze.addresses) > 0
      AND (SELECT count(*) FROM bronze.icgc_addresses) > 0),
@@ -76,6 +77,7 @@ failed=$(psql_admin -c "
      NOT EXISTS (SELECT 1 FROM bronze.vehicles WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.drivers WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.shippers WHERE raw_object_key IS NULL)
+     AND NOT EXISTS (SELECT 1 FROM bronze.delivery_notes WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.streets WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.addresses WHERE raw_object_key IS NULL)
      AND NOT EXISTS (SELECT 1 FROM bronze.icgc_addresses WHERE raw_object_key IS NULL)),
@@ -89,7 +91,11 @@ failed=$(psql_admin -c "
     ('every address_ref resolves',
      NOT EXISTS (SELECT 1 FROM day o WHERE NOT EXISTS (SELECT 1 FROM bronze.addresses a WHERE a.address_ref = o.address_ref)
                  AND NOT EXISTS (SELECT 1 FROM bronze.icgc_addresses i WHERE i.address_id = o.address_ref))),
-    ('orders in all 14 zones', (SELECT count(DISTINCT destination_zone_id) FROM day) = 14))
+    ('orders in all 14 zones', (SELECT count(DISTINCT destination_zone_id) FROM day) = 14),
+    ('about a third of the orders carry a note of the corpus, its text in notes',
+     (SELECT avg((note_id IS NOT NULL)::int) FROM day) BETWEEN 0.28 AND 0.39
+     AND NOT EXISTS (SELECT 1 FROM day o LEFT JOIN bronze.delivery_notes n USING (note_id)
+                     WHERE (o.note_id IS NULL) <> (o.notes IS NULL) OR n.text IS DISTINCT FROM o.notes)))
   SELECT coalesce(string_agg(name, '; '), '') FROM checks WHERE NOT ok")
 [[ -z "$failed" ]] || { echo "FAIL: $failed"; exit 1; }
-echo "PASS: reference data loaded once, ${DATE} generated twice with the same ${twice%% *} orders, 9 checks"
+echo "PASS: reference data loaded once, ${DATE} generated twice with the same ${twice%% *} orders, 10 checks"

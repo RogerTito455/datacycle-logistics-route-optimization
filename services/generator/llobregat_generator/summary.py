@@ -1,4 +1,4 @@
-"""Sanity figures of one day of orders, against the company profile and the demand model."""
+"""Sanity figures of one day of orders, against the company profile, the demand model and the notes."""
 
 from __future__ import annotations
 
@@ -6,6 +6,7 @@ from collections import Counter
 from collections.abc import Sequence
 from datetime import date
 
+from llobregat_generator.notes import BUSINESS_OWN_SHARE, is_business_note, language_shares
 from llobregat_generator.orders import LOCAL_TZ, SIZES
 from llobregat_generator.rules import (
     Recipient,
@@ -19,11 +20,16 @@ from llobregat_generator.seeds import Seeds
 from llobregat_generator.zones import Polygon, in_polygons
 
 
-def summarise(orders: Sequence[dict], company: dict, boundaries: dict[str, list[Polygon]]) -> dict[str, object]:
-    """Figures a reviewer compares with company.json and demand.json.
+def summarise(orders: Sequence[dict], seeds: Seeds, boundaries: dict[str, list[Polygon]]) -> dict[str, object]:
+    """Figures a reviewer compares with company.json, demand.json and delivery_notes.json.
 
     Shares are shares of parcels unless the name says orders.
     """
+    company = seeds.company
+    corpus = {n["note_id"]: n for n in seeds.delivery_notes["notes"]}
+    with_note = [o for o in orders if o["note_id"] is not None]
+    business_notes = [corpus[o["note_id"]] for o in with_note if o["customer_type"] == Recipient.BUSINESS]
+    consumer_notes = [corpus[o["note_id"]] for o in with_note if o["customer_type"] != Recipient.BUSINESS]
     parcels = sum(o["parcels"] for o in orders)
     by_zone = Counter()
     for o in orders:
@@ -54,6 +60,12 @@ def summarise(orders: Sequence[dict], company: dict, boundaries: dict[str, list[
         "window_types": dict(Counter(o["window_type"] for o in orders)),
         "zone_share": {z["zone_id"]: by_zone[z["zone_id"]] / parcels if parcels else 0.0 for z in company["zones"]},
         "inside_zone_boundary": inside / len(orders) if orders else 0.0,
+        "orders_with_note": len(with_note),
+        "note_languages": Counter(corpus[o["note_id"]]["language"] for o in with_note),
+        "note_categories": Counter(corpus[o["note_id"]]["category"] for o in with_note),
+        "business_notes": len(business_notes),
+        "business_notes_own": sum(map(is_business_note, business_notes)),
+        "consumer_notes_own": sum(map(is_business_note, consumer_notes)),
     }
 
 
@@ -83,4 +95,20 @@ def report(service_date: date, figures: dict, seeds: Seeds) -> str:
         f"against {zone_share[worst]:.1%} in company.json"
     )
     lines.append(f"  inside the zone's official boundary: {figures['inside_zone_boundary']:.2%} of orders")
+
+    noted = figures["orders_with_note"]
+    language_mix = sorted(language_shares(seeds.delivery_notes["notes"]).items(), key=lambda kv: (-kv[1], kv[0]))
+    languages = figures["note_languages"]
+    own = figures["business_notes_own"] / figures["business_notes"] if figures["business_notes"] else 0.0
+    lines += [
+        f"  delivery notes     {noted} orders, {noted / max(figures['orders'], 1):.1%} (rule: a third)",
+        "    languages        "
+        + ", ".join(f"{lang} {languages[lang] / max(noted, 1):.1%}" for lang, _ in language_mix)
+        + " (corpus "
+        + " / ".join(f"{share:.1%}" for _, share in language_mix)
+        + ")",
+        "    categories       " + ", ".join(f"{name} {n}" for name, n in figures["note_categories"].most_common()),
+        f"    business hours or location hint: {own:.1%} of the {figures['business_notes']} business recipients' "
+        f"notes (rule {BUSINESS_OWN_SHARE:.0%}), {figures['consumer_notes_own']} of the consumers'",
+    ]
     return "\n".join(lines)
