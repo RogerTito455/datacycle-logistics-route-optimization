@@ -89,12 +89,32 @@ services:
       - timescaledb-data:/var/lib/postgresql/data
       - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      # Over TCP: on a fresh volume the init scripts run on a server that only listens on its Unix
+      # socket, and the database must not look healthy until they are done.
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
       interval: 5s
       timeout: 5s
       retries: 30
       start_period: 10s
     restart: unless-stopped
+
+  db-migrate:
+    # Applies pending migrations from infra/postgres/migrations on every start, so a new table
+    # reaches an existing volume too. Recorded in ops.schema_migrations.
+    image: timescale/timescaledb:2.30.1-pg17
+    entrypoint: ["/bin/bash", "/init/migrate.sh"]
+    environment:
+      PGHOST: timescaledb
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+    volumes:
+      - ./infra/postgres/migrate.sh:/init/migrate.sh:ro
+      - ./infra/postgres/migrations:/migrations:ro
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: "no"
 
   rustfs:
     image: rustfs/rustfs:1.0.0
@@ -194,9 +214,9 @@ services:
       retries: 30
       start_period: 20s
     depends_on:
-      timescaledb:
-        condition: service_healthy
-      # Pipelines write to the topics and buckets, so they must exist first.
+      # Pipelines write to the tables, topics and buckets, so they must exist first.
+      db-migrate:
+        condition: service_completed_successfully
       redpanda-init:
         condition: service_completed_successfully
       storage-init:
@@ -257,8 +277,9 @@ services:
       retries: 30
       start_period: 10s
     depends_on:
-      timescaledb:
-        condition: service_healthy
+      # Dashboards read gold and ops, which the migrations create and grant.
+      db-migrate:
+        condition: service_completed_successfully
     restart: unless-stopped
 
 volumes:

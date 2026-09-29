@@ -50,7 +50,7 @@ describes something that runs. The deadline is 11 October 2026, thirteen days fr
 | # | Decision | Alternatives considered | Rationale |
 |---|---|---|---|
 | 19 | **Hosting on GitHub Codespaces**, see [ADR 0002](0002-hosting-codespaces.md) | Laptop + Cloudflare tunnel; Oracle Cloud Free Tier | Zero cost, one-click start for every member, public port forwarding |
-| 20 | **Three mandatory metadata elements** on every table and file: `source` (origin system and license), `ingested_at` next to `event_time` (freshness and delay), `owner` with `schema_version` | `quality_score`; `retention_policy` | Implemented by dbt on every model and surfaced by Dagster as asset metadata, so definition and implementation are the same thing |
+| 20 | **Three mandatory metadata elements** on every table and file: `source` (origin system and license), `ingested_at` next to `event_time` (freshness and delay), `owner` with `schema_version` | `quality_score`; `retention_policy` | Implemented by dbt on every model and surfaced by Dagster as asset metadata, so definition and implementation are the same thing. *Amended 2026-09-28, see [Amendments](#amendments)* |
 
 ## Amendments
 
@@ -64,6 +64,11 @@ The decisions above stay as they were taken; these notes refine them.
   not at its last completed delivery: a failed attempt also ends the stop. This is how the
   company profile (prompt 001) measures the KPI baseline, and it keeps a route with a failed last
   stop from having no end.
+- **2026-09-28 · Decision 20.** `event_time` belongs to tables of events. Reference tables (hub,
+  zones, vehicles, addresses) and the platform ledgers (`ops.data_sources`,
+  `ops.schema_migrations`) describe things rather than events, so they carry `source`,
+  `ingested_at`, `owner` and `schema_version` but no `event_time`. The implementation is in
+  [the data model](../data-model.md#the-three-mandatory-metadata-elements).
 
 ## Consequences
 

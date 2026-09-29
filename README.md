@@ -129,6 +129,7 @@ Measured on 28 September 2026 with every service idle:
 
 - [Plan and milestones](docs/plan.md)
 - [Architecture decisions](docs/decisions/)
+- [Data model](docs/data-model.md)
 - [Open data sources research](docs/research/open-data-sources.md)
 - [Assignment phases](docs/phases/)
 - [Contributing and Git workflow](CONTRIBUTING.md)
