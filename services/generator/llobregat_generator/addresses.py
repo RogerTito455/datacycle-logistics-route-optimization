@@ -6,7 +6,10 @@ The five neighbouring municipalities are not in taula-direle. Their addresses co
 simplified address register of Catalonia (Adreces simplificat), which publishes coordinates in
 ETRS89 UTM zone 31N; they are converted to WGS84 here.
 
-All three are CC BY 4.0. Downloads are cached, so each file is fetched once.
+All three are CC BY 4.0. Downloads are cached, so each file is fetched once. Only a complete
+download is cached: an HTTP 200 answer with as many bytes as the server announced, and a file that
+reads as what it should be (check_csv, check_icgc_zip). A cached file that fails the check is
+downloaded again, so an error page or a cut-off download is never reused.
 """
 
 from __future__ import annotations
@@ -14,9 +17,10 @@ from __future__ import annotations
 import csv
 import io
 import re
+import urllib.error
 import urllib.request
 import zipfile
-from collections.abc import Iterator, Mapping
+from collections.abc import Callable, Iterator, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,28 +35,17 @@ USER_AGENT = (
 HTTP_TIMEOUT_S = 120
 
 
+class DownloadError(RuntimeError):
+    """A download that is not complete or not the file it should be. It is not cached."""
+
+
 @dataclass(frozen=True)
 class Download:
     source_id: str
     url: str
     filename: str
+    columns: tuple[str, ...] = ()  # columns the header of the CSV must have
 
-
-TAULA_DIRELE = Download(
-    "opendata-bcn/taula-direle",
-    "https://opendata-ajuntament.barcelona.cat/data/dataset/6b5cfa7b-1d8d-45f0-990a-d1844d43ffd1"
-    "/resource/50c9b17f-d297-4668-bad4-e1c217580747/download",
-    "adreces_postals_elementals.csv",
-)
-CARRERER = Download(
-    "opendata-bcn/carrerer",
-    "https://opendata-ajuntament.barcelona.cat/data/dataset/d7802fd1-cdfb-4562-9148-d18722d7e2d8"
-    "/resource/2b010e59-6952-4b27-9c4e-47fcaf64c916/download",
-    "carrerer.csv",
-)
-ICGC_SOURCE_ID = "icgc/adreces-simplificat"
-ICGC_LISTING_URL = "https://datacloud.icgc.cat/datacloud/adreces-simplificat/csv/"
-ICGC_ZIP_RE = re.compile(r'href="(?:[^"]*/)?(adreces-simplificat-[^"/]+\.zip)"', re.IGNORECASE)
 
 # CSV column (as published) -> bronze column.
 TAULA_DIRELE_COLUMNS = {
@@ -100,6 +93,24 @@ ICGC_COLUMNS = {
     "coor_utmy": "y_etrs89",
 }
 
+TAULA_DIRELE = Download(
+    "opendata-bcn/taula-direle",
+    "https://opendata-ajuntament.barcelona.cat/data/dataset/6b5cfa7b-1d8d-45f0-990a-d1844d43ffd1"
+    "/resource/50c9b17f-d297-4668-bad4-e1c217580747/download",
+    "adreces_postals_elementals.csv",
+    tuple(TAULA_DIRELE_COLUMNS),
+)
+CARRERER = Download(
+    "opendata-bcn/carrerer",
+    "https://opendata-ajuntament.barcelona.cat/data/dataset/d7802fd1-cdfb-4562-9148-d18722d7e2d8"
+    "/resource/2b010e59-6952-4b27-9c4e-47fcaf64c916/download",
+    "carrerer.csv",
+    tuple(CARRERER_COLUMNS),
+)
+ICGC_SOURCE_ID = "icgc/adreces-simplificat"
+ICGC_LISTING_URL = "https://datacloud.icgc.cat/datacloud/adreces-simplificat/csv/"
+ICGC_ZIP_RE = re.compile(r'href="(?:[^"]*/)?(adreces-simplificat-[^"/]+\.zip)"', re.IGNORECASE)
+
 # ETRS89 / UTM zone 31N to WGS84, longitude first.
 _TO_WGS84 = Transformer.from_crs("EPSG:25831", "EPSG:4326", always_xy=True)
 
@@ -117,38 +128,123 @@ class Address:
     lon: float
 
 
-def fetch(url: str, target: Path) -> Path:
-    """Download url to target once; later calls reuse the cached file."""
+def check_csv(path: Path, columns: tuple[str, ...] = (), delimiter: str = ",") -> str | None:
+    """Why the file is not a complete CSV with these header columns; None when it is.
+
+    An error page has another header, an empty answer no data row, and a cut-off download a row
+    with fewer fields than the header or an open quote at the end. The published files may end
+    without a final newline, so every row is parsed rather than the last byte looked at.
+    """
+    rows = 0
+    try:
+        with path.open(encoding="utf-8", newline="") as f:
+            reader = csv.reader(f, delimiter=delimiter, strict=True)
+            header = next(reader, None)
+            if header is None:
+                return "the file is empty"
+            missing = [c for c in columns if c not in header]
+            if missing:
+                return f"the header has no {', '.join(missing)} column"
+            for row in reader:
+                if not row:
+                    continue
+                if len(row) != len(header):
+                    fields = f"line {reader.line_num} has {len(row)} fields, the header {len(header)}"
+                    return f"{fields}: the file is cut off"
+                rows += 1
+    except (csv.Error, UnicodeDecodeError) as exc:
+        return f"not a complete CSV file ({exc})"
+    return None if rows else "no data rows"
+
+
+def check_icgc_zip(path: Path, full: bool = False) -> str | None:
+    """Why the file is not a complete ICGC address zip; None when it is.
+
+    A cut-off zip has no central directory at its end and does not open. The municipality and street
+    address files must be in it, the address file with the columns the loader reads. With full, the
+    checksum of every member is verified too, which reads the whole archive (done once, on download).
+    """
+    try:
+        with zipfile.ZipFile(path) as archive:
+            for kind in ("municipi", "adrecavia"):
+                _zip_member(archive, kind)
+            with archive.open(_zip_member(archive, "adrecavia")) as raw:
+                header = next(csv.reader(io.TextIOWrapper(raw, encoding="utf-8", newline=""), delimiter=";"), [])
+            missing = [c for c in ICGC_COLUMNS if c not in header]
+            if missing:
+                return f"the address file has no {', '.join(missing)} column"
+            if full and (bad := archive.testzip()) is not None:
+                return f"{bad} is damaged"
+    except (zipfile.BadZipFile, EOFError) as exc:
+        return f"not a complete zip file ({exc})"
+    except (RuntimeError, csv.Error, UnicodeDecodeError) as exc:  # _zip_member finds no such file
+        return f"not the ICGC address zip ({exc})"
+    return None
+
+
+def fetch(url: str, target: Path, check: Callable[[Path], str | None]) -> Path:
+    """Download url to target once; later calls reuse the cached file while it passes `check`.
+
+    `check` returns why a file is not what the url should give, or None. A download is cached only
+    when the server answered 200, sent as many bytes as its Content-Length announced and the file
+    passes the check; otherwise nothing is cached and DownloadError says why. A cached file that
+    fails the check, such as a cut-off file cached before this rule, is downloaded again.
+    """
     if target.exists():
-        return target
+        problem = check(target)
+        if problem is None:
+            return target
+        print(f"  cached {target} is not a complete download ({problem}); downloading it again")
+        target.unlink()
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
     print(f"  downloading {url}")
     request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
-    with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_S) as response, partial.open("wb") as out:
-        while chunk := response.read(1 << 20):
-            out.write(chunk)
+    try:
+        with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_S) as response, partial.open("wb") as out:
+            if response.status != 200:
+                raise DownloadError(f"{url} answered HTTP {response.status}, not 200")
+            announced = response.headers.get("Content-Length")
+            while chunk := response.read(1 << 20):
+                out.write(chunk)
+        received = partial.stat().st_size
+        if announced is not None and received != int(announced):
+            raise DownloadError(f"{url} sent {received} of the {announced} bytes it announced: the download is cut off")
+        if (problem := check(partial)) is not None:
+            raise DownloadError(f"{url} did not send the expected file: {problem}")
+    except urllib.error.HTTPError as exc:
+        partial.unlink(missing_ok=True)
+        raise DownloadError(f"{url} answered HTTP {exc.code} {exc.reason}") from exc
+    except BaseException:
+        partial.unlink(missing_ok=True)
+        raise
     partial.rename(target)
     print(f"  cached {target} ({target.stat().st_size / 1e6:.1f} MB)")
     return target
 
 
 def fetch_download(download: Download, cache_dir: Path) -> Path:
-    return fetch(download.url, cache_dir / download.filename)
+    return fetch(download.url, cache_dir / download.filename, lambda path: check_csv(path, download.columns))
 
 
 def fetch_icgc(cache_dir: Path) -> Path:
-    """The ICGC zip in the cache, or the current one from the ICGC download folder."""
-    cached = sorted(cache_dir.glob("adreces-simplificat-*.zip"))
-    if cached:
-        return cached[-1]
+    """The ICGC zip in the cache, or the current one from the ICGC download folder.
+
+    A cached zip that is not complete is removed and the current one downloaded instead.
+    """
+    for cached in sorted(cache_dir.glob("adreces-simplificat-*.zip"), reverse=True):
+        problem = check_icgc_zip(cached)
+        if problem is None:
+            return cached
+        print(f"  cached {cached} is not a complete download ({problem}); removing it")
+        cached.unlink()
     request = urllib.request.Request(ICGC_LISTING_URL, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_S) as response:
         listing = response.read().decode("utf-8", "replace")
     names = sorted(set(ICGC_ZIP_RE.findall(listing)))
     if not names:
         raise RuntimeError(f"no adreces-simplificat zip listed at {ICGC_LISTING_URL}")
-    return fetch(ICGC_LISTING_URL + names[-1], cache_dir / names[-1])
+    return fetch(ICGC_LISTING_URL + names[-1], cache_dir / names[-1], lambda path: check_icgc_zip(path, full=True))
 
 
 def _read_csv(path: Path, columns: Mapping[str, str]) -> list[dict]:

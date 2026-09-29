@@ -40,7 +40,12 @@ precisely than the address points. One is a register error: `taula-direle` puts 
 Muntaner, 79, in the Eixample, at a point in Montjuïc 1.4 km away. Bronze keeps it as published.
 
 Downloads are cached in `services/generator/.cache/` (git-ignored): the first `make load-reference`
-fetches about 70 MB, later runs reuse them. Only small extracts are committed: the zone boundaries
+fetches about 70 MB, later runs reuse them. Only a complete download is cached: the server must
+answer HTTP 200 with as many bytes as it announced, and the file must read as what it should be, a
+CSV with the published header and every row complete, or a zip with the ICGC municipality and
+address files whose checksums match. Anything else, such as an error page served with status 200 or
+a download cut off halfway, is discarded with an error that says why, and a cached file that fails
+the check is downloaded again on the next run. Only small extracts are committed: the zone boundaries
 and, for the tests, 560 sample addresses (40 per zone) as the registers publish them, in
 [`tests/fixtures/`](tests/fixtures/): `taula_direle_sample.csv` and `carrerer_sample.csv` for
 Barcelona, `icgc_sample.csv` for the five towns. [`scripts/build_fixtures.py`](scripts/build_fixtures.py)
@@ -174,7 +179,8 @@ a real address of its zone, and that the same date and seed give identical order
 Parquet file. Shares pooled over the week are compared within four standard errors, computed from
 the orders themselves; zone shares, split exactly, within 5% of each zone's share on a single day.
 Other tests cover the ICGC reading with its conversion to WGS84, the file metadata, the checksum of
-the reference files and the refusal of future dates. The figures the seeds must satisfy on their
+the reference files, the refusal of future dates and the download cache, which a local HTTP server
+feeds cut-off files, error pages and HTTP errors that must not be cached. The figures the seeds must satisfy on their
 own are the seed validators' job, not the tests'.
 
 CI runs the tests and the seed validators on every pull request. Its compose smoke job also loads

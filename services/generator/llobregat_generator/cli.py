@@ -9,6 +9,7 @@ from datetime import UTC, date, datetime
 import psycopg
 
 from llobregat_generator import db, publish
+from llobregat_generator.addresses import DownloadError
 from llobregat_generator.config import Settings
 from llobregat_generator.orders import LOCAL_TZ, NoServiceError, generate_day
 from llobregat_generator.reference import load_reference
@@ -94,6 +95,9 @@ def main(argv: list[str] | None = None) -> int:
     except SeedError as exc:
         print(f"the seeds cannot be used: {exc}", file=sys.stderr)
         return 2
+    except DownloadError as exc:
+        print(f"download failed, nothing was cached: {exc}", file=sys.stderr)
+        return 1
     except psycopg.OperationalError as exc:
         print(
             f"cannot reach TimescaleDB at {settings.postgres_host}:{settings.postgres_port} ({exc}); "
