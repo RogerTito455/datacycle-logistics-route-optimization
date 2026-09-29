@@ -74,6 +74,37 @@ services:
         condition: service_healthy
     restart: unless-stopped
 
+  consumer:
+    # Writes gps.pings, vehicle.telemetry and delivery.events into bronze in batches, commits the
+    # offsets after the database, dead-letters what it cannot store and records its lag in ops.
+    image: llobregat/consumer:local
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: services/consumer/Dockerfile
+      network: host
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: timescaledb
+      POSTGRES_PORT: "5432"
+      KAFKA_BOOTSTRAP: redpanda:9092
+    healthcheck:
+      # 200 while it polls the broker, owns partitions and reaches the database; the body is its status.
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 6
+      start_period: 30s
+    depends_on:
+      # The tables and the topics must exist first.
+      db-migrate:
+        condition: service_completed_successfully
+      redpanda-init:
+        condition: service_completed_successfully
+    restart: unless-stopped
+
   # ------------------------------------------------------------------ storage
   timescaledb:
     image: timescale/timescaledb:2.30.1-pg17
