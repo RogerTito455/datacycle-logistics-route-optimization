@@ -20,6 +20,7 @@ arrives, and as it is stored for analysis.
 | Parquet | A columnar file format for tables. The file stores its column names and types once, in its footer, like a typed CSV header |
 | DIKW | Data, information, knowledge, wisdom: the hierarchy that phase 3 applies to the GPS ping |
 | PBF | Protocolbuffer Binary Format, the compressed binary format of OpenStreetMap extracts |
+| EXIF | Exchangeable Image File Format: tags a camera writes inside a JPEG file, such as when the photo was taken and the GPS position |
 | MINETUR | The Spanish ministry that publishes the price of every fuel at every service station through an open REST API (today part of MITECO) |
 | WMO code | The World Meteorological Organization's weather code, a number from 0 to 99 (3 is overcast, 61 is light rain) |
 | SCT, DATEX II | The Servei Català de Trànsit, Catalonia's traffic authority, and DATEX II, the European XML standard it uses to publish road incidents |
@@ -62,8 +63,8 @@ Four rules settle the edge cases:
 | 5 | Fuel prices (MINETUR) | JSON document from a REST API | Semi-structured | Rows in the `bronze.fuel_prices` hypertable | Structured |
 | 6 | Vehicle status (sensors) | JSON message on topic `vehicle.telemetry`, keys vary by vehicle type | Semi-structured | Rows in `bronze.vehicle_telemetry`, type-specific sensors in a `jsonb` column | Structured |
 | 7 | Weather (Open-Meteo) | JSON document from a REST API | Semi-structured | Rows in `bronze.weather` | Structured |
-| + | Delivery notes | Free text inside each order | Unstructured | `notes` column of `bronze.orders` | Unstructured |
-| + | Proof-of-delivery photos | JPEG image per delivered parcel | Unstructured | Object in the RustFS `bronze` bucket, key in `bronze.delivery_events` | Unstructured |
+| + | Delivery notes | Free text inside about a third of the orders, from a corpus of 300 AI-generated notes | Unstructured | `notes` column of `bronze.orders`; `note_id` joins the note's labels in `bronze.delivery_notes` | Unstructured text, structured labels |
+| + | Proof-of-delivery photos | JPEG image per delivered parcel, with its time and position in EXIF tags | Unstructured | Object `pod/<service date>/<order id>.jpg` in the RustFS `bronze` bucket, key in `bronze.delivery_events.pod_object_key` | Unstructured pixels, structured EXIF metadata |
 | R | Company profile | One nested JSON document, `company.json` | Semi-structured | `bronze.hubs`, `zones`, `shifts`, `vehicle_types` | Structured |
 | R | Fleet register and driver roster | Parquet files in the `bronze` bucket, one row per vehicle or driver | Structured | `bronze.vehicles`, `bronze.drivers` | Structured |
 | R | Demand model | JSON document of the order generator's parameters | Semi-structured | Shippers in `bronze.shippers`; the order generator reads the other parameters | Structured |
@@ -113,6 +114,7 @@ value carries its own key, so it is a table: structured, and it loads one-to-one
 `bronze.orders`.
 
 One field of the row differs: `notes`, the recipient's free text, classified on its own below.
+`note_id`, next to it, is a plain key into the corpus the notes come from.
 
 As the parcels move, the driver's handheld emits status events (`loaded`, `arrived`,
 `delivered`, `failed`, `returned`) as JSON messages on the topic `delivery.events`, which is
@@ -250,36 +252,86 @@ also handles unstructured data every day, so two datasets extend the list. They 
 
 ### Delivery notes
 
-**Unstructured.**
+**The text: unstructured. Its labels: structured.**
 
-Recipients write instructions when they place an order: *"leave it with the neighbour at 3B"*,
-*"the bell does not work, call when you arrive"*, *"office closes at 14:00, use the loading door
-on Carrer de Pujades"*. They arrive as free text in the `notes` field of each order and are kept
-in the `notes` column of `bronze.orders`.
+Recipients write instructions for the driver when they place an order. The platform's notes come
+from a corpus of 300 that prompt 008 generated the way people in Barcelona type them on a phone,
+and the order generator attaches one to about a third of each day's orders
+([generator](../../services/generator/README.md#delivery-notes)): 1,108 of the 3,363 orders of
+28 September 2026. Four of them, as `bronze.orders` and `bronze.delivery_notes` hold them:
 
-The column is structured; its content is not. There are no fields inside a note, the same
-instruction can be written in many ways, and in Barcelona in more than one language, and a
-program cannot answer "does this recipient authorise a neighbour?" without interpreting the
-language. That makes the notes unstructured, and they stay unstructured along the whole
-lifecycle. The only way to get structured facts out of them would be to extract them, for
-example by tagging notes that mention a neighbour, a concierge or a time limit. That extraction is
-exactly the step from data to information of phase 3.
+| Order | `notes` | `language` | `category` | `likely_longer_stop` | `likely_failed_attempt` |
+|---|---|---|---|---|---|
+| O-20260928-00061, a business in L'Hospitalet | Es L'Hospitalet, NO Barcelona!! la calle se llama igual | es | location hint | true | true |
+| O-20260928-01574, a consumer in Gràcia | deixeu-lo a la porteria. no hi ha porteria, deixeu-lo al veí. millor en mà | ca | contradictory | true | true |
+| O-20260928-01703, a consumer in Ciutat Vella | baby sleeping, please DON'T ring the bell. knock softly | en | pets or children | false | false |
+| O-20260928-01013, a business in the Eixample | bar, obrim a les 12, abans la persiana està abaixada | ca | business hours | false | true |
+
+The text arrives in the `notes` field of the order and is kept as typed in the `notes` column of
+`bronze.orders`. The column is structured; its content is not. There are no fields inside a note:
+the same instruction is written in many ways and in several languages ("dejar al conserje",
+"deixeu-lo al porter", "the porter takes parcels"), with abbreviations and typos, and the second note
+above changes its mind twice. A program cannot answer "does this recipient authorise a neighbour?"
+without interpreting the language. The notes stay unstructured along the whole lifecycle.
+
+The labels next to the text are the opposite: a language, a category and two yes-or-no flags, the
+same fields with one value each for every note, in typed columns of `bronze.delivery_notes`, which
+`note_id` on the order joins. They are structured data about unstructured content: with them a
+dashboard can count the stops whose note makes a failed attempt more likely without reading a single
+note, and the generator gives business recipients business-like notes. Here the model that wrote the
+notes also wrote the labels. In a real company they would come from the step that phase 3 describes
+as going from data to information: tagging each note that mentions a neighbour, a concierge or a
+time limit, by hand or by text analysis.
 
 ### Proof-of-delivery photos
 
-**Unstructured.**
+**The pixels: unstructured. The EXIF metadata and the object key: structured.**
 
-When a parcel is delivered, the handheld takes a photo of it at the door. The image is stored as
-a JPEG object in the RustFS `bronze` bucket, under `pod/`, and the `delivered` event records the
-object's key in `pod_object_key`.
+When a parcel is delivered, the handheld takes a photo of it at the door. The image is stored as a
+JPEG object in the RustFS `bronze` bucket at `pod/<service date>/<order id>.jpg`, and the
+`delivered` event records the key in `bronze.delivery_events.pod_object_key`. The simulator that
+delivers the stops is issue #7. Until it exists, `make pod-sample` has put 20 real objects in the
+bucket for 28 September 2026, under `pod/samples/2026-09-28/`, drawn for orders of that day at a time
+inside their windows. On this platform a photo is a **synthetic placeholder drawn by code**
+(Pillow), not a photograph and not an AI-generated image, and it says so in its caption. What it
+shares with a real one is what matters here: a JPEG with the metadata a handheld camera writes.
+
+This is `pod/samples/2026-09-28/O-20260928-00593.jpg`, for the order at Carrer de Còrsega, 220,
+whose note says "conté líquids, mantenir vertical":
+
+![Synthetic proof-of-delivery placeholder: a grey door, a parcel on the doorstep and the caption O-20260928-00593, 28/09/2026 15:42](images/pod-O-20260928-00593.jpg)
+
+Its EXIF tags, as an EXIF reader prints them:
+
+```text
+EXIF DateTimeOriginal    2026:09:28 15:42:21
+EXIF OffsetTimeOriginal  +02:00
+GPS GPSLatitudeRef       N
+GPS GPSLatitude          [41, 23, 309149/10000]
+GPS GPSLongitudeRef      E
+GPS GPSLongitude         [2, 9, 3077/250]
+GPS GPSDate              2026:09:28
+GPS GPSTimeStamp         [13, 42, 21]
+Image ImageDescription   Llobregat Express proof of delivery of order O-20260928-00593. Synthetic
+                         placeholder drawn by code, not a photograph and not an AI-generated image.
+```
 
 The pixels have no fields at all: whether the photo shows a parcel in front of the right door can
-only be answered by a person or by image recognition. The platform never tries to query them. It
-reaches them through structured metadata instead: the row in `bronze.delivery_events` (which
-order, when, where) and the object's own metadata in storage (size, content type, time written).
-The planned gold model `gold.fct_deliveries` carries the photo's key next to each delivery
-(issue #25), so a dashboard can link to the image without reading it. This split, unstructured
-content addressed by structured references, is how the platform handles all binary data.
+only be answered by a person or by image recognition, and the platform never tries. The EXIF tags
+are the opposite: a fixed set of named tags, one typed value each. 41° 23′ 30.9149″ N,
+2° 9′ 12.308″ E is the order's address, 41.3919208, 2.1534189, to the centimetre, and 15:42:21 is
+inside its 15:00 to 21:00 window. A program reads them without decoding the image. A photo is
+therefore unstructured content that carries structured metadata in the same file, as a Parquet file
+carries its schema in its footer, except that the tags describe how the image was taken, not what it
+shows.
+
+The platform reaches the photos through structured references only: the row in
+`bronze.delivery_events` (which order, when, where, and the key), the object's metadata in storage
+(content type and size, and `source`, `owner`, `schema-version`, `ingested-at` and `order-id` as
+user metadata) and the EXIF tags. The planned gold model `gold.fct_deliveries` carries the photo's
+key next to each delivery (issue #10), so a dashboard can link to the image without reading it.
+This split, unstructured content addressed by structured references, is how the platform handles all
+binary data.
 
 ## Reference data
 
@@ -381,7 +433,7 @@ flowchart LR
   T -- "stays structured" --> BR
   T --> S3
   N -- "stays unstructured" --> S3
-  N -. "text column, photo key" .-> BR
+  N -. "text column, labels, photo key<br/>structured references" .-> BR
   BR --> SV["silver and gold<br/>structured facts and KPI"]
 ```
 
@@ -396,8 +448,9 @@ flowchart LR
 - **Some semi-structure is kept on purpose.** Type-specific sensor readings stay as `jsonb`,
   because their shape differs by vehicle type.
 - **Unstructured data does not change category.** Notes and photos stay unstructured. The
-  platform attaches structured references to them (the order row, the object key) and, where it
-  needs facts from them, extracts those facts as new structured data.
+  platform attaches structured references to them (the order row and the note's labels, the object
+  key and the photo's EXIF tags) and, where it needs facts from them, extracts those facts as new
+  structured data.
 - **Silver and gold are fully structured.** The KPI, *Average Delivery Time per Route*, is
   computed only from structured rows and reported by day, zone, hour of departure, vehicle type
   and weather.
