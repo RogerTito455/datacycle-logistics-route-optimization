@@ -2,8 +2,8 @@
 # End-to-end smoke test of the running platform.
 # Every check exercises what the service is for, not only that its port is open.
 #
-#   SKIP_OSRM=1        skip the routing check
-#   SMOKE_ROUTE=...    lon,lat;lon,lat pair for the routing check (default: hub to Sagrada Familia)
+#   SKIP_OSRM=1        skip the routing checks (route and distance matrix)
+#   SMOKE_ROUTE=...    lon,lat;lon,lat pair for the routing checks (default: hub to Sagrada Familia)
 set -uo pipefail
 
 cd "$(dirname "$0")/.."
@@ -152,6 +152,29 @@ print(f"real road route: {route['distance'] / 1000:.1f} km, {route['duration'] /
 PY
 }
 
+# The optimizer plans on OSRM's distance matrix, so check the table service too: a square matrix
+# with zero on the diagonal, positive times elsewhere, and A→B consistent with the route above.
+osrm_table() {
+  local t r
+  t=$(curl -fsS "http://localhost:5000/table/v1/driving/${ROUTE}?annotations=duration,distance") || return 1
+  r=$(curl -fsS "http://localhost:5000/route/v1/driving/${ROUTE}?overview=false") || return 1
+  python3 - "$t" "$r" <<'PY'
+import json, sys
+t, r = json.loads(sys.argv[1]), json.loads(sys.argv[2])
+assert t["code"] == "Ok", t
+n = len(t["sources"])
+for name in ("durations", "distances"):
+    m = t[name]
+    assert len(m) == n and all(len(row) == n for row in m), f"{name} is not {n}x{n}"
+    assert all(m[i][i] == 0 for i in range(n)), f"{name} diagonal is not zero"
+    assert all(m[i][j] and m[i][j] > 0 for i in range(n) for j in range(n) if i != j), f"{name} has empty cells"
+route_s = r["routes"][0]["duration"]
+table_s = t["durations"][0][1]
+assert abs(table_s - route_s) <= 0.1 * route_s, f"table {table_s:.0f} s vs route {route_s:.0f} s"
+print(f"distance matrix {n}x{n}: A→B {table_s / 60:.0f} min, B→A {t['durations'][1][0] / 60:.0f} min")
+PY
+}
+
 echo "Llobregat Express · smoke test"
 check redpanda redpanda
 check redpanda-console console
@@ -163,7 +186,12 @@ check db-access db_access
 check rustfs rustfs
 check grafana grafana
 check dagster dagster
-if [[ "${SKIP_OSRM:-0}" == "1" ]]; then echo "  SKIP  osrm"; else check osrm osrm; fi
+if [[ "${SKIP_OSRM:-0}" == "1" ]]; then
+  echo "  SKIP  osrm, osrm-table"
+else
+  check osrm osrm
+  check osrm-table osrm_table
+fi
 
 echo ""
 echo "  $pass passed, $fail failed"
