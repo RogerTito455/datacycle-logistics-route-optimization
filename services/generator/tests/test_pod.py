@@ -60,6 +60,26 @@ def test_southern_and_western_coordinates_keep_their_sign():
     assert (capture.lat, capture.lon) == (pytest.approx(-33.4488897, abs=1e-7), pytest.approx(-70.6692655, abs=1e-7))
 
 
+@pytest.mark.parametrize(
+    ("angle", "dms"),
+    [
+        (41.3, (41, 18, 0)),  # 41° 18′ exactly; 41.3 - 41 is 0.29999999999999716 as a float
+        (41 + 18 / 60 - 0.00004 / 3600, (41, 18, 0)),  # rounds up across the minute
+        (41 + 18 / 60 - 0.0002 / 3600, (41, 17, 59.9998)),  # just below the minute
+        (2 + 10 / 60 - 0.00004 / 3600, (2, 10, 0)),
+        (59.99999999, (60, 0, 0)),  # rounds up across the degree
+        (2.1534189, (2, 9, 12.308)),
+    ],
+    ids=["41.3", "rounds-up-to-the-minute", "just-below-the-minute", "longitude", "rounds-up-to-the-degree", "address"],
+)
+def test_gps_seconds_are_rounded_once_and_stay_below_a_minute(angle, dms):
+    degrees, minutes, seconds = pod._dms(angle)
+    assert (degrees.denominator, minutes.denominator) == (1, 1)
+    assert (int(degrees), int(minutes), float(seconds)) == pytest.approx(dms, abs=1e-9)
+    assert 0 <= float(seconds) < 60
+    assert pod._degrees((degrees, minutes, seconds), "N") == pytest.approx(angle, abs=1e-4 / 3600)
+
+
 def test_a_photo_is_a_jpeg_drawn_the_same_way_every_time():
     jpeg = pod.render(SUMMER)
     image = Image.open(io.BytesIO(jpeg))

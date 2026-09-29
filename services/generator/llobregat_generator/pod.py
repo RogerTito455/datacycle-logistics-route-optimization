@@ -201,11 +201,14 @@ def _draw(delivery: Delivery) -> Image.Image:
 
 
 def _dms(value: float) -> tuple[IFDRational, IFDRational, IFDRational]:
-    """Degrees, minutes and seconds of an angle, as the three rationals of an EXIF GPS coordinate."""
-    value = abs(value)
-    degrees = int(value)
-    minutes = int((value - degrees) * 60)
-    seconds = round((value - degrees - minutes / 60) * 3600 * GPS_SECONDS_DENOMINATOR)
+    """Degrees, minutes and seconds of an angle, as the three rationals of an EXIF GPS coordinate.
+
+    The angle is rounded once, to a ten-thousandth of an arc second, and then split, so the seconds
+    are always below 60: taking whole minutes off a float first turns 41.3 into 41° 17′ 60″.
+    """
+    total = round(abs(value) * 3600 * GPS_SECONDS_DENOMINATOR)  # in ten-thousandths of an arc second
+    arc_minutes, seconds = divmod(total, 60 * GPS_SECONDS_DENOMINATOR)
+    degrees, minutes = divmod(arc_minutes, 60)
     return IFDRational(degrees, 1), IFDRational(minutes, 1), IFDRational(seconds, GPS_SECONDS_DENOMINATOR)
 
 
