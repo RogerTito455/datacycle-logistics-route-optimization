@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Integration test of the generator against the running stack: load the reference data, load it
-# again, generate one service date, generate it again, and check the bronze tables with SQL.
+# again, generate one service date, generate it again, and check the bronze tables with SQL. Then
+# upload the date's sample of proof-of-delivery photos (make pod-sample, 20 by default, replacing
+# an earlier sample of the date) and read their EXIF back.
 #
 #   ./scripts/generator-db-test.sh [--sample] [DATE]    DATE defaults to 2026-09-28, a past Monday
 #
@@ -98,4 +100,10 @@ failed=$(psql_admin -c "
                      WHERE (o.note_id IS NULL) <> (o.notes IS NULL) OR n.text IS DISTINCT FROM o.notes)))
   SELECT coalesce(string_agg(name, '; '), '') FROM checks WHERE NOT ok")
 [[ -z "$failed" ]] || { echo "FAIL: $failed"; exit 1; }
-echo "PASS: reference data loaded once, ${DATE} generated twice with the same ${twice%% *} orders, 10 checks"
+
+echo "== proof-of-delivery photos of ${DATE}"
+photos=$(make --no-print-directory pod-sample DATE="$DATE" 2>&1) || { echo "$photos"; echo "FAIL: pod-sample"; exit 1; }
+echo "$photos"
+grep -q "EXIF time and position match 20 of 20" <<<"$photos" || { echo "FAIL: the photo sample"; exit 1; }
+echo "PASS: reference data loaded once, ${DATE} generated twice with the same ${twice%% *} orders, 10 checks," \
+     "20 photos with their EXIF"

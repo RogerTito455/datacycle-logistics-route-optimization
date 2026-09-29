@@ -5,11 +5,12 @@ WAIT_TIMEOUT ?= 1800
 # The generator's pinned environment (services/generator/uv.lock); .env gives it the credentials.
 GENERATOR := uv run --project services/generator --frozen
 SEED ?= 0
+COUNT ?= 20
 FUTURE = $(if $(ALLOW_FUTURE), --allow-future)
 
 .DEFAULT_GOAL := help
 .PHONY: help up down restart ps logs smoke migrate validate-seeds test-generator test-generator-db \
-	load-reference generate config clean
+	load-reference generate pod-sample config clean
 
 help:  ## List the available commands
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-18s %s\n", $$1, $$2}'
@@ -55,12 +56,16 @@ test-generator:  ## Run the order generator's tests (offline)
 test-generator-db: .env  ## Load the reference data and generate a past Monday twice, then check bronze with SQL
 	./scripts/generator-db-test.sh $(if $(SAMPLE),--sample) $(DATE)
 
-load-reference: .env  ## Load hub, zones, fleet, drivers, shippers and addresses into bronze
+load-reference: .env  ## Load hub, zones, fleet, drivers, shippers, delivery notes and addresses into bronze
 	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator load-reference
 
 generate: .env  ## Generate one day of orders: make generate DATE=2026-09-28 [SEED=0] [ALLOW_FUTURE=1]
 	@test -n "$(DATE)" || { echo "usage: make generate DATE=YYYY-MM-DD [SEED=0] [ALLOW_FUTURE=1]"; exit 2; }
 	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator orders --date $(DATE) --seed $(SEED)$(FUTURE)
+
+pod-sample: .env  ## Upload sample proof-of-delivery photos of a generated date: make pod-sample DATE=2026-09-28 [COUNT=20]
+	@test -n "$(DATE)" || { echo "usage: make pod-sample DATE=YYYY-MM-DD [COUNT=20] [SEED=0]"; exit 2; }
+	set -a && . ./.env && set +a && $(GENERATOR) llobregat-generator pod-sample --date $(DATE) --count $(COUNT) --seed $(SEED)
 
 config: .env  ## Validate docker-compose.yml
 	$(COMPOSE) config --quiet && echo "docker-compose.yml is valid"

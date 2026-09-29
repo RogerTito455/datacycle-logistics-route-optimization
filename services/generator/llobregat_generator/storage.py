@@ -13,7 +13,12 @@ from botocore.exceptions import ClientError
 
 from llobregat_generator.config import BRONZE_BUCKET, Settings
 
-CONTENT_TYPES = {".csv": "text/csv", ".zip": "application/zip", ".parquet": "application/vnd.apache.parquet"}
+CONTENT_TYPES = {
+    ".csv": "text/csv",
+    ".zip": "application/zip",
+    ".parquet": "application/vnd.apache.parquet",
+    ".jpg": "image/jpeg",
+}
 # User metadata of an object: the checksum of its content, which decides whether it must be written.
 CHECKSUM = "content-sha256"
 
@@ -73,6 +78,30 @@ class Bucket:
         self.written.append(key)
         return key
 
+    def put_bytes(self, key: str, body: bytes, metadata: dict[str, str] | None = None) -> str:
+        """Upload an object, such as a photo, with its content type from the key and its user metadata."""
+        suffix = Path(key).suffix
+        self.client.put_object(
+            Bucket=self.name,
+            Key=key,
+            Body=body,
+            ContentType=CONTENT_TYPES.get(suffix, "application/octet-stream"),
+            Metadata=metadata or {},
+        )
+        self.written.append(key)
+        return key
+
+    def get_bytes(self, key: str) -> bytes:
+        return self.client.get_object(Bucket=self.name, Key=key)["Body"].read()
+
+    def delete_prefix(self, prefix: str) -> int:
+        """Delete every object whose key starts with prefix; return how many there were."""
+        deleted = 0
+        for page in self.client.get_paginator("list_objects_v2").paginate(Bucket=self.name, Prefix=prefix):
+            for item in page.get("Contents", []):
+                self.client.delete_object(Bucket=self.name, Key=item["Key"])
+                deleted += 1
+        return deleted
+
     def get_parquet(self, key: str) -> pa.Table:
-        body = self.client.get_object(Bucket=self.name, Key=key)["Body"].read()
-        return pq.read_table(io.BytesIO(body))
+        return pq.read_table(io.BytesIO(self.get_bytes(key)))

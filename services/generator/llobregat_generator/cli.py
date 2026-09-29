@@ -1,4 +1,8 @@
-"""Command line: llobregat-generator load-reference | orders --date D [--seed N] [--allow-future] | summary --date D."""
+"""Command line of the generator.
+
+llobregat-generator load-reference | orders --date D [--seed N] [--allow-future] | summary --date D
+                    | pod-sample --date D [--count N] [--seed N]
+"""
 
 from __future__ import annotations
 
@@ -8,9 +12,10 @@ from datetime import UTC, date, datetime
 
 import psycopg
 
-from llobregat_generator import db, publish
+from llobregat_generator import db, pod, publish
 from llobregat_generator.addresses import DownloadError
 from llobregat_generator.config import Settings
+from llobregat_generator.metadata import FileMetadata
 from llobregat_generator.orders import LOCAL_TZ, NoServiceError, generate_day
 from llobregat_generator.reference import load_reference
 from llobregat_generator.rules import SeedError
@@ -62,6 +67,42 @@ def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
     return 0
 
 
+def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
+    """Photos for a few orders of a generated date under pod/samples/, each read back and checked."""
+    with db.connect(settings) as conn:
+        orders = publish.read_day(conn, args.date)
+        if not orders:
+            print(f"no generated orders for {args.date} in bronze.orders; run make generate first", file=sys.stderr)
+            return 1
+        metadata = FileMetadata.for_table(conn, pod.TABLE, pod.SOURCE_ID, datetime.now(UTC))
+    bucket = Bucket(settings)
+    prefix = pod.sample_prefix(args.date)
+    removed = bucket.delete_prefix(prefix)
+    print(f"Proof-of-delivery placeholders for {args.date}, synthetic images drawn by code")
+    if removed:
+        print(f"  {removed} photos of an earlier sample removed from bronze/{prefix}")
+    wrong = 0
+    for delivery in pod.sample_deliveries(orders, args.count, args.seed):
+        key = pod.upload(bucket, delivery, metadata, sample=True)
+        body = bucket.get_bytes(key)
+        capture = pod.read_exif(body)
+        matches = (
+            capture.taken_at == delivery.delivered_at
+            and abs(capture.lat - delivery.lat) < 1e-6
+            and abs(capture.lon - delivery.lon) < 1e-6
+        )
+        wrong += not matches
+        print(
+            f"  bronze/{key}  {len(body) / 1000:.1f} kB  EXIF {capture.taken_at.isoformat()}  "
+            f"{capture.lat:.6f}, {capture.lon:.6f}" + ("" if matches else "  DOES NOT MATCH THE DELIVERY")
+        )
+    written = len(bucket.written)
+    print(
+        f"{written} photos in bronze/{prefix}, read back: EXIF time and position match {written - wrong} of {written}"
+    )
+    return 1 if wrong else 0
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(
         prog="llobregat-generator",
@@ -84,6 +125,14 @@ def main(argv: list[str] | None = None) -> int:
     summary = commands.add_parser("summary", help="sanity figures of a generated date, read from bronze.orders")
     summary.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")
     summary.set_defaults(run=cmd_summary)
+    sample = commands.add_parser(
+        "pod-sample",
+        help="upload proof-of-delivery placeholder photos for some orders of a generated date, under pod/samples/",
+    )
+    sample.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")
+    sample.add_argument("--count", type=int, default=20, help="number of photos (default 20)")
+    sample.add_argument("--seed", type=int, default=0, help="random seed of the orders and times (default 0)")
+    sample.set_defaults(run=cmd_pod_sample)
     args = parser.parse_args(argv)
 
     settings = Settings.from_env()
