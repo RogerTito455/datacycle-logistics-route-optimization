@@ -1,0 +1,34 @@
+{
+  "name": "Llobregat Express platform",
+  "image": "mcr.microsoft.com/devcontainers/base:ubuntu-24.04",
+  "features": {
+    "ghcr.io/devcontainers/features/docker-in-docker:2": {},
+    "ghcr.io/devcontainers/features/python:1": { "version": "3.12" },
+    "ghcr.io/devcontainers/features/node:1": { "version": "22" }
+  },
+  "hostRequirements": {
+    "cpus": 4,
+    "memory": "16gb",
+    "storage": "32gb"
+  },
+  "forwardPorts": [3000, 3001, 8080, 9001, 5000],
+  "portsAttributes": {
+    "3000": { "label": "Grafana", "onAutoForward": "notify" },
+    "3001": { "label": "Dagster", "onAutoForward": "silent" },
+    "8080": { "label": "Redpanda Console", "onAutoForward": "silent" },
+    "9001": { "label": "RustFS console", "onAutoForward": "silent" },
+    "5000": { "label": "OSRM", "onAutoForward": "silent" }
+  },
+  "postCreateCommand": "test -f .env || cp .env.example .env",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-azuretools.vscode-containers",
+        "ms-python.python",
+        "charliermarsh.ruff",
+        "redhat.vscode-yaml",
+        "bierner.markdown-mermaid"
+      ]
+    }
+  }
+}

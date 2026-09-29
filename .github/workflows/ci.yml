@@ -18,3 +18,30 @@ jobs:
         run: npx --yes markdownlint-cli2 "**/*.md" "#node_modules"
       - name: yamllint
         run: pipx run yamllint -c .yamllint.yaml .
+
+  compose-smoke:
+    name: Compose smoke test
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      # A tiny extract keeps the OSRM build to seconds and spares Geofabrik a 258 MB download per run.
+      OSRM_PBF_URL: https://download.geofabrik.de/europe/andorra-latest.osm.pbf
+      SMOKE_ROUTE: 1.5218,42.5063;1.5390,42.5096
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prepare .env
+        run: |
+          cp .env.example .env
+          sed -i "s|^OSRM_PBF_URL=.*|OSRM_PBF_URL=${OSRM_PBF_URL}|" .env
+      - name: Validate docker-compose.yml
+        run: docker compose config --quiet
+      - name: Start the platform
+        run: docker compose up -d --build --wait --wait-timeout 900
+      - name: Smoke test
+        run: ./scripts/smoke-test.sh
+      - name: Logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=200
+      - name: Stop
+        if: always()
+        run: docker compose down -v

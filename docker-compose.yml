@@ -1,0 +1,269 @@
+# Llobregat Express data platform.
+# `make up` (or `docker compose up -d --wait`) brings everything up.
+# Service ports on the host are listed in README.md.
+
+name: llobregat
+
+x-dagster: &dagster
+  # Built once by dagster-code; the webserver and the daemon reuse the same image.
+  image: llobregat/dagster:local
+  pull_policy: never
+  environment:
+    POSTGRES_USER: ${POSTGRES_USER}
+    POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+    POSTGRES_DB: ${POSTGRES_DB}
+    POSTGRES_HOST: timescaledb
+    S3_ENDPOINT: http://rustfs:9000
+    S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+    S3_SECRET_KEY: ${S3_SECRET_KEY}
+    KAFKA_BOOTSTRAP: redpanda:9092
+    OSRM_URL: http://osrm:5000
+  restart: unless-stopped
+
+services:
+  # ---------------------------------------------------------------- ingestion
+  redpanda:
+    image: redpandadata/redpanda:v25.3.17
+    command:
+      - redpanda
+      - start
+      - --mode=dev-container
+      - --smp=1
+      - --memory=1G
+      - --kafka-addr=internal://0.0.0.0:9092,external://0.0.0.0:19092
+      - --advertise-kafka-addr=internal://redpanda:9092,external://localhost:19092
+      - --schema-registry-addr=internal://0.0.0.0:8081
+      - --pandaproxy-addr=internal://0.0.0.0:8082
+      - --advertise-pandaproxy-addr=internal://redpanda:8082
+      - --rpc-addr=redpanda:33145
+      - --advertise-rpc-addr=redpanda:33145
+    ports:
+      - "19092:19092"
+    volumes:
+      - redpanda-data:/var/lib/redpanda/data
+    healthcheck:
+      test: ["CMD-SHELL", "rpk cluster health | grep -Eq 'Healthy:.+true'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  redpanda-init:
+    image: redpandadata/redpanda:v25.3.17
+    entrypoint: ["/bin/bash", "/init/init-topics.sh"]
+    volumes:
+      - ./infra/redpanda/init-topics.sh:/init/init-topics.sh:ro
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: "no"
+
+  redpanda-console:
+    image: redpandadata/console:v3.12.0
+    environment:
+      KAFKA_BROKERS: redpanda:9092
+      SCHEMAREGISTRY_ENABLED: "true"
+      SCHEMAREGISTRY_URLS: http://redpanda:8081
+      REDPANDA_ADMINAPI_ENABLED: "true"
+      REDPANDA_ADMINAPI_URLS: http://redpanda:9644
+    ports:
+      - "8080:8080"
+    depends_on:
+      redpanda:
+        condition: service_healthy
+    restart: unless-stopped
+
+  # ------------------------------------------------------------------ storage
+  timescaledb:
+    image: timescale/timescaledb:2.30.1-pg17
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD}
+      TIMESCALEDB_TELEMETRY: "off"
+    ports:
+      - "${POSTGRES_HOST_PORT:-15432}:5432"
+    volumes:
+      - timescaledb-data:/var/lib/postgresql/data
+      - ./infra/postgres/init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U \"$$POSTGRES_USER\" -d \"$$POSTGRES_DB\""]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  rustfs:
+    image: rustfs/rustfs:1.0.0
+    environment:
+      RUSTFS_ACCESS_KEY: ${S3_ACCESS_KEY}
+      RUSTFS_SECRET_KEY: ${S3_SECRET_KEY}
+      RUSTFS_CONSOLE_ENABLE: "true"
+    ports:
+      - "9000:9000"
+      - "9001:9001"
+    volumes:
+      - rustfs-data:/data
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:9000/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 5s
+    restart: unless-stopped
+
+  storage-init:
+    image: amazon/aws-cli:2.37.4
+    entrypoint: ["/bin/bash", "/init/init-buckets.sh"]
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+      AWS_DEFAULT_REGION: us-east-1
+      S3_ENDPOINT: http://rustfs:9000
+    volumes:
+      - ./infra/storage/init-buckets.sh:/init/init-buckets.sh:ro
+    depends_on:
+      rustfs:
+        condition: service_healthy
+    restart: "no"
+
+  # --------------------------------------------------------------- processing
+  osrm-download:
+    image: curlimages/curl:8.16.0
+    entrypoint: ["/bin/sh", "/init/download.sh"]
+    user: "0:0"  # the image runs as an unprivileged user that cannot write to the fresh volume
+    environment:
+      OSRM_PBF_URL: ${OSRM_PBF_URL}
+    volumes:
+      - ./infra/osrm/download.sh:/init/download.sh:ro
+      - osrm-data:/data
+    restart: "no"
+
+  osrm-prepare:
+    image: ghcr.io/project-osrm/osrm-backend:v26.9.0-debian
+    entrypoint: ["/bin/bash", "/init/prepare.sh"]
+    volumes:
+      - ./infra/osrm/prepare.sh:/init/prepare.sh:ro
+      - osrm-data:/data
+    depends_on:
+      osrm-download:
+        condition: service_completed_successfully
+    restart: "no"
+
+  osrm:
+    image: ghcr.io/project-osrm/osrm-backend:v26.9.0-debian
+    command: ["osrm-routed", "--algorithm", "mld", "--max-table-size", "1000", "/data/region.osrm"]
+    ports:
+      - "5000:5000"
+    volumes:
+      - osrm-data:/data:ro
+    depends_on:
+      osrm-prepare:
+        condition: service_completed_successfully
+    healthcheck:
+      # The image has no curl or wget, so bash opens the TCP connection itself.
+      test:
+        - CMD
+        - bash
+        - -c
+        - >-
+          exec 3<>/dev/tcp/127.0.0.1/5000 &&
+          printf 'GET /nearest/v1/driving/2.1370,41.3405 HTTP/1.0\r\n\r\n' >&3 &&
+          head -1 <&3 | grep -q '200'
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    restart: unless-stopped
+
+  dagster-code:
+    <<: *dagster
+    build:
+      context: .
+      dockerfile: services/dagster/Dockerfile
+      # Build on the host network: on WSL with DNS tunneling the default bridge cannot resolve names.
+      network: host
+    command: ["dagster", "code-server", "start", "-h", "0.0.0.0", "-p", "4000", "-m", "llobregat_pipelines"]
+    healthcheck:
+      test: ["CMD", "dagster", "api", "grpc-health-check", "-p", "4000"]
+      interval: 10s
+      timeout: 10s
+      retries: 30
+      start_period: 20s
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      # Pipelines write to the topics and buckets, so they must exist first.
+      redpanda-init:
+        condition: service_completed_successfully
+      storage-init:
+        condition: service_completed_successfully
+
+  dagster-webserver:
+    <<: *dagster
+    command: ["dagster-webserver", "-h", "0.0.0.0", "-p", "3000", "-w", "/opt/dagster/home/workspace.yaml"]
+    ports:
+      - "3001:3000"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:3000/server_info', timeout=4)"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    depends_on:
+      dagster-code:
+        condition: service_healthy
+
+  dagster-daemon:
+    <<: *dagster
+    command: ["dagster-daemon", "run", "-w", "/opt/dagster/home/workspace.yaml"]
+    healthcheck:
+      test: ["CMD", "dagster-daemon", "liveness-check"]
+      interval: 30s
+      timeout: 20s
+      retries: 10
+      start_period: 60s
+    depends_on:
+      dagster-code:
+        condition: service_healthy
+
+  # ----------------------------------------------------------------- analysis
+  grafana:
+    image: grafana/grafana-oss:13.0.2
+    environment:
+      GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Viewer
+      GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/platform-health.json
+      GF_ANALYTICS_REPORTING_ENABLED: "false"
+      GF_ANALYTICS_CHECK_FOR_UPDATES: "false"
+      GF_NEWS_NEWS_FEED_ENABLED: "false"
+      POSTGRES_DB: ${POSTGRES_DB}
+      GRAFANA_DB_PASSWORD: ${GRAFANA_DB_PASSWORD}
+    ports:
+      - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:3000/api/health | grep -q '\"database\": *\"ok\"'"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+    restart: unless-stopped
+
+volumes:
+  redpanda-data:
+  timescaledb-data:
+  rustfs-data:
+  osrm-data:
+  grafana-data:

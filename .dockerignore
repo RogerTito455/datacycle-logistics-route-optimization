@@ -1,0 +1,13 @@
+.git
+.github
+.devcontainer
+docs
+prompts
+site
+slides
+node_modules
+**/__pycache__
+**/*.pyc
+.env
+data
+volumes
