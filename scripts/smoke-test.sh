@@ -28,7 +28,8 @@ check() {  # check <name> <command...>
 redpanda() {
   $COMPOSE exec -T redpanda rpk cluster health | grep -Eq 'Healthy:.+true' || { echo "cluster not healthy"; return 1; }
   local topics; topics=$($COMPOSE exec -T redpanda rpk topic list | awk 'NR>1 {print $1}' | sort | tr '\n' ' ')
-  [[ "$topics" == *"gps.pings"* && "$topics" == *"vehicle.telemetry"* ]] || { echo "topics missing: $topics"; return 1; }
+  [[ "$topics" == *"gps.pings"* && "$topics" == *"vehicle.telemetry"* && "$topics" == *"delivery.events"* ]] \
+    || { echo "topics missing: $topics"; return 1; }
   # Round trip through a throwaway topic, so no probe message ever lands in a real topic.
   local probe="smoke-$(date +%s)"
   $COMPOSE exec -T redpanda rpk topic create _smoke >/dev/null 2>&1 || true
