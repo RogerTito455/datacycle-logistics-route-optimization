@@ -1,4 +1,4 @@
-"""The download cache keeps only complete, valid files, and replaces a bad cached one.
+"""The download cache keeps only complete, valid files, marked as such, and replaces any other.
 
 A local HTTP server plays the open-data portals, so the tests run offline: it can send a file whole,
 cut it off before its announced Content-Length or in the middle of a chunk, answer with an error
@@ -81,6 +81,8 @@ def test_a_complete_download_is_cached_and_reused(portal, tmp_path):
     target = tmp_path / "carrerer.csv"
     assert fetch(f"{portal.url}/carrerer.csv", target, carrerer_check) == target
     assert target.read_bytes() == GOOD_CSV
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["carrerer.csv", "carrerer.csv.ok"]
+    assert addresses.is_marked_complete(target)
     fetch(f"{portal.url}/carrerer.csv", target, carrerer_check)
     assert portal.requests == ["/carrerer.csv"]  # the second call read the cache
 
@@ -141,14 +143,37 @@ def test_an_icgc_listing_that_fails_is_a_download_error(portal, tmp_path, monkey
         addresses.fetch_icgc(tmp_path)
 
 
-def test_a_bad_cached_file_is_downloaded_again(portal, tmp_path):
-    """A cut-off file cached before downloads were checked is replaced on the next run."""
+@pytest.mark.parametrize(
+    "cached",
+    [
+        GOOD_CSV[:150],  # cut in the middle of a row
+        GOOD_CSV[: GOOD_CSV.rindex(b"\n") + 1],  # cut at a row boundary: it would pass the check
+    ],
+    ids=["cut-mid-row", "cut-at-a-row-boundary"],
+)
+def test_a_cached_file_without_its_marker_is_downloaded_again(portal, tmp_path, cached):
+    """A file cached before downloads were checked has no marker, and is replaced on the next run,
+    whatever its content."""
     target = tmp_path / CARRERER.filename
-    target.write_bytes(GOOD_CSV[:150])
+    target.write_bytes(cached)
     portal.serve("/carrerer", GOOD_CSV)
     fetch(f"{portal.url}/carrerer", target, carrerer_check)
     assert portal.requests == ["/carrerer"]
     assert target.read_bytes() == GOOD_CSV
+    assert addresses.is_marked_complete(target)
+
+
+def test_a_cached_file_that_no_longer_matches_its_marker_is_downloaded_again(portal, tmp_path):
+    portal.serve("/carrerer", GOOD_CSV)
+    target = tmp_path / CARRERER.filename
+    fetch(f"{portal.url}/carrerer", target, carrerer_check)
+    target.write_bytes(GOOD_CSV.replace(b"Repartidor", b"Repartidora"))  # changed after it was marked
+    assert not addresses.is_marked_complete(target)
+    fetch(f"{portal.url}/carrerer", target, carrerer_check)
+    assert portal.requests == ["/carrerer", "/carrerer"]
+    assert target.read_bytes() == GOOD_CSV
+    addresses.marker(target).write_text('{"bytes": 1', encoding="utf-8")  # a marker cut off
+    assert not addresses.is_marked_complete(target)
 
 
 def test_the_published_files_pass_their_checks(tmp_path):
@@ -163,6 +188,7 @@ def test_the_published_files_pass_their_checks(tmp_path):
     assert check_csv(cache / CARRERER.filename, CARRERER.columns) is None
     (zip_path,) = cache.glob("adreces-simplificat-*.zip")
     assert check_icgc_zip(zip_path, full=True) is None
+    assert all(addresses.is_marked_complete(path) for path in cache.iterdir() if path.suffix != ".ok")
     assert fetch_download(CARRERER, cache) == cache / CARRERER.filename  # reused, no request made
     assert addresses.fetch_icgc(cache) == zip_path
 
@@ -175,13 +201,15 @@ def test_a_cut_off_icgc_zip_is_replaced_by_the_current_one(portal, tmp_path, mon
     cut = cache / "adreces-simplificat-v1r0-20260101.zip"
     cut.write_bytes(good.read_bytes()[:-200])  # the central directory of a zip is at its end
     assert "not a complete zip file" in check_icgc_zip(cut)
+    addresses.marker(cut).write_text(addresses.marker(good).read_text(encoding="utf-8"), encoding="utf-8")
 
     name = "adreces-simplificat-v1r0-20260410.zip"
     portal.serve("/icgc/", f'<a href="{name}">{name}</a>'.encode())
     portal.serve(f"/icgc/{name}", good.read_bytes())
     monkeypatch.setattr(addresses, "ICGC_LISTING_URL", f"{portal.url}/icgc/")
     assert addresses.fetch_icgc(cache) == cache / name
-    assert not cut.exists()
+    assert not cut.exists() and not addresses.marker(cut).exists()
+    assert addresses.is_marked_complete(cache / name)
     assert portal.requests == ["/icgc/", f"/icgc/{name}"]
 
 

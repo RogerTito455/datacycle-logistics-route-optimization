@@ -8,16 +8,20 @@ ETRS89 UTM zone 31N; they are converted to WGS84 here.
 
 All three are CC BY 4.0. Downloads are cached, so each file is fetched once. Only a complete
 download is cached: an HTTP 200 answer with as many bytes as the server announced, and a file that
-reads as what it should be (check_csv, check_icgc_zip). A cached file that fails the check is
-downloaded again, so an error page or a cut-off download is never reused. A download that fails on
-the way, from a refused connection to a timeout, raises DownloadError too, and caches nothing.
+reads as what it should be (check_csv, check_icgc_zip). A download that passes is marked complete
+with a marker file next to it, `<file>.ok`, which records its size and SHA-256; a cached file
+without a marker that matches it is downloaded again, so an error page, a cut-off download or a
+file cached before these checks is never reused. A download that fails on the way, from a refused
+connection to a timeout, raises DownloadError too, and caches nothing.
 """
 
 from __future__ import annotations
 
 import csv
+import hashlib
 import http.client
 import io
+import json
 import re
 import urllib.error
 import urllib.request
@@ -200,21 +204,55 @@ def check_icgc_zip(path: Path, full: bool = False) -> str | None:
     return None
 
 
+def marker(path: Path) -> Path:
+    """The marker file of a cached download, `<file>.ok`."""
+    return path.with_name(path.name + ".ok")
+
+
+def _fingerprint(path: Path) -> dict[str, int | str]:
+    digest = hashlib.sha256()
+    with path.open("rb") as f:
+        while chunk := f.read(1 << 20):
+            digest.update(chunk)
+    return {"bytes": path.stat().st_size, "sha256": digest.hexdigest()}
+
+
+def mark_complete(path: Path) -> None:
+    """Record that a downloaded file passed its check: its size and SHA-256, in its marker file."""
+    marker(path).write_text(json.dumps(_fingerprint(path)) + "\n", encoding="utf-8")
+
+
+def is_marked_complete(path: Path) -> bool:
+    """Whether the file is still the one its marker describes. No marker, or another file, is False."""
+    try:
+        recorded = json.loads(marker(path).read_text(encoding="utf-8"))
+    except (OSError, ValueError):  # no marker, or one cut off while it was written
+        return False
+    return (
+        isinstance(recorded, dict) and recorded.get("bytes") == path.stat().st_size and recorded == _fingerprint(path)
+    )
+
+
+def forget(path: Path) -> None:
+    """Remove a cached file and its marker."""
+    path.unlink(missing_ok=True)
+    marker(path).unlink(missing_ok=True)
+
+
 def fetch(url: str, target: Path, check: Callable[[Path], str | None]) -> Path:
-    """Download url to target once; later calls reuse the cached file while it passes `check`.
+    """Download url to target once; later calls reuse the cached file while it matches its marker.
 
     `check` returns why a file is not what the url should give, or None. A download is cached only
     when the server answered 200, sent as many bytes as its Content-Length announced and the file
-    passes the check; otherwise, or when the connection fails or times out, nothing is cached and
-    DownloadError says why. A cached file that fails the check, such as a cut-off file cached
-    before this rule, is downloaded again.
+    passes the check, and only then is it marked complete; otherwise, or when the connection fails
+    or times out, nothing is cached and DownloadError says why. A cached file without a matching
+    marker, such as one cached before downloads were checked, is downloaded again.
     """
     if target.exists():
-        problem = check(target)
-        if problem is None:
+        if is_marked_complete(target):
             return target
-        print(f"  cached {target} is not a complete download ({problem}); downloading it again")
-        target.unlink()
+        print(f"  cached {target} is not marked as a complete download; downloading it again")
+        forget(target)
     target.parent.mkdir(parents=True, exist_ok=True)
     partial = target.with_suffix(target.suffix + ".part")
     print(f"  downloading {url}")
@@ -239,6 +277,7 @@ def fetch(url: str, target: Path, check: Callable[[Path], str | None]) -> Path:
         partial.unlink(missing_ok=True)
         raise
     partial.rename(target)
+    mark_complete(target)  # last: a file renamed but not marked is downloaded again
     print(f"  cached {target} ({target.stat().st_size / 1e6:.1f} MB)")
     return target
 
@@ -250,14 +289,13 @@ def fetch_download(download: Download, cache_dir: Path) -> Path:
 def fetch_icgc(cache_dir: Path) -> Path:
     """The ICGC zip in the cache, or the current one from the ICGC download folder.
 
-    A cached zip that is not complete is removed and the current one downloaded instead.
+    A cached zip that is not marked complete is removed and the current one downloaded instead.
     """
     for cached in sorted(cache_dir.glob("adreces-simplificat-*.zip"), reverse=True):
-        problem = check_icgc_zip(cached)
-        if problem is None:
+        if is_marked_complete(cached):
             return cached
-        print(f"  cached {cached} is not a complete download ({problem}); removing it")
-        cached.unlink()
+        print(f"  cached {cached} is not marked as a complete download; removing it")
+        forget(cached)
     request = urllib.request.Request(ICGC_LISTING_URL, headers={"User-Agent": USER_AGENT})
     with download_errors(ICGC_LISTING_URL), urllib.request.urlopen(request, timeout=HTTP_TIMEOUT_S) as response:
         listing = response.read().decode("utf-8", "replace")
