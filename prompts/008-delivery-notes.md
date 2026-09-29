@@ -94,13 +94,25 @@ business. One note mentions an identity document without a number ("enseñaré e
 falta"), which is what a recipient would write.
 
 **How the generator uses it.** The rules are the generator's own, not the model's, and are listed
-in the [generator README](../services/generator/README.md#delivery-notes): a third of the orders
-carry a note; business recipients draw 80% of theirs from `business hours` and `location hint`,
-consumers draw from the other eight categories; every language keeps its corpus share; and a note
-that names a place goes only to orders of that zone. The category is coarse, so a few location
-hints that describe a house (N-012 "la casa del final de la cuesta", N-124 "casa amarilla con la
-puerta azul") can still reach a business recipient; the prompt gives no label for the kind of
-recipient. N-033 names Sant Joan Despí, a town outside the service area, and is never attached.
+in the [generator README](../services/generator/README.md#delivery-notes). A third of the orders
+carry a note. The prompt gives no label for the kind of recipient, and the category is too coarse
+to stand in for one: 15 of the 39 location hints describe a home (N-288 "entresuelo 1ª, en el
+telefonillo pone ENTLO", N-211 "casa blanca amb persianes verdes"), and three `access` notes are
+about the loading dock of a 22@ office. So the generator reads who could have written a note from
+its text: 32 notes are a business's, 137 a home's and 131 anyone's. Business recipients draw 80% of
+theirs from the business notes and the rest from the neutral ones, consumers from the home and
+neutral notes. The languages keep the corpus mix as closely as those groups allow, which is
+exactly: the neutral notes a business recipient gets make up for the French, Italian and mixed
+notes the business notes lack. A note that names a place goes only to orders of that zone, and
+N-033 names Sant Joan Despí, a town outside the service area, so it is never attached.
+
+What that gives on the two dates loaded on 29 September 2026: on Monday 28 September, 1,119 of the
+3,363 orders carry a note, 50.5% in Spanish, 28.6% in Catalan, 16.0% in English, 1.4% in French,
+1.5% in Italian and 2.0% mixed, against 50 / 30 / 15 / 1.3 / 1.3 / 2.3% in the corpus; 179 of the
+225 business recipients' notes (79.6%) are a business's and none a home's, and 51 of the 99
+location hints consumers get describe a home. On Saturday 26 September, 301 of 923 orders carry a
+note, 53.5 / 26.9 / 16.3 / 1.7 / 0.7 / 1.0%, with only 31 business notes, 28 of them a business's.
+The shares vary around the corpus's with the draw, most on a day with few notes.
 
 ## History
 

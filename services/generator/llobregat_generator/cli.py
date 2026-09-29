@@ -11,6 +11,7 @@ import sys
 from datetime import UTC, date, datetime
 
 import psycopg
+from botocore.exceptions import BotoCoreError, ClientError
 
 from llobregat_generator import db, pod, publish
 from llobregat_generator.addresses import DownloadError
@@ -68,7 +69,14 @@ def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
 
 
 def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
-    """Photos for a few orders of a generated date under pod/samples/, each read back and checked."""
+    """Photos for some orders of a generated date under pod/samples/, each read back and checked.
+
+    A photo the bucket already holds, the same bytes with the same metadata elements, is left as it
+    is, so running the sample again writes nothing. New photos are uploaded first; the photos of an
+    earlier sample of the date that are not among them are removed afterwards, so a run that fails
+    halfway never leaves fewer photos. Every photo is read back: its EXIF time and position must be
+    the delivery's, and its S3 user metadata the elements of decision 20 and the order id.
+    """
     with db.connect(settings) as conn:
         orders = publish.read_day(conn, args.date)
         if not orders:
@@ -77,30 +85,48 @@ def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
         metadata = FileMetadata.for_table(conn, pod.TABLE, pod.SOURCE_ID, datetime.now(UTC))
     bucket = Bucket(settings)
     prefix = pod.sample_prefix(args.date)
-    removed = bucket.delete_prefix(prefix)
     print(f"Proof-of-delivery placeholders for {args.date}, synthetic images drawn by code")
-    if removed:
-        print(f"  {removed} photos of an earlier sample removed from bronze/{prefix}")
-    wrong = 0
+    keys, wrong_exif, wrong_metadata = [], 0, 0
     for delivery in pod.sample_deliveries(orders, args.count, args.seed):
         key = pod.upload(bucket, delivery, metadata, sample=True)
-        body = bucket.get_bytes(key)
+        keys.append(key)
+        body, stored = bucket.get_bytes(key), bucket.user_metadata(key)
         capture = pod.read_exif(body)
-        matches = (
-            capture.taken_at == delivery.delivered_at
-            and abs(capture.lat - delivery.lat) < 1e-6
-            and abs(capture.lon - delivery.lon) < 1e-6
-        )
-        wrong += not matches
+        exif_ok = capture.matches(delivery)
+        metadata_ok = pod.metadata_matches(stored, delivery, metadata)
+        wrong_exif += not exif_ok
+        wrong_metadata += not metadata_ok
         print(
-            f"  bronze/{key}  {len(body) / 1000:.1f} kB  EXIF {capture.taken_at.isoformat()}  "
-            f"{capture.lat:.6f}, {capture.lon:.6f}" + ("" if matches else "  DOES NOT MATCH THE DELIVERY")
+            f"  bronze/{key}  {len(body) / 1000:.1f} kB  {'written' if key in bucket.written else 'unchanged':<9}  "
+            f"EXIF {capture.taken_at.isoformat()}  {capture.position.lat:.6f}, {capture.position.lon:.6f}"
+            + ("" if exif_ok else "  EXIF DOES NOT MATCH THE DELIVERY")
+            + ("" if metadata_ok else "  S3 METADATA DOES NOT MATCH")
         )
-    written = len(bucket.written)
+    removed = bucket.delete_prefix(prefix, keep=keys)
+    photos, written = len(keys), len(bucket.written)
+    if keys:
+        shown = ", ".join(f"{name}={value}" for name, value in sorted(bucket.user_metadata(keys[0]).items()))
+        print(f"  S3 user metadata of bronze/{keys[0]}: {shown}")
     print(
-        f"{written} photos in bronze/{prefix}, read back: EXIF time and position match {written - wrong} of {written}"
+        f"{photos} photos in bronze/{prefix}: {written} written, {photos - written} unchanged, "
+        f"{removed} of an earlier sample removed"
     )
-    return 1 if wrong else 0
+    print(
+        f"read back: EXIF time and position match {photos - wrong_exif} of {photos}, "
+        f"S3 user metadata matches {photos - wrong_metadata} of {photos}"
+    )
+    return 1 if wrong_exif or wrong_metadata else 0
+
+
+def positive(text: str) -> int:
+    """An argparse type: a whole number above zero."""
+    try:
+        number = int(text)
+    except ValueError:
+        number = 0
+    if number <= 0:
+        raise argparse.ArgumentTypeError(f"{text!r} is not a whole number above zero")
+    return number
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -130,7 +156,7 @@ def main(argv: list[str] | None = None) -> int:
         help="upload proof-of-delivery placeholder photos for some orders of a generated date, under pod/samples/",
     )
     sample.add_argument("--date", required=True, type=date.fromisoformat, help="service date, YYYY-MM-DD")
-    sample.add_argument("--count", type=int, default=20, help="number of photos (default 20)")
+    sample.add_argument("--count", type=positive, default=20, help="number of photos, above zero (default 20)")
     sample.add_argument("--seed", type=int, default=0, help="random seed of the orders and times (default 0)")
     sample.set_defaults(run=cmd_pod_sample)
     args = parser.parse_args(argv)
@@ -151,6 +177,13 @@ def main(argv: list[str] | None = None) -> int:
         print(
             f"cannot reach TimescaleDB at {settings.postgres_host}:{settings.postgres_port} ({exc}); "
             "start the platform with `make up`",
+            file=sys.stderr,
+        )
+        return 1
+    except (BotoCoreError, ClientError) as exc:
+        print(
+            f"the RustFS bronze bucket at {settings.s3_endpoint} failed ({exc}); check that the platform is up "
+            "(`make up`) and the S3 credentials in .env",
             file=sys.stderr,
         )
         return 1

@@ -283,7 +283,7 @@ def address_tables(settings: Settings, zone_map: ZoneMap, bucket: Bucket) -> lis
     cache = settings.cache_dir
     direle = addresses.fetch_download(addresses.TAULA_DIRELE, cache)
     carrerer = addresses.fetch_download(addresses.CARRERER, cache)
-    icgc = addresses.fetch_icgc(cache)
+    icgc = addresses.fetch_icgc(cache, zone_map)
     keys = {
         path: bucket.put_file(raw_key(source, path), path)
         for source, path in (
