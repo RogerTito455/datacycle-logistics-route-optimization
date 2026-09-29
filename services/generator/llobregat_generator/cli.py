@@ -71,8 +71,11 @@ def cmd_summary(settings: Settings, args: argparse.Namespace) -> int:
 def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
     """Photos for some orders of a generated date under pod/samples/, each read back and checked.
 
-    The new photos are uploaded first; the photos of an earlier sample of the date that are not
-    among them are removed afterwards, so a run that fails halfway never leaves fewer photos.
+    A photo the bucket already holds, the same bytes with the same metadata elements, is left as it
+    is, so running the sample again writes nothing. New photos are uploaded first; the photos of an
+    earlier sample of the date that are not among them are removed afterwards, so a run that fails
+    halfway never leaves fewer photos. Every photo is read back: its EXIF time and position must be
+    the delivery's, and its S3 user metadata the elements of decision 20 and the order id.
     """
     with db.connect(settings) as conn:
         orders = publish.read_day(conn, args.date)
@@ -83,28 +86,40 @@ def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
     bucket = Bucket(settings)
     prefix = pod.sample_prefix(args.date)
     print(f"Proof-of-delivery placeholders for {args.date}, synthetic images drawn by code")
-    keys, wrong = [], 0
+    keys, wrong_exif, wrong_metadata = [], 0, 0
     for delivery in pod.sample_deliveries(orders, args.count, args.seed):
         key = pod.upload(bucket, delivery, metadata, sample=True)
         keys.append(key)
-        body = bucket.get_bytes(key)
+        body, stored = bucket.get_bytes(key), bucket.user_metadata(key)
         capture = pod.read_exif(body)
-        matches = (
+        exif_ok = (
             capture.taken_at == delivery.delivered_at
             and abs(capture.lat - delivery.lat) < 1e-6
             and abs(capture.lon - delivery.lon) < 1e-6
         )
-        wrong += not matches
+        metadata_ok = pod.metadata_matches(stored, delivery, metadata)
+        wrong_exif += not exif_ok
+        wrong_metadata += not metadata_ok
         print(
-            f"  bronze/{key}  {len(body) / 1000:.1f} kB  EXIF {capture.taken_at.isoformat()}  "
-            f"{capture.lat:.6f}, {capture.lon:.6f}" + ("" if matches else "  DOES NOT MATCH THE DELIVERY")
+            f"  bronze/{key}  {len(body) / 1000:.1f} kB  {'written' if key in bucket.written else 'unchanged':<9}  "
+            f"EXIF {capture.taken_at.isoformat()}  {capture.lat:.6f}, {capture.lon:.6f}"
+            + ("" if exif_ok else "  EXIF DOES NOT MATCH THE DELIVERY")
+            + ("" if metadata_ok else "  S3 METADATA DOES NOT MATCH")
         )
     removed = bucket.delete_prefix(prefix, keep=keys)
-    if removed:
-        print(f"  {removed} photos of an earlier sample, not in this one, removed from bronze/{prefix}")
-    photos = len(keys)
-    print(f"{photos} photos in bronze/{prefix}, read back: EXIF time and position match {photos - wrong} of {photos}")
-    return 1 if wrong else 0
+    photos, written = len(keys), len(bucket.written)
+    if keys:
+        shown = ", ".join(f"{name}={value}" for name, value in sorted(bucket.user_metadata(keys[0]).items()))
+        print(f"  S3 user metadata of bronze/{keys[0]}: {shown}")
+    print(
+        f"{photos} photos in bronze/{prefix}: {written} written, {photos - written} unchanged, "
+        f"{removed} of an earlier sample removed"
+    )
+    print(
+        f"read back: EXIF time and position match {photos - wrong_exif} of {photos}, "
+        f"S3 user metadata matches {photos - wrong_metadata} of {photos}"
+    )
+    return 1 if wrong_exif or wrong_metadata else 0
 
 
 def positive(text: str) -> int:

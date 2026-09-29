@@ -13,17 +13,19 @@ offset in OffsetTimeOriginal, and GPSDateStamp and GPSTimeStamp in UTC) and wher
 GPSLongitude of the delivery address, WGS84).
 
 upload() stores a photo in the RustFS bronze bucket at pod/<service date>/<order id>.jpg and
-returns the key, which the simulator (issue #7) writes into bronze.delivery_events.pod_object_key
+returns the key, which the simulator (issue #7) will write into bronze.delivery_events.pod_object_key
 of the `delivered` event. The object carries the metadata elements of ADR 0001, decision 20, as S3
-user metadata. `llobregat-generator pod-sample` uploads a few for one generated date under
-pod/samples/, so the documentation can point at real objects before the simulator exists.
+user metadata, and a key that already holds the same photo is left as it is. `llobregat-generator
+pod-sample` uploads a few for one generated date under pod/samples/, so the documentation can point
+at real objects before the simulator exists.
 """
 
 from __future__ import annotations
 
 import hashlib
 import io
-from collections.abc import Iterator, Sequence
+import json
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
@@ -265,16 +267,37 @@ def read_exif(jpeg: bytes) -> Capture:
 # Storage -------------------------------------------------------------------------------------
 
 
+def user_metadata(delivery: Delivery, metadata: FileMetadata) -> dict[str, str]:
+    """The S3 user metadata of a photo: the metadata elements of ADR 0001, decision 20, and the order id.
+
+    metadata gives the source, owner, schema version and ingested_at (FileMetadata.for_table with
+    TABLE and SOURCE_ID).
+    """
+    elements = {name.replace("_", "-"): value for name, value in metadata.key_values().items()}
+    return {**elements, "order-id": delivery.order_id}
+
+
+def metadata_matches(stored: Mapping[str, str], delivery: Delivery, metadata: FileMetadata) -> bool:
+    """Whether an object's user metadata is the photo's: every element, and an ingested-at of any upload."""
+    expected = user_metadata(delivery, metadata)
+    try:
+        datetime.fromisoformat(stored.get("ingested-at", ""))
+    except ValueError:
+        return False
+    return all(stored.get(name) == value for name, value in expected.items() if name != "ingested-at")
+
+
 def upload(bucket: Bucket, delivery: Delivery, metadata: FileMetadata, sample: bool = False) -> str:
     """Store the photo of a delivered stop in the bronze bucket; return its key for pod_object_key.
 
-    metadata gives the object source, owner, schema version and ingested_at (FileMetadata.for_table
-    with TABLE and SOURCE_ID); the order id is added.
+    The object gets user_metadata. When the key already holds the same photo with the same elements,
+    ingested_at aside, nothing is written, so it keeps the ingested_at of the upload that wrote it:
+    the checksum of the JPEG and the elements is stored with the object (Bucket.put_bytes).
     """
-    user_metadata = {name.replace("_", "-"): value for name, value in metadata.key_values().items()}
-    return bucket.put_bytes(
-        object_key(delivery, sample), render(delivery), {**user_metadata, "order-id": delivery.order_id}
-    )
+    jpeg, elements = render(delivery), user_metadata(delivery, metadata)
+    described = {name: value for name, value in elements.items() if name != "ingested-at"}
+    checksum = hashlib.sha256(jpeg + json.dumps(described, sort_keys=True).encode()).hexdigest()
+    return bucket.put_bytes(object_key(delivery, sample), jpeg, elements, checksum)
 
 
 def sample_deliveries(orders: Sequence[dict], count: int, seed: int = 0) -> Iterator[Delivery]:

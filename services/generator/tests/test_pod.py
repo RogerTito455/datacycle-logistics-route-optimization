@@ -3,13 +3,15 @@
 from __future__ import annotations
 
 import io
+from contextlib import nullcontext
 from datetime import UTC, date, datetime, timedelta
 
 import pytest
 from conftest import MONDAY
-from llobregat_generator import pod
+from llobregat_generator import cli, pod
 from llobregat_generator.metadata import FileMetadata
 from llobregat_generator.orders import LOCAL_TZ
+from llobregat_generator.storage import CHECKSUM
 from PIL import ExifTags, Image
 
 SUMMER = pod.Delivery(
@@ -99,23 +101,52 @@ def test_object_keys():
     assert pod.sample_prefix(SUMMER.service_date) == "pod/samples/2026-09-28/"
 
 
-class RecordingBucket:
-    def __init__(self):
-        self.objects: dict[str, tuple[bytes, dict]] = {}
+class MemoryBucket:
+    """The bronze bucket in memory, with the upload rule of Bucket.put_bytes; log lists every put and delete."""
 
-    def put_bytes(self, key, body, metadata=None):
-        self.objects[key] = (body, metadata)
+    def __init__(self, objects: dict[str, tuple[bytes, dict[str, str]]] | None = None):
+        self.objects = dict(objects or {})
+        self.written: list[str] = []
+        self.log: list[tuple[str, str]] = []
+
+    def fresh(self) -> MemoryBucket:
+        """The same objects, as a new Bucket for the next run sees them."""
+        self.written, self.log = [], []
+        return self
+
+    def put_bytes(self, key, body, metadata=None, checksum=None):
+        if checksum is not None and self.objects.get(key, (b"", {}))[1].get(CHECKSUM) == checksum:
+            return key
+        self.objects[key] = (body, {**(metadata or {}), **({CHECKSUM: checksum} if checksum else {})})
+        self.written.append(key)
+        self.log.append(("put", key))
         return key
+
+    def get_bytes(self, key):
+        return self.objects[key][0]
+
+    def user_metadata(self, key):
+        return self.objects[key][1]
+
+    def delete_prefix(self, prefix, keep=()):
+        stale = [key for key in self.objects if key.startswith(prefix) and key not in keep]
+        for key in stale:
+            del self.objects[key]
+            self.log.append(("delete", key))
+        return len(stale)
+
+
+def photo_metadata(ingested_at: datetime, schema_version: int = 2) -> FileMetadata:
+    return FileMetadata(pod.SOURCE_ID, "operations", schema_version, ingested_at)
 
 
 def test_upload_stores_the_photo_with_the_metadata_elements():
-    bucket = RecordingBucket()
-    ingested_at = datetime(2026, 9, 29, 6, 30, tzinfo=UTC)
-    metadata = FileMetadata(pod.SOURCE_ID, "operations", 2, ingested_at)
-    key = pod.upload(bucket, SUMMER, metadata)
+    bucket = MemoryBucket()
+    key = pod.upload(bucket, SUMMER, photo_metadata(datetime(2026, 9, 29, 6, 30, tzinfo=UTC)))
     assert key == "pod/2026-09-28/O-20260928-00042.jpg"
     body, user_metadata = bucket.objects[key]
     assert body == pod.render(SUMMER)
+    assert user_metadata.pop(CHECKSUM)
     assert user_metadata == {
         "source": "simulator/pod-photos",
         "owner": "operations",
@@ -123,6 +154,59 @@ def test_upload_stores_the_photo_with_the_metadata_elements():
         "ingested-at": "2026-09-29T06:30:00+00:00",
         "order-id": "O-20260928-00042",
     }
+
+
+def test_the_same_photo_is_uploaded_once_and_keeps_its_ingested_at():
+    bucket = MemoryBucket()
+    first = datetime(2026, 9, 29, 6, 30, tzinfo=UTC)
+    pod.upload(bucket, SUMMER, photo_metadata(first))
+    pod.upload(bucket, SUMMER, photo_metadata(first + timedelta(days=1)))  # the same photo, a later run
+    assert [op for op, _ in bucket.log] == ["put"]
+    assert bucket.objects[pod.object_key(SUMMER)][1]["ingested-at"] == first.isoformat()
+    pod.upload(bucket, SUMMER, photo_metadata(first, schema_version=3))  # new metadata elements
+    assert [op for op, _ in bucket.log] == ["put", "put"]
+
+
+@pytest.fixture
+def stack(weekday, monkeypatch) -> MemoryBucket:
+    """pod-sample's database and bucket: the Monday of the tests, and a bucket in memory."""
+    bucket = MemoryBucket()
+    monkeypatch.setattr(cli.db, "connect", lambda settings: nullcontext())
+    monkeypatch.setattr(cli.publish, "read_day", lambda conn, service_date: weekday.orders)
+    monkeypatch.setattr(
+        cli.FileMetadata, "for_table", classmethod(lambda cls, conn, table, source, at: photo_metadata(at))
+    )
+    monkeypatch.setattr(cli, "Bucket", lambda settings: bucket.fresh())
+    return bucket
+
+
+def pod_sample(count: int) -> int:
+    return cli.main(["pod-sample", "--date", MONDAY.isoformat(), "--count", str(count)])
+
+
+def test_pod_sample_uploads_first_then_removes_only_the_photos_not_in_the_new_sample(stack, capsys):
+    stale = f"{pod.sample_prefix(MONDAY)}O-20261005-99999.jpg"
+    stack.objects[stale] = (b"a photo of an earlier sample", {})
+    assert pod_sample(5) == 0
+    puts = [key for op, key in stack.log if op == "put"]
+    assert len(puts) == 5
+    assert stack.log == [*(("put", key) for key in puts), ("delete", stale)]  # every upload before the delete
+    out = capsys.readouterr().out
+    assert "5 photos in bronze/pod/samples/2026-10-05/: 5 written, 0 unchanged, 1 of an earlier sample removed" in out
+    assert "read back: EXIF time and position match 5 of 5, S3 user metadata matches 5 of 5" in out
+
+    assert pod_sample(3) == 0  # a smaller sample: its photos are among the five, left as they are
+    assert [op for op, _ in stack.log] == ["delete", "delete"]
+    assert "3 photos in bronze/pod/samples/2026-10-05/: 0 written, 3 unchanged, 2 of" in capsys.readouterr().out
+
+
+def test_pod_sample_fails_when_a_photo_does_not_read_back_as_uploaded(stack, capsys):
+    assert pod_sample(2) == 0
+    key = next(iter(stack.objects))
+    stack.objects[key][1]["owner"] = "someone else"  # the same checksum, so it is not written again
+    assert pod_sample(2) == 1
+    out = capsys.readouterr().out
+    assert "S3 METADATA DOES NOT MATCH" in out and "S3 user metadata matches 1 of 2" in out
 
 
 def test_sample_deliveries_are_orders_of_the_day_inside_their_windows(weekday):

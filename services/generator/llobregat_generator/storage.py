@@ -92,6 +92,11 @@ class Bucket:
     def get_bytes(self, key: str) -> bytes:
         return self.client.get_object(Bucket=self.name, Key=key)["Body"].read()
 
+    def user_metadata(self, key: str) -> dict[str, str]:
+        """The user metadata stored with the object, as S3 returns it; empty when the key holds nothing."""
+        head = self.head(key)
+        return {} if head is None else head.get("Metadata", {})
+
     def delete_prefix(self, prefix: str, keep: Collection[str] = ()) -> int:
         """Delete every object whose key starts with prefix, except the keys in keep; return how many."""
         deleted = 0
