@@ -6,22 +6,30 @@ share; the rules that do not depend on chance are checked exactly.
 
 from __future__ import annotations
 
+import json
 from collections import Counter
 
+import numpy as np
 import pytest
 from conftest import MONDAY, SEED
 from llobregat_generator import notes
+from llobregat_generator.config import GENERATOR_DIR
 from llobregat_generator.notes import (
-    BUSINESS_CATEGORIES,
-    BUSINESS_OWN_SHARE,
+    BUSINESS_CONTEXT_SHARE,
     NOTE_SHARE,
+    NOTES_STREAM,
     PLACES,
+    Category,
+    Context,
+    Language,
     NotePicker,
+    attach_notes,
+    context,
     language_shares,
-    names_places,
+    zones_named,
 )
 from llobregat_generator.orders import generate_day
-from llobregat_generator.rules import SeedError, zone_shares
+from llobregat_generator.rules import Recipient, SeedError, zone_shares
 
 
 def pooled(days) -> list[dict]:
@@ -44,6 +52,13 @@ def with_note(orders) -> list[dict]:
     return [o for o in orders if o["note_id"] is not None]
 
 
+def test_the_languages_and_categories_are_those_of_the_schema():
+    schema = json.loads((GENERATOR_DIR / "seed" / "delivery_notes.schema.json").read_text(encoding="utf-8"))
+    note = schema["properties"]["notes"]["items"]["properties"]
+    assert [str(language) for language in Language] == note["language"]["enum"]
+    assert [str(category) for category in Category] == note["category"]["enum"]
+
+
 def test_about_a_third_of_orders_carry_a_note(week, saturday):
     got, error = share(pooled(week), lambda o: o["note_id"] is not None)
     assert got == pytest.approx(NOTE_SHARE, abs=4 * error)
@@ -59,60 +74,89 @@ def test_an_order_carries_the_text_of_its_note(week, saturday, corpus):
             assert o["notes"] == corpus[o["note_id"]]["text"]
 
 
-def test_business_recipients_draw_mostly_business_hours_and_location_hints(week, corpus):
+@pytest.mark.parametrize(
+    ("note_id", "expected"),
+    [
+        ("N-004", Context.BUSINESS),  # "Es una tienda, abrimos a las 10": business hours
+        ("N-090", Context.BUSINESS),  # "despacho en el 2º piso ...": business hours, although "piso"
+        ("N-027", Context.BUSINESS),  # "22@ office building, deliveries only through the loading dock ..."
+        ("N-040", Context.BUSINESS),  # "oficina en el 22@. ... el muelle de carga ..., no por recepción"
+        ("N-178", Context.BUSINESS),  # "edifici d'oficines al 22@, les entregues pel moll de càrrega ..."
+        ("N-065", Context.BUSINESS),  # "poligono industrial, nave 14, persiana azul"
+        ("N-288", Context.HOME),  # "entresuelo 1ª, en el telefonillo pone ENTLO": a location hint
+        ("N-211", Context.HOME),  # "casa blanca amb persianes verdes"
+        ("N-229", Context.HOME),  # "Escalera B, not A! both have a 3rd floor door 1"
+        ("N-139", Context.HOME),  # "el buzón y el timbre están en la valla, no en la casa"
+        ("N-084", Context.HOME),  # "Holiday flat, ... leave it at the key collection office round the corner"
+        ("N-032", Context.HOME),  # "timbre roto, pica al 3r 2a y bajo": a flat's floor and door
+        ("N-060", Context.HOME),  # "I work nights, please not before 1pm"
+        ("N-101", Context.NEUTRAL),  # "si no estoy dejadlo en el bar de abajo": a bar as a neighbour
+        ("N-120", Context.NEUTRAL),  # "... es la puerta al lado de la farmacia": a pharmacy as a landmark
+        ("N-019", Context.NEUTRAL),  # "justo enfrente de la parada del bus"
+    ],
+)
+def test_who_could_have_written_a_note_is_read_from_its_text(corpus, note_id, expected):
+    assert context(corpus[note_id]) is expected
+
+
+def test_business_recipients_draw_mostly_business_notes_and_consumers_home_and_neutral_ones(week, corpus):
     noted = with_note(pooled(week))
-    business = [corpus[o["note_id"]] for o in noted if o["customer_type"] == "B2B"]
-    consumer = [corpus[o["note_id"]] for o in noted if o["customer_type"] == "B2C"]
-    got, error = share(business, lambda n: n["category"] in BUSINESS_CATEGORIES)
-    assert got == pytest.approx(BUSINESS_OWN_SHARE, abs=4 * error)
-    assert not [n["note_id"] for n in consumer if n["category"] in BUSINESS_CATEGORIES]
-    # The consumers' notes cover the other eight categories.
-    assert {n["category"] for n in consumer} == {n["category"] for n in corpus.values()} - BUSINESS_CATEGORIES
+    business = [corpus[o["note_id"]] for o in noted if o["customer_type"] == Recipient.BUSINESS]
+    consumer = [corpus[o["note_id"]] for o in noted if o["customer_type"] == Recipient.CONSUMER]
+    got, error = share(business, lambda n: context(n) is Context.BUSINESS)
+    assert got == pytest.approx(BUSINESS_CONTEXT_SHARE, abs=4 * error)
+    assert not [n["note_id"] for n in business if context(n) is Context.HOME]
+    assert not [n["note_id"] for n in consumer if context(n) is Context.BUSINESS]
+    # Location hints that describe a home reach consumers.
+    assert {"N-139", "N-211", "N-229", "N-288"} <= {n["note_id"] for n in consumer}
 
 
 def test_every_group_of_candidates_keeps_the_corpus_language_mix(seeds):
-    """Rule 4, exactly: in every zone, for business and consumer notes alike, each language has its
-    corpus share among the languages the candidates have."""
+    """Rules 2 and 4, exactly: in every zone, business and consumer recipients alike get the corpus
+    language mix, and a business recipient 80% business notes and no home note."""
     corpus_mix = language_shares(seeds.delivery_notes["notes"])
     picker = NotePicker(seeds.delivery_notes, zone_shares(seeds.company))
-    for group in (picker.own, picker.rest):
-        for zone_id, candidates in group.items():
-            by_language = Counter()
+    for recipient, by_zone in picker.candidates.items():
+        for zone_id, candidates in by_zone.items():
+            by_language, by_context = Counter(), Counter()
             for note, p in zip(candidates.notes, candidates.probabilities, strict=True):
                 by_language[note["language"]] += p
-            present = sum(corpus_mix[language] for language in by_language)
-            for language, p in by_language.items():
-                assert p == pytest.approx(corpus_mix[language] / present), (zone_id, language)
+                by_context[context(note)] += p
+            assert by_language == pytest.approx(corpus_mix), (recipient, zone_id)
+            if recipient is Recipient.BUSINESS:
+                expected = {Context.BUSINESS: BUSINESS_CONTEXT_SHARE, Context.NEUTRAL: 1 - BUSINESS_CONTEXT_SHARE}
+                assert by_context == pytest.approx(expected), zone_id
+            else:
+                assert Context.BUSINESS not in by_context, zone_id
 
 
 def test_attached_notes_keep_the_corpus_language_mix(week, seeds, corpus):
     noted = [corpus[o["note_id"]] for o in with_note(pooled(week))]
     for language, expected in language_shares(seeds.delivery_notes["notes"]).items():
         got, error = share(noted, lambda n, lang=language: n["language"] == lang)
-        # The business notes have no French or Italian note, which moves the mix by less than half a point.
-        assert got == pytest.approx(expected, abs=4 * error + 0.005), language
+        assert got == pytest.approx(expected, abs=4 * error), language
 
 
 def test_places_named_in_a_note():
-    assert names_places("Es L'Hospitalet, NO Barcelona!! la calle se llama igual") == {"Z10"}
-    assert names_places("oficina en el 22@. la mercancía se entrega por el muelle de carga") == {"Z09"}
-    assert names_places("és a Sant Joan Despí, al costat de l'escola") == {None}
-    assert names_places("casa blanca amb persianes verdes") == set()  # not Casablanca, a part of Sant Boi
-    assert names_places("gracias por todo") == set()
+    assert zones_named("Es L'Hospitalet, NO Barcelona!! la calle se llama igual") == {"Z10"}
+    assert zones_named("oficina en el 22@. la mercancía se entrega por el muelle de carga") == {"Z09"}
+    assert zones_named("és a Sant Joan Despí, al costat de l'escola") == {None}
+    assert zones_named("casa blanca amb persianes verdes") == set()  # not Casablanca, a part of Sant Boi
+    assert zones_named("gracias por todo") == set()
 
 
 def test_a_note_that_names_a_place_goes_only_to_orders_of_that_zone(week, saturday, seeds):
     zone_ids = set(zone_shares(seeds.company))
     assert {zone for zone in PLACES.values() if zone} <= zone_ids
     noted = with_note([*pooled(week), *saturday.orders])
-    placed = [o for o in noted if names_places(o["notes"])]
+    placed = [o for o in noted if zones_named(o["notes"])]
     assert placed  # the rule is exercised
     for o in placed:
-        assert names_places(o["notes"]) == {o["destination_zone_id"]}, (o["order_id"], o["notes"])
+        assert zones_named(o["notes"]) == {o["destination_zone_id"]}, (o["order_id"], o["notes"])
 
 
 def test_a_corpus_without_notes_for_a_zone_stops_the_generator(seeds):
-    only_hospitalet = {"notes": [n for n in seeds.delivery_notes["notes"] if names_places(n["text"]) == {"Z10"}]}
+    only_hospitalet = {"notes": [n for n in seeds.delivery_notes["notes"] if zones_named(n["text"]) == {"Z10"}]}
     with pytest.raises(SeedError, match="no business note that fits zone Z01"):
         NotePicker(only_hospitalet, zone_shares(seeds.company))
 
@@ -126,8 +170,19 @@ def test_the_same_date_and_seed_give_the_same_notes(seeds, pool, weekday):
     assert [o["note_id"] for o in other.orders[:200]] != [o["note_id"] for o in weekday.orders[:200]]
 
 
+def test_the_notes_are_drawn_from_their_own_random_stream_alone(seeds, weekday):
+    """A generator of their own, seeded with the seed, the date and NOTES_STREAM, draws the day's
+    notes again from the orders without them. Notes drawn from the orders' generator, even after
+    every order, would come out different."""
+    orders = [{**o, "note_id": None, "notes": None} for o in weekday.orders]
+    stream = np.random.default_rng([SEED, MONDAY.toordinal(), NOTES_STREAM])
+    attach_notes(orders, NotePicker(seeds.delivery_notes, zone_shares(seeds.company)), stream)
+    assert [o["note_id"] for o in orders] == [o["note_id"] for o in weekday.orders]
+
+
 def test_notes_have_their_own_random_stream(seeds, pool, weekday, monkeypatch):
-    """Without notes the day is the same: the notes change no other field of an order."""
+    """Without notes the day is the same: the notes change no other field of an order, which they
+    would if they were drawn from the orders' generator before the orders."""
     monkeypatch.setattr(notes, "NOTE_SHARE", 0.0)
     without = generate_day(MONDAY, SEED, seeds, pool)
     assert not with_note(without.orders)

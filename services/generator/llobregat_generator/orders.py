@@ -44,6 +44,7 @@ from llobregat_generator.addresses import Address
 from llobregat_generator.notes import NOTES_STREAM, NotePicker, attach_notes
 from llobregat_generator.rules import (
     MIDDAY_INJECTION,
+    ParcelSize,
     Recipient,
     SeedError,
     Wave,
@@ -61,7 +62,7 @@ from llobregat_generator.seeds import Seeds
 SOURCE_ID = "generator/orders"
 LOCAL_TZ = ZoneInfo("Europe/Madrid")
 DAY_NAMES = ("Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun")
-SIZES = ("small", "medium", "large")
+SIZES = tuple(ParcelSize)
 
 # Rules the demand model states in its assumptions, in prose rather than in fields:
 # a "4+" stop gets 4 parcels plus a geometric extra with this mean.
@@ -72,7 +73,7 @@ SATURDAY_OPEN = frozenset({"shops", "healthcare"})
 # Rules of this generator, where the demand model says nothing (the opening hours of business
 # recipients are in rules.py, which the seed validator shares):
 # the weight of one parcel, uniform within its size class.
-WEIGHT_KG = {"small": (0.1, 2.0), "medium": (2.0, 8.0), "large": (8.0, 25.0)}
+WEIGHT_KG = {ParcelSize.SMALL: (0.1, 2.0), ParcelSize.MEDIUM: (2.0, 8.0), ParcelSize.LARGE: (8.0, 25.0)}
 # Monday's next-day orders were registered on Saturday or Sunday, with equal odds.
 MONDAY_SATURDAY_ODDS = 0.5
 # company.json names the November peak "Black Friday and Cyber Monday week": it applies from the
@@ -369,7 +370,7 @@ def generate_day(service_date: date, seed: int, seeds: Seeds, pool: Mapping[str,
                     "destination_zone_id": zone_id,
                     "address_ref": address.address_ref,
                     "parcels": parcels,
-                    "parcel_size": size,
+                    "parcel_size": size.value,
                     "weight_kg": weight,
                     "wave": wave.value,
                     "window_type": window_type.value,

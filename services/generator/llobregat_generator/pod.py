@@ -13,17 +13,19 @@ offset in OffsetTimeOriginal, and GPSDateStamp and GPSTimeStamp in UTC) and wher
 GPSLongitude of the delivery address, WGS84).
 
 upload() stores a photo in the RustFS bronze bucket at pod/<service date>/<order id>.jpg and
-returns the key, which the simulator (issue #7) writes into bronze.delivery_events.pod_object_key
+returns the key, which the simulator (issue #7) will write into bronze.delivery_events.pod_object_key
 of the `delivered` event. The object carries the metadata elements of ADR 0001, decision 20, as S3
-user metadata. `llobregat-generator pod-sample` uploads a few for one generated date under
-pod/samples/, so the documentation can point at real objects before the simulator exists.
+user metadata, and a key that already holds the same photo is left as it is. `llobregat-generator
+pod-sample` uploads a few for one generated date under pod/samples/, so the documentation can point
+at real objects before the simulator exists.
 """
 
 from __future__ import annotations
 
 import hashlib
 import io
-from collections.abc import Iterator, Sequence
+import json
+from collections.abc import Iterator, Mapping, Sequence
 from dataclasses import dataclass
 from datetime import UTC, date, datetime, timedelta
 
@@ -34,6 +36,7 @@ from PIL.TiffImagePlugin import IFDRational
 from llobregat_generator import __version__
 from llobregat_generator.metadata import FileMetadata
 from llobregat_generator.orders import LOCAL_TZ
+from llobregat_generator.rules import ParcelSize
 from llobregat_generator.storage import Bucket
 
 SOURCE_ID = "simulator/pod-photos"
@@ -57,8 +60,22 @@ WALLS = ((225, 196, 150), (236, 224, 200), (199, 128, 96), (230, 230, 224), (219
 DOORS = ((47, 84, 60), (40, 64, 112), (100, 64, 38), (126, 38, 38), (36, 36, 40), (108, 110, 114))
 CARDBOARD = (176, 134, 86)
 TAPE = (222, 202, 150)
-BOX_SIZE = {"small": (62, 44), "medium": (92, 64), "large": (128, 90)}  # front face in pixels
+BOX_SIZE = {ParcelSize.SMALL: (62, 44), ParcelSize.MEDIUM: (92, 64), ParcelSize.LARGE: (128, 90)}  # front, pixels
 MAX_BOXES = 3
+# How far the position read back from a photo may be from the delivery's: about 10 cm. The EXIF
+# rationals keep a ten-thousandth of an arc second, about 3 mm.
+MATCH_TOLERANCE_DEG = 1e-6
+
+
+@dataclass(frozen=True)
+class LatLon:
+    """A position in WGS84 decimal degrees."""
+
+    lat: float
+    lon: float
+
+    def near(self, other: LatLon, tolerance: float = MATCH_TOLERANCE_DEG) -> bool:
+        return abs(self.lat - other.lat) < tolerance and abs(self.lon - other.lon) < tolerance
 
 
 @dataclass(frozen=True)
@@ -68,14 +85,14 @@ class Delivery:
     order_id: str
     service_date: date
     delivered_at: datetime  # with a time zone
-    lat: float
-    lon: float
+    position: LatLon  # the delivery address
     parcels: int = 1
-    parcel_size: str = "small"
+    parcel_size: ParcelSize = ParcelSize.SMALL  # the text bronze.orders holds is taken too
 
     def __post_init__(self):
         if self.delivered_at.tzinfo is None:
             raise ValueError(f"delivered_at of {self.order_id} has no time zone")
+        object.__setattr__(self, "parcel_size", ParcelSize(self.parcel_size))  # ValueError for an unknown size
 
 
 @dataclass(frozen=True)
@@ -83,8 +100,11 @@ class Capture:
     """What the EXIF metadata of a photo says: when and where it was taken."""
 
     taken_at: datetime
-    lat: float
-    lon: float
+    position: LatLon
+
+    def matches(self, delivery: Delivery) -> bool:
+        """Whether the photo was taken at the delivery's time and address."""
+        return self.taken_at == delivery.delivered_at and self.position.near(delivery.position)
 
 
 def object_key(delivery: Delivery, sample: bool = False) -> str:
@@ -171,7 +191,7 @@ def _draw(delivery: Delivery) -> Image.Image:
         draw.ellipse([intercom + 14, y, intercom + 22, y + 8], fill=(226, 226, 226))
 
     boxes = min(max(delivery.parcels, 1), MAX_BOXES)
-    box_width, box_height = BOX_SIZE.get(delivery.parcel_size, BOX_SIZE["small"])
+    box_width, box_height = BOX_SIZE[delivery.parcel_size]
     x, bottom = 236, 414
     for n in range(boxes):
         scale = float(rng.uniform(0.9, 1.1))
@@ -190,8 +210,8 @@ def _draw(delivery: Delivery) -> Image.Image:
     draw.rectangle([0, caption, width, height], fill=(20, 20, 24))
     local = delivery.delivered_at.astimezone(LOCAL_TZ)
     draw.text((12, caption + 6), f"{delivery.order_id}   {local:%d/%m/%Y %H:%M}", font=big, fill=(245, 245, 245))
-    position = f"{delivery.lat:.5f}, {delivery.lon:.5f}"
-    draw.text((width - 12 - draw.textlength(position, font=big), caption + 6), position, font=big, fill=(245, 245, 245))
+    where = f"{delivery.position.lat:.5f}, {delivery.position.lon:.5f}"
+    draw.text((width - 12 - draw.textlength(where, font=big), caption + 6), where, font=big, fill=(245, 245, 245))
     notice = "SYNTHETIC PLACEHOLDER DRAWN BY CODE, NOT A PHOTOGRAPH"
     draw.text((12, caption + 32), notice, font=small, fill=(250, 190, 60))
     return image
@@ -201,11 +221,14 @@ def _draw(delivery: Delivery) -> Image.Image:
 
 
 def _dms(value: float) -> tuple[IFDRational, IFDRational, IFDRational]:
-    """Degrees, minutes and seconds of an angle, as the three rationals of an EXIF GPS coordinate."""
-    value = abs(value)
-    degrees = int(value)
-    minutes = int((value - degrees) * 60)
-    seconds = round((value - degrees - minutes / 60) * 3600 * GPS_SECONDS_DENOMINATOR)
+    """Degrees, minutes and seconds of an angle, as the three rationals of an EXIF GPS coordinate.
+
+    The angle is rounded once, to a ten-thousandth of an arc second, and then split, so the seconds
+    are always below 60: taking whole minutes off a float first turns 41.3 into 41° 17′ 60″.
+    """
+    total = round(abs(value) * 3600 * GPS_SECONDS_DENOMINATOR)  # in ten-thousandths of an arc second
+    arc_minutes, seconds = divmod(total, 60 * GPS_SECONDS_DENOMINATOR)
+    degrees, minutes = divmod(arc_minutes, 60)
     return IFDRational(degrees, 1), IFDRational(minutes, 1), IFDRational(seconds, GPS_SECONDS_DENOMINATOR)
 
 
@@ -228,10 +251,11 @@ def exif(delivery: Delivery) -> Image.Exif:
     photo[ExifTags.Base.OffsetTimeOriginal] = f"{offset[:3]}:{offset[3:]}"
     gps = tags.get_ifd(ExifTags.IFD.GPSInfo)
     gps[ExifTags.GPS.GPSVersionID] = b"\x02\x03\x00\x00"
-    gps[ExifTags.GPS.GPSLatitudeRef] = "N" if delivery.lat >= 0 else "S"
-    gps[ExifTags.GPS.GPSLatitude] = _dms(delivery.lat)
-    gps[ExifTags.GPS.GPSLongitudeRef] = "E" if delivery.lon >= 0 else "W"
-    gps[ExifTags.GPS.GPSLongitude] = _dms(delivery.lon)
+    lat, lon = delivery.position.lat, delivery.position.lon
+    gps[ExifTags.GPS.GPSLatitudeRef] = "N" if lat >= 0 else "S"
+    gps[ExifTags.GPS.GPSLatitude] = _dms(lat)
+    gps[ExifTags.GPS.GPSLongitudeRef] = "E" if lon >= 0 else "W"
+    gps[ExifTags.GPS.GPSLongitude] = _dms(lon)
     gps[ExifTags.GPS.GPSMapDatum] = "WGS-84"
     gps[ExifTags.GPS.GPSDateStamp] = utc.strftime("%Y:%m:%d")
     gps[ExifTags.GPS.GPSTimeStamp] = tuple(IFDRational(v, 1) for v in (utc.hour, utc.minute, utc.second))
@@ -252,26 +276,47 @@ def read_exif(jpeg: bytes) -> Capture:
     taken_at = datetime.strptime(
         photo[ExifTags.Base.DateTimeOriginal] + photo[ExifTags.Base.OffsetTimeOriginal], EXIF_TIME + "%z"
     )
-    return Capture(
-        taken_at=taken_at,
-        lat=_degrees(gps[ExifTags.GPS.GPSLatitude], gps[ExifTags.GPS.GPSLatitudeRef]),
-        lon=_degrees(gps[ExifTags.GPS.GPSLongitude], gps[ExifTags.GPS.GPSLongitudeRef]),
+    position = LatLon(
+        _degrees(gps[ExifTags.GPS.GPSLatitude], gps[ExifTags.GPS.GPSLatitudeRef]),
+        _degrees(gps[ExifTags.GPS.GPSLongitude], gps[ExifTags.GPS.GPSLongitudeRef]),
     )
+    return Capture(taken_at, position)
 
 
 # Storage -------------------------------------------------------------------------------------
 
 
+def user_metadata(delivery: Delivery, metadata: FileMetadata) -> dict[str, str]:
+    """The S3 user metadata of a photo: the metadata elements of ADR 0001, decision 20, and the order id.
+
+    metadata gives the source, owner, schema version and ingested_at (FileMetadata.for_table with
+    TABLE and SOURCE_ID).
+    """
+    elements = {name.replace("_", "-"): value for name, value in metadata.key_values().items()}
+    return {**elements, "order-id": delivery.order_id}
+
+
+def metadata_matches(stored: Mapping[str, str], delivery: Delivery, metadata: FileMetadata) -> bool:
+    """Whether an object's user metadata is the photo's: every element, and an ingested-at of any upload."""
+    expected = user_metadata(delivery, metadata)
+    try:
+        datetime.fromisoformat(stored.get("ingested-at", ""))
+    except ValueError:
+        return False
+    return all(stored.get(name) == value for name, value in expected.items() if name != "ingested-at")
+
+
 def upload(bucket: Bucket, delivery: Delivery, metadata: FileMetadata, sample: bool = False) -> str:
     """Store the photo of a delivered stop in the bronze bucket; return its key for pod_object_key.
 
-    metadata gives the object source, owner, schema version and ingested_at (FileMetadata.for_table
-    with TABLE and SOURCE_ID); the order id is added.
+    The object gets user_metadata. When the key already holds the same photo with the same elements,
+    ingested_at aside, nothing is written, so it keeps the ingested_at of the upload that wrote it:
+    the checksum of the JPEG and the elements is stored with the object (Bucket.put_bytes).
     """
-    user_metadata = {name.replace("_", "-"): value for name, value in metadata.key_values().items()}
-    return bucket.put_bytes(
-        object_key(delivery, sample), render(delivery), {**user_metadata, "order-id": delivery.order_id}
-    )
+    jpeg, elements = render(delivery), user_metadata(delivery, metadata)
+    described = {name: value for name, value in elements.items() if name != "ingested-at"}
+    checksum = hashlib.sha256(jpeg + json.dumps(described, sort_keys=True).encode()).hexdigest()
+    return bucket.put_bytes(object_key(delivery, sample), jpeg, elements, checksum)
 
 
 def sample_deliveries(orders: Sequence[dict], count: int, seed: int = 0) -> Iterator[Delivery]:
@@ -294,8 +339,7 @@ def sample_deliveries(orders: Sequence[dict], count: int, seed: int = 0) -> Iter
             order_id=o["order_id"],
             service_date=o["service_date"],
             delivered_at=o["window_start"] + timedelta(seconds=int(moments[index] * window)),
-            lat=o["destination_lat"],
-            lon=o["destination_lon"],
+            position=LatLon(o["destination_lat"], o["destination_lon"]),
             parcels=o["parcels"],
             parcel_size=o["parcel_size"],
         )

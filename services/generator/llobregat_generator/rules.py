@@ -55,6 +55,14 @@ class Wave(StrEnum):
     AFTERNOON = "afternoon"
 
 
+class ParcelSize(StrEnum):
+    """Size class of an order's parcels. The value is what bronze.orders.parcel_size holds."""
+
+    SMALL = "small"
+    MEDIUM = "medium"
+    LARGE = "large"
+
+
 class WindowType(StrEnum):
     """How an order's time window was set. The value is what bronze.orders.window_type holds."""
 
