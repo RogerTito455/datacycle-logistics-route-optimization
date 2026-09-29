@@ -7,7 +7,7 @@ license = "MIT"
 requires-python = ">=3.12"
 # The generator brings the seeds, the database and bucket access and the proof-of-delivery photos,
 # with its exact pins: the simulator draws from numpy and must repeat itself for a date and a seed.
-dependencies = ["llobregat-generator"]
+dependencies = ["confluent-kafka==2.15.1", "llobregat-generator"]
 
 [project.scripts]
 llobregat-simulator = "llobregat_simulator.cli:main"

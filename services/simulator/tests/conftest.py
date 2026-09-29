@@ -17,6 +17,7 @@ from llobregat_generator.orders import generate_day
 from llobregat_generator.seeds import Seeds
 from llobregat_generator.zones import ZoneMap
 from llobregat_simulator.company import Company, Order, Point
+from llobregat_simulator.osrm import Leg, Route
 from llobregat_simulator.planner import haversine_m
 
 FIXTURES = GENERATOR_DIR / "tests" / "fixtures"
@@ -29,6 +30,22 @@ def straight_matrix(points: Sequence[Point]) -> tuple[list[list[float]], list[li
     """Durations and distances as OSRM /table gives them, from straight lines."""
     distances = [[haversine_m(a, b) * DETOUR for b in points] for a in points]
     return [[d / SPEED_MS for d in row] for row in distances], distances
+
+
+def straight_road(points: Sequence[Point], step_m: float = 60.0) -> Route:
+    """The road through the points as OSRM /route gives it, on straight lines cut every step_m metres."""
+    legs = []
+    for a, b in zip(points, points[1:], strict=False):
+        pieces = max(1, round(haversine_m(a, b) / step_m))
+        coordinates = [
+            (a.lon + (b.lon - a.lon) * k / pieces, a.lat + (b.lat - a.lat) * k / pieces) for k in range(pieces + 1)
+        ]
+        distances = [
+            haversine_m(Point(y1, x1), Point(y2, x2))
+            for (x1, y1), (x2, y2) in zip(coordinates, coordinates[1:], strict=False)
+        ]
+        legs.append(Leg(coordinates, distances, [d / SPEED_MS for d in distances]))
+    return Route(legs, [(p.lon, p.lat) for p in points])
 
 
 @pytest.fixture(scope="session")

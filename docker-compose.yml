@@ -250,6 +250,40 @@ services:
       dagster-code:
         condition: service_healthy
 
+  simulator:
+    # The vans of Llobregat Express, run on demand rather than on `docker compose up`:
+    #   docker compose run --rm simulator plan --date 2026-09-28
+    #   docker compose run --rm simulator simulate --date 2026-09-28 --speed 60
+    # `make plan` and `make simulate` run the same commands from the host.
+    image: llobregat/simulator:local
+    pull_policy: never
+    build:
+      context: .
+      dockerfile: services/simulator/Dockerfile
+      network: host
+    profiles: ["simulator"]
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_HOST: timescaledb
+      POSTGRES_PORT: "5432"
+      S3_ENDPOINT: http://rustfs:9000
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      KAFKA_BOOTSTRAP: redpanda:9092
+      OSRM_URL: http://osrm:5000
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      redpanda:
+        condition: service_healthy
+      rustfs:
+        condition: service_healthy
+      osrm:
+        condition: service_healthy
+    restart: "no"
+
   # ----------------------------------------------------------------- analysis
   grafana:
     image: grafana/grafana-oss:13.0.2
