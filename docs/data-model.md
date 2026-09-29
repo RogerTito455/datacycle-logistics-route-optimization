@@ -32,6 +32,11 @@ The owner is a function of Llobregat Express that answers for the data: `operati
 zones, drivers, orders, routes), `fleet` (vehicles and their sensors) or `platform` (external
 feeds and bookkeeping).
 
+Decision 20 covers files too. The Parquet files the generator writes to the `bronze` bucket carry
+`source` and `ingested_at` columns, like the rows loaded from them, and the four elements as
+file-level key-value metadata: `source`, `owner`, `schema_version` and `ingested_at`. `owner` and
+`schema_version` are those of the table the file is loaded into, read from `ops.table_metadata`.
+
 Rows that come from a file or an API response also keep `raw_object_key`, the key of that payload
 in the RustFS `bronze` bucket, so each row can be traced back to the bytes it was parsed from.
 
@@ -84,6 +89,16 @@ erDiagram
     text shift_id FK
     text home_zone_id FK
   }
+  shippers {
+    text shipper_id PK
+    text segment
+    numeric share_of_daily_parcels
+    text arrives_at_hub
+  }
+  streets {
+    text street_code PK
+    text official_name
+  }
   addresses {
     text street_code PK
     text street_number PK
@@ -92,11 +107,20 @@ erDiagram
     float8 lat
     float8 lon
   }
+  icgc_addresses {
+    text address_id PK
+    text municipality
+    text street_name
+    float8 lat
+    float8 lon
+  }
   orders {
     text order_id PK
+    text shipper_id
     text destination_zone_id
     text address_ref
     text priority
+    text wave
     timestamptz window_start
     timestamptz window_end
     text notes "free text"
@@ -191,6 +215,9 @@ erDiagram
   zones ||--o{ drivers : "is home of"
   zones ||--o{ orders : "contains the destination of"
   addresses ||--o{ orders : "is the destination of"
+  icgc_addresses ||--o{ orders : "is the destination of"
+  streets ||--o{ addresses : "names the street of"
+  shippers ||--o{ orders : "sends"
   orders ||--o{ delivery_events : "is scanned in"
   route_plans ||--|{ route_plan_stops : "lists"
   orders ||--o{ route_plan_stops : "is visited at"
@@ -213,7 +240,7 @@ Foreign keys are enforced among the reference tables (`vehicles`, `drivers`, `zo
 `vehicle_types`), between `route_plan_stops` and `route_plans`, and from every `source` column in
 `bronze` and `ops` to `ops.data_sources` (drawn once, for `orders`). Event tables have no foreign
 keys to reference data on purpose: a raw record must never be rejected because a reference table
-was loaded late. Those joins, `orders.address_ref` to `addresses` among them, are checked by dbt
+was loaded late. Those joins, `orders.address_ref` to `addresses` or `icgc_addresses` among them, are checked by dbt
 relationship tests in silver (issue #10).
 
 `traffic_state.feed_item_id` means a street section for the `trams` feed and an itinerary for the
@@ -230,16 +257,19 @@ Reference data, loaded in batch:
 | `zones` | The 14 service zones: centroid, share of parcels, stops per route, difficulty, preferred vehicle types | Company profile, `company.json` (prompt 001) |
 | `shifts` | The morning and afternoon-evening driver shifts | Company profile, `company.json` (prompt 001) |
 | `vehicle_types` | The six vehicle classes of the fleet: energy, DGT label, capacity, consumption, sensors | Company profile, `company.json` (prompt 001) |
-| `vehicles` | One row per van, with plate, type and home zone | AI-generated fleet, expanded from the vehicle types |
-| `drivers` | One row per driver, with shift and home zone. Names are fictional | AI-generated drivers, sized by the shifts |
+| `vehicles` | One row per van: plate, type, home zone, registration year, odometer, battery health, whether it also runs the afternoon wave, maintenance note | AI-generated fleet register, `fleet.json` (prompt 002) |
+| `drivers` | One row per driver: shift, contract, languages, the zones the driver knows, the vehicle types the driver is cleared for, a planning note. The relief pool has no shift. Names are fictional | AI-generated driver roster, `drivers.json` (prompt 003) |
+| `shippers` | The 40 shippers: segment, share of the parcels, parcel mix, same-day share, business share and zones, how their parcels reach the hub | AI-generated demand model, `demand.json` (prompt 004) |
 | `traffic_section_points` | One row per point of every street section of the `trams` traffic feed: section, position along it, description, longitude and latitude | Open Data BCN `transit-relacio-trams`, the long-format CSV, loaded once |
 | `addresses` | Every postal address of Barcelona: street code, number and letter, district, neighbourhood, census section, and coordinates in ED50, ETRS89 and WGS84. `address_ref` is the value `orders.address_ref` points to | Open Data BCN `taula-direle`, CSV loaded with the generator (issue #3) |
+| `streets` | The street register of Barcelona: code and official name of every street | Open Data BCN `carrerer`, CSV loaded with the generator |
+| `icgc_addresses` | Every street address of L'Hospitalet, El Prat, Cornellà, Esplugues and Sant Boi de Llobregat, which `taula-direle` does not cover: street, number, postcode, ETRS89 coordinates as published and their WGS84 conversion. `address_id` is the value `orders.address_ref` points to | ICGC Adreces simplificat, CSV of all of Catalonia filtered to the five municipalities by the generator |
 
 Events and measurements:
 
 | Table | Holds | Comes from | Arrives |
 |---|---|---|---|
-| `orders` | One row per order: shipper, destination at a real address, priority, time window and the recipient's free-text `notes` | AI-generated orders at Open Data BCN addresses | Micro-batch files through the day; next-day orders in a nightly batch |
+| `orders` | One row per order: shipper, destination at a real address, priority, wave, time window and the recipient's free-text `notes` | Order generator: the demand model (prompt 004) at real addresses of Open Data BCN and ICGC ([generator](../services/generator/README.md)) | One Parquet file per service date in the RustFS `bronze` bucket, written with the rows |
 | `delivery_events` | Every scan of the driver's handheld: loaded, arrived, delivered, failed, returned. `pod_object_key` points to the proof-of-delivery photo | Simulated handheld, topic `delivery.events` | Stream |
 | `route_plans` | One row per plan of a route: version 0 is the baseline plan made before departure, later versions are re-plans by the optimizer | Optimizer | On departure and on every re-plan |
 | `route_plan_stops` | The stops of each plan, in order, with planned arrival times | Optimizer | With its plan |
@@ -284,9 +314,16 @@ Platform tables in `ops`:
   a delivered parcel has a proof-of-delivery photo; a time window ends after it starts; plan
   version 0 is the baseline plan; delivered plus failed stops never exceed planned stops;
   statuses, priorities, energy types, DGT labels and traffic states take their allowed values.
-- **Write-once.** Pipelines insert bronze rows and never update or delete them. A plan's stops
-  have no `ON DELETE CASCADE`, so deleting a plan that has stops fails instead of taking them
-  along.
+- **Write-once.** Pipelines insert bronze rows and never update or delete them. Reference loads
+  insert only the rows whose key is new, so loading a file twice writes nothing the second time.
+  The one exception is the order generator: regenerating a service date deletes that date's
+  generated orders (`source = 'generator/orders'`) and inserts the new ones in one transaction,
+  and uploads the date's file inside it, before the commit. If the database or the upload fails,
+  the transaction rolls back and the date keeps its rows and its file. If the commit fails after
+  the upload, the bucket holds the new file with the old rows until the next run of the date
+  overwrites it. A date is never duplicated.
+- **No cascades.** A plan's stops have no `ON DELETE CASCADE`, so deleting a plan that has stops
+  fails instead of taking them along.
 
 ## Storage lifecycle
 
@@ -354,6 +391,8 @@ same migration.
 | 006 | Access for `grafana_reader` |
 | 007 | Raw bronze without value checks or retention, `source` and `ingested_at` on the ops tables, hub geofence, fuel consumption derived from telemetry, `traffic_state.feed_item_id`, `addresses` |
 | 008 | `traffic_section_points`, the long CSV format, replaces `traffic_sections` and its packed polyline |
+| 009 | `shippers`, `streets` and `icgc_addresses`; the fields of the fleet register and the driver roster on `vehicles` and `drivers`; `shipper_id`, `wave` and `window_type` on `orders`; their data sources |
+| 010 | `raw_object_key` on `vehicles`, `drivers` and `shippers`, the key of the Parquet file each is loaded from |
 
 ## Silver and gold (dbt, issue #10)
 
@@ -363,8 +402,8 @@ Planned models, built by dbt from the bronze tables above:
 |---|---|---|
 | `silver.dim_hub`, `silver.dim_zone`, `silver.dim_shift`, `silver.dim_vehicle_type` | One row per hub, zone, shift, vehicle type | `hubs`, `zones`, `shifts`, `vehicle_types` (company profile) |
 | `silver.dim_vehicle`, `silver.dim_driver` | One row per vehicle, driver | `vehicles`, `drivers` |
-| `silver.dim_shipper` | One row per shipper | `orders` |
-| `silver.dim_address` | One row per postal address | `addresses` |
+| `silver.dim_shipper` | One row per shipper | `shippers` |
+| `silver.dim_address` | One row per postal address | `addresses`, `streets`, `icgc_addresses` |
 | `silver.fct_route` | One row per route: departure from the hub geofence (`hubs.geofence_radius_m`), completion, planned duration | `gps_pings`, `delivery_events`, `route_plans`, `route_history`, `hubs` |
 | `silver.fct_delivery` | One row per order: final status, time in window, proof-of-delivery photo | `orders`, `delivery_events` |
 | `silver.fct_traffic`, `silver.fct_weather` | One row per section or location and time | `traffic_state`, `traffic_section_points`, `weather` |

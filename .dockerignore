@@ -11,3 +11,6 @@ node_modules
 .env
 data
 volumes
+**/.venv
+**/.pytest_cache
+services/generator/.cache

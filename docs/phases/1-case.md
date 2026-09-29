@@ -170,7 +170,7 @@ categories; they extend the list and replace nothing.
 | # | Assignment data type | Dataset in the platform | Origin | Produced by | Arrives | Role in the KPI |
 |---|---|---|---|---|---|---|
 | 1 | Vehicle GPS location (real time) | topic `gps.pings` → `bronze.gps_pings` | Simulated on real roads | GPS simulator moving each van along its OSRM route, slowed by the live traffic state | Stream, one ping per van every 5 s | Marks when a van leaves the hub and how long every leg takes |
-| 2 | Orders (origin, destination, priority) | `bronze.orders`, plus topic `delivery.events` for status changes | AI-generated, with real Barcelona addresses | Order generator driven by the demand model (prompt 004) and the Open Data BCN address table; status events from the driver's simulated handheld | Orders through the day in micro-batches (next-day orders in a nightly batch), status events as a stream | Defines the stops of each route; the last `delivered` or `failed` event ends the route |
+| 2 | Orders (origin, destination, priority) | `bronze.orders`, plus topic `delivery.events` for status changes | AI-generated, with real addresses | Order generator driven by the demand model (prompt 004) and the Open Data BCN and ICGC address registers; status events from the driver's simulated handheld | One Parquet file of orders per service date, with registration times spread through the day by the demand model's hourly curve; publishing them in micro-batches through the day is planned with Dagster (#11). Status events as a stream | Defines the stops of each route; the last `delivered` or `failed` event ends the route |
 | 3 | Road traffic data (external API) | `bronze.traffic_state` | Real: Open Data BCN traffic state, which covers Barcelona city only. The SCT incidents feed (DATEX II on the DGT National Access Point) covers the ring roads and the Llobregat bridges and is planned in issue #9. AI-generated fallback, prompt 005 | Loader polling the `itineraris` and `trams` feeds | Every 5 minutes | Explains slow legs and triggers re-optimization |
 | 4 | Route history | `bronze.route_history` | AI-generated | Generator seeded by a history prompt: 90 days of past routes | Nightly batch | Gives the KPI its baseline and the patterns the optimizer learns from |
 | 5 | Fuel consumption | `bronze.fuel_consumption`, `bronze.fuel_prices` | Derived from telemetry. Diesel and CNG prices are real (MINETUR); electricity is priced at a documented fixed tariff, an assumption (issue #9) | Consumption aggregated per vehicle and route from telemetry; loader for prices | Per completed route; prices polled hourly, updated daily by MINETUR | Cost side of every re-plan |
@@ -184,10 +184,10 @@ Reference data that every dataset above depends on:
 | Dataset | Origin | Used for |
 |---|---|---|
 | Company profile (`services/generator/seed/company.json`) | AI-generated, prompt 001 | Hub, zones, fleet, shifts, service promise, KPI targets |
-| Fleet register | AI-generated, prompt 002 (issue #3) | One row per van: plate, vehicle type, home zone |
-| Driver roster | AI-generated, prompt 003 (issue #3) | One row per driver: shift, home zone |
-| Demand model | AI-generated, prompt 004 (issue #3) | How the order generator spreads orders over zones, hours, parcel sizes and priorities |
-| Postal addresses (Open Data BCN `taula-direle`) | Real | Delivery stops at real doors |
+| Fleet register | AI-generated, [prompt 002](../../prompts/002-fleet-register.md) | One row per van: plate, vehicle type, home zone |
+| Driver roster | AI-generated, [prompt 003](../../prompts/003-driver-roster.md) | One row per driver: shift, zones known, vehicle types cleared for |
+| Demand model | AI-generated, [prompt 004](../../prompts/004-demand-model.md) | How the order generator spreads orders over shippers, zones, hours, parcel sizes and delivery windows |
+| Postal addresses (Open Data BCN `taula-direle` and `carrerer` for Barcelona, ICGC Adreces simplificat for the five neighbouring municipalities) | Real | Delivery stops at real doors |
 | Traffic sections (Open Data BCN `transit-relacio-trams`) | Real | Street geometry of every section in the traffic feed |
 | Road network (OpenStreetMap, Catalonia extract) | Real | Routes, travel times and the optimizer's distance matrix |
 
