@@ -62,6 +62,20 @@ CARDBOARD = (176, 134, 86)
 TAPE = (222, 202, 150)
 BOX_SIZE = {ParcelSize.SMALL: (62, 44), ParcelSize.MEDIUM: (92, 64), ParcelSize.LARGE: (128, 90)}  # front, pixels
 MAX_BOXES = 3
+# How far the position read back from a photo may be from the delivery's: about 10 cm. The EXIF
+# rationals keep a ten-thousandth of an arc second, about 3 mm.
+MATCH_TOLERANCE_DEG = 1e-6
+
+
+@dataclass(frozen=True)
+class LatLon:
+    """A position in WGS84 decimal degrees."""
+
+    lat: float
+    lon: float
+
+    def near(self, other: LatLon, tolerance: float = MATCH_TOLERANCE_DEG) -> bool:
+        return abs(self.lat - other.lat) < tolerance and abs(self.lon - other.lon) < tolerance
 
 
 @dataclass(frozen=True)
@@ -71,8 +85,7 @@ class Delivery:
     order_id: str
     service_date: date
     delivered_at: datetime  # with a time zone
-    lat: float
-    lon: float
+    position: LatLon  # the delivery address
     parcels: int = 1
     parcel_size: ParcelSize = ParcelSize.SMALL  # the text bronze.orders holds is taken too
 
@@ -87,8 +100,11 @@ class Capture:
     """What the EXIF metadata of a photo says: when and where it was taken."""
 
     taken_at: datetime
-    lat: float
-    lon: float
+    position: LatLon
+
+    def matches(self, delivery: Delivery) -> bool:
+        """Whether the photo was taken at the delivery's time and address."""
+        return self.taken_at == delivery.delivered_at and self.position.near(delivery.position)
 
 
 def object_key(delivery: Delivery, sample: bool = False) -> str:
@@ -194,8 +210,8 @@ def _draw(delivery: Delivery) -> Image.Image:
     draw.rectangle([0, caption, width, height], fill=(20, 20, 24))
     local = delivery.delivered_at.astimezone(LOCAL_TZ)
     draw.text((12, caption + 6), f"{delivery.order_id}   {local:%d/%m/%Y %H:%M}", font=big, fill=(245, 245, 245))
-    position = f"{delivery.lat:.5f}, {delivery.lon:.5f}"
-    draw.text((width - 12 - draw.textlength(position, font=big), caption + 6), position, font=big, fill=(245, 245, 245))
+    where = f"{delivery.position.lat:.5f}, {delivery.position.lon:.5f}"
+    draw.text((width - 12 - draw.textlength(where, font=big), caption + 6), where, font=big, fill=(245, 245, 245))
     notice = "SYNTHETIC PLACEHOLDER DRAWN BY CODE, NOT A PHOTOGRAPH"
     draw.text((12, caption + 32), notice, font=small, fill=(250, 190, 60))
     return image
@@ -235,10 +251,11 @@ def exif(delivery: Delivery) -> Image.Exif:
     photo[ExifTags.Base.OffsetTimeOriginal] = f"{offset[:3]}:{offset[3:]}"
     gps = tags.get_ifd(ExifTags.IFD.GPSInfo)
     gps[ExifTags.GPS.GPSVersionID] = b"\x02\x03\x00\x00"
-    gps[ExifTags.GPS.GPSLatitudeRef] = "N" if delivery.lat >= 0 else "S"
-    gps[ExifTags.GPS.GPSLatitude] = _dms(delivery.lat)
-    gps[ExifTags.GPS.GPSLongitudeRef] = "E" if delivery.lon >= 0 else "W"
-    gps[ExifTags.GPS.GPSLongitude] = _dms(delivery.lon)
+    lat, lon = delivery.position.lat, delivery.position.lon
+    gps[ExifTags.GPS.GPSLatitudeRef] = "N" if lat >= 0 else "S"
+    gps[ExifTags.GPS.GPSLatitude] = _dms(lat)
+    gps[ExifTags.GPS.GPSLongitudeRef] = "E" if lon >= 0 else "W"
+    gps[ExifTags.GPS.GPSLongitude] = _dms(lon)
     gps[ExifTags.GPS.GPSMapDatum] = "WGS-84"
     gps[ExifTags.GPS.GPSDateStamp] = utc.strftime("%Y:%m:%d")
     gps[ExifTags.GPS.GPSTimeStamp] = tuple(IFDRational(v, 1) for v in (utc.hour, utc.minute, utc.second))
@@ -259,11 +276,11 @@ def read_exif(jpeg: bytes) -> Capture:
     taken_at = datetime.strptime(
         photo[ExifTags.Base.DateTimeOriginal] + photo[ExifTags.Base.OffsetTimeOriginal], EXIF_TIME + "%z"
     )
-    return Capture(
-        taken_at=taken_at,
-        lat=_degrees(gps[ExifTags.GPS.GPSLatitude], gps[ExifTags.GPS.GPSLatitudeRef]),
-        lon=_degrees(gps[ExifTags.GPS.GPSLongitude], gps[ExifTags.GPS.GPSLongitudeRef]),
+    position = LatLon(
+        _degrees(gps[ExifTags.GPS.GPSLatitude], gps[ExifTags.GPS.GPSLatitudeRef]),
+        _degrees(gps[ExifTags.GPS.GPSLongitude], gps[ExifTags.GPS.GPSLongitudeRef]),
     )
+    return Capture(taken_at, position)
 
 
 # Storage -------------------------------------------------------------------------------------
@@ -322,8 +339,7 @@ def sample_deliveries(orders: Sequence[dict], count: int, seed: int = 0) -> Iter
             order_id=o["order_id"],
             service_date=o["service_date"],
             delivered_at=o["window_start"] + timedelta(seconds=int(moments[index] * window)),
-            lat=o["destination_lat"],
-            lon=o["destination_lon"],
+            position=LatLon(o["destination_lat"], o["destination_lon"]),
             parcels=o["parcels"],
             parcel_size=o["parcel_size"],
         )

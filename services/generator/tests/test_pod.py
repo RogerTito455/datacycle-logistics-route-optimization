@@ -16,14 +16,16 @@ from llobregat_generator.storage import CHECKSUM
 from PIL import ExifTags, Image
 
 SUMMER = pod.Delivery(
-    "O-20260928-00042", date(2026, 9, 28), datetime(2026, 9, 28, 10, 15, 7, tzinfo=LOCAL_TZ), 41.3921234, 2.1614567
+    "O-20260928-00042",
+    date(2026, 9, 28),
+    datetime(2026, 9, 28, 10, 15, 7, tzinfo=LOCAL_TZ),
+    pod.LatLon(41.3921234, 2.1614567),
 )
 WINTER = pod.Delivery(
     "O-20261214-00007",
     date(2026, 12, 14),
     datetime(2026, 12, 14, 19, 58, 31, tzinfo=LOCAL_TZ),
-    41.3544455,
-    2.0716612,
+    pod.LatLon(41.3544455, 2.0716612),
     parcels=3,
     parcel_size="large",
 )
@@ -41,8 +43,9 @@ def test_the_exif_of_a_photo_says_when_and_where_it_was_taken(delivery, local_ti
     jpeg = pod.render(delivery)
     capture = pod.read_exif(jpeg)
     assert capture.taken_at == delivery.delivered_at
-    assert capture.lat == pytest.approx(delivery.lat, abs=1e-7)  # about a centimetre
-    assert capture.lon == pytest.approx(delivery.lon, abs=1e-7)
+    assert capture.position.lat == pytest.approx(delivery.position.lat, abs=1e-7)  # about a centimetre
+    assert capture.position.lon == pytest.approx(delivery.position.lon, abs=1e-7)
+    assert capture.matches(delivery)
 
     # The tags as a camera writes them, which any EXIF reader understands.
     tags = Image.open(io.BytesIO(jpeg)).getexif()
@@ -58,9 +61,18 @@ def test_the_exif_of_a_photo_says_when_and_where_it_was_taken(delivery, local_ti
 
 
 def test_southern_and_western_coordinates_keep_their_sign():
-    delivery = pod.Delivery("O-1", date(2026, 9, 28), SUMMER.delivered_at, -33.4488897, -70.6692655)
+    delivery = pod.Delivery("O-1", date(2026, 9, 28), SUMMER.delivered_at, pod.LatLon(-33.4488897, -70.6692655))
     capture = pod.read_exif(pod.render(delivery))
-    assert (capture.lat, capture.lon) == (pytest.approx(-33.4488897, abs=1e-7), pytest.approx(-70.6692655, abs=1e-7))
+    assert capture.position == pod.LatLon(pytest.approx(-33.4488897, abs=1e-7), pytest.approx(-70.6692655, abs=1e-7))
+    assert capture.matches(delivery)
+
+
+def test_a_capture_matches_only_its_delivery_time_and_position():
+    capture = pod.read_exif(pod.render(SUMMER))
+    moved = pod.LatLon(SUMMER.position.lat + 2e-6, SUMMER.position.lon)  # about 22 cm north
+    assert not capture.matches(pod.Delivery(SUMMER.order_id, SUMMER.service_date, SUMMER.delivered_at, moved))
+    later = SUMMER.delivered_at + timedelta(seconds=1)
+    assert not capture.matches(pod.Delivery(SUMMER.order_id, SUMMER.service_date, later, SUMMER.position))
 
 
 @pytest.mark.parametrize(
@@ -93,16 +105,15 @@ def test_a_photo_is_a_jpeg_drawn_the_same_way_every_time():
 
 def test_a_delivery_needs_a_time_zone():
     with pytest.raises(ValueError, match="no time zone"):
-        pod.Delivery("O-1", date(2026, 9, 28), datetime(2026, 9, 28, 10, 15), 41.39, 2.16)
+        pod.Delivery("O-1", date(2026, 9, 28), datetime(2026, 9, 28, 10, 15), pod.LatLon(41.39, 2.16))
 
 
 def test_a_delivery_takes_a_parcel_size_of_the_orders_and_no_other():
-    assert pod.Delivery("O-1", date(2026, 9, 28), SUMMER.delivered_at, 41.39, 2.16, 2, "medium").parcel_size is (
-        ParcelSize.MEDIUM
-    )
+    medium = pod.Delivery("O-1", date(2026, 9, 28), SUMMER.delivered_at, pod.LatLon(41.39, 2.16), 2, "medium")
+    assert medium.parcel_size is ParcelSize.MEDIUM
     assert set(pod.BOX_SIZE) == set(ParcelSize)
     with pytest.raises(ValueError, match="'huge' is not a valid ParcelSize"):
-        pod.Delivery("O-1", date(2026, 9, 28), SUMMER.delivered_at, 41.39, 2.16, 2, "huge")
+        pod.Delivery("O-1", date(2026, 9, 28), SUMMER.delivered_at, pod.LatLon(41.39, 2.16), 2, "huge")
 
 
 def test_object_keys():
@@ -226,7 +237,7 @@ def test_sample_deliveries_are_orders_of_the_day_inside_their_windows(weekday):
     for delivery in sample:
         order = by_id[delivery.order_id]
         assert order["window_start"] <= delivery.delivered_at < order["window_end"]
-        assert (delivery.lat, delivery.lon) == (order["destination_lat"], order["destination_lon"])
+        assert delivery.position == pod.LatLon(order["destination_lat"], order["destination_lon"])
         assert delivery.service_date == MONDAY
         assert delivery.delivered_at.astimezone(LOCAL_TZ).date() == MONDAY
     assert list(pod.sample_deliveries(weekday.orders, 20)) == sample  # the same every time

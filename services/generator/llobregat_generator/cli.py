@@ -92,17 +92,13 @@ def cmd_pod_sample(settings: Settings, args: argparse.Namespace) -> int:
         keys.append(key)
         body, stored = bucket.get_bytes(key), bucket.user_metadata(key)
         capture = pod.read_exif(body)
-        exif_ok = (
-            capture.taken_at == delivery.delivered_at
-            and abs(capture.lat - delivery.lat) < 1e-6
-            and abs(capture.lon - delivery.lon) < 1e-6
-        )
+        exif_ok = capture.matches(delivery)
         metadata_ok = pod.metadata_matches(stored, delivery, metadata)
         wrong_exif += not exif_ok
         wrong_metadata += not metadata_ok
         print(
             f"  bronze/{key}  {len(body) / 1000:.1f} kB  {'written' if key in bucket.written else 'unchanged':<9}  "
-            f"EXIF {capture.taken_at.isoformat()}  {capture.lat:.6f}, {capture.lon:.6f}"
+            f"EXIF {capture.taken_at.isoformat()}  {capture.position.lat:.6f}, {capture.position.lon:.6f}"
             + ("" if exif_ok else "  EXIF DOES NOT MATCH THE DELIVERY")
             + ("" if metadata_ok else "  S3 METADATA DOES NOT MATCH")
         )
