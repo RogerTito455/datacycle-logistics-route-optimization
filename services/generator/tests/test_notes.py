@@ -21,7 +21,7 @@ from llobregat_generator.notes import (
     names_places,
 )
 from llobregat_generator.orders import generate_day
-from llobregat_generator.rules import zone_shares
+from llobregat_generator.rules import SeedError, zone_shares
 
 
 def pooled(days) -> list[dict]:
@@ -109,6 +109,12 @@ def test_a_note_that_names_a_place_goes_only_to_orders_of_that_zone(week, saturd
     assert placed  # the rule is exercised
     for o in placed:
         assert names_places(o["notes"]) == {o["destination_zone_id"]}, (o["order_id"], o["notes"])
+
+
+def test_a_corpus_without_notes_for_a_zone_stops_the_generator(seeds):
+    only_hospitalet = {"notes": [n for n in seeds.delivery_notes["notes"] if names_places(n["text"]) == {"Z10"}]}
+    with pytest.raises(SeedError, match="no business note that fits zone Z01"):
+        NotePicker(only_hospitalet, zone_shares(seeds.company))
 
 
 def test_the_same_date_and_seed_give_the_same_notes(seeds, pool, weekday):

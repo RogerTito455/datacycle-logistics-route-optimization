@@ -31,7 +31,7 @@ from dataclasses import dataclass
 
 import numpy as np
 
-from llobregat_generator.rules import Recipient
+from llobregat_generator.rules import Recipient, SeedError
 
 # Rules of this generator, where the corpus says nothing.
 NOTE_SHARE = 1 / 3  # "about a third of the orders" (prompt 008)
@@ -106,10 +106,10 @@ class NotePicker:
         self.own: dict[str, Candidates] = {}
         self.rest: dict[str, Candidates] = {}
         for zone_id in zone_ids:
-            for group, pool in ((self.own, own), (self.rest, rest)):
+            for group, pool, kind in ((self.own, own, "business"), (self.rest, rest, "consumer")):
                 fitting = [n for n in pool if fits_zone(n, zone_id)]
                 if not fitting:
-                    raise ValueError(f"no delivery note fits zone {zone_id}")
+                    raise SeedError(f"delivery_notes.json has no {kind} note that fits zone {zone_id}")
                 group[zone_id] = Candidates.weighted(fitting, mix)
 
     def pick(self, rng: np.random.Generator, business: bool, zone_id: str) -> dict:

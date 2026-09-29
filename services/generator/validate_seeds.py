@@ -439,7 +439,7 @@ def check_delivery_notes(corpus: dict, company: dict) -> None:
     try:
         NotePicker(corpus, zone_ids)
         problem = None
-    except ValueError as exc:
+    except SeedError as exc:
         problem = str(exc)
     check(
         problem is None,
