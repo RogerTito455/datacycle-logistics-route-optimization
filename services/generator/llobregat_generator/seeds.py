@@ -1,4 +1,4 @@
-"""The AI-generated seed files in services/generator/seed (prompts 001-004)."""
+"""The AI-generated seed files in services/generator/seed (prompts 001-004 and 008)."""
 
 from __future__ import annotations
 
@@ -13,10 +13,17 @@ class Seeds:
     fleet: dict
     drivers: dict
     demand: dict
+    delivery_notes: dict
 
     @classmethod
     def load(cls, seed_dir: Path) -> Seeds:
         def read(name: str) -> dict:
             return json.loads((seed_dir / f"{name}.json").read_text(encoding="utf-8"))
 
-        return cls(company=read("company"), fleet=read("fleet"), drivers=read("drivers"), demand=read("demand"))
+        return cls(
+            company=read("company"),
+            fleet=read("fleet"),
+            drivers=read("drivers"),
+            demand=read("demand"),
+            delivery_notes=read("delivery_notes"),
+        )

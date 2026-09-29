@@ -192,12 +192,12 @@ def test_the_registers_put_each_sample_address_inside_its_zone(pool, boundaries)
     assert len(outside) <= len(sample) // 100, outside
 
 
-@pytest.mark.parametrize("name", ["fleet", "drivers", "demand"])
+@pytest.mark.parametrize("name", ["fleet", "drivers", "demand", "delivery_notes"])
 def test_schemas_accept_the_seed_and_reject_a_broken_one(name):
     schema = json.loads((GENERATOR_DIR / "seed" / f"{name}.schema.json").read_text(encoding="utf-8"))
     seed = json.loads((GENERATOR_DIR / "seed" / f"{name}.json").read_text(encoding="utf-8"))
     validator = jsonschema.Draft202012Validator(schema)
     assert not list(validator.iter_errors(seed))
-    records = {"fleet": "vehicles", "drivers": "drivers", "demand": "shippers"}[name]
+    records = {"fleet": "vehicles", "drivers": "drivers", "demand": "shippers", "delivery_notes": "notes"}[name]
     seed[records][0]["unexpected"] = True
     assert list(validator.iter_errors(seed))
