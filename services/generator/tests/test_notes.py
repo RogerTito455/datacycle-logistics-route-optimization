@@ -22,7 +22,7 @@ from llobregat_generator.notes import (
     attach_notes,
     context,
     language_shares,
-    names_places,
+    zones_named,
 )
 from llobregat_generator.orders import generate_day
 from llobregat_generator.rules import Recipient, SeedError, zone_shares
@@ -127,25 +127,25 @@ def test_attached_notes_keep_the_corpus_language_mix(week, seeds, corpus):
 
 
 def test_places_named_in_a_note():
-    assert names_places("Es L'Hospitalet, NO Barcelona!! la calle se llama igual") == {"Z10"}
-    assert names_places("oficina en el 22@. la mercancía se entrega por el muelle de carga") == {"Z09"}
-    assert names_places("és a Sant Joan Despí, al costat de l'escola") == {None}
-    assert names_places("casa blanca amb persianes verdes") == set()  # not Casablanca, a part of Sant Boi
-    assert names_places("gracias por todo") == set()
+    assert zones_named("Es L'Hospitalet, NO Barcelona!! la calle se llama igual") == {"Z10"}
+    assert zones_named("oficina en el 22@. la mercancía se entrega por el muelle de carga") == {"Z09"}
+    assert zones_named("és a Sant Joan Despí, al costat de l'escola") == {None}
+    assert zones_named("casa blanca amb persianes verdes") == set()  # not Casablanca, a part of Sant Boi
+    assert zones_named("gracias por todo") == set()
 
 
 def test_a_note_that_names_a_place_goes_only_to_orders_of_that_zone(week, saturday, seeds):
     zone_ids = set(zone_shares(seeds.company))
     assert {zone for zone in PLACES.values() if zone} <= zone_ids
     noted = with_note([*pooled(week), *saturday.orders])
-    placed = [o for o in noted if names_places(o["notes"])]
+    placed = [o for o in noted if zones_named(o["notes"])]
     assert placed  # the rule is exercised
     for o in placed:
-        assert names_places(o["notes"]) == {o["destination_zone_id"]}, (o["order_id"], o["notes"])
+        assert zones_named(o["notes"]) == {o["destination_zone_id"]}, (o["order_id"], o["notes"])
 
 
 def test_a_corpus_without_notes_for_a_zone_stops_the_generator(seeds):
-    only_hospitalet = {"notes": [n for n in seeds.delivery_notes["notes"] if names_places(n["text"]) == {"Z10"}]}
+    only_hospitalet = {"notes": [n for n in seeds.delivery_notes["notes"] if zones_named(n["text"]) == {"Z10"}]}
     with pytest.raises(SeedError, match="no business note that fits zone Z01"):
         NotePicker(only_hospitalet, zone_shares(seeds.company))
 

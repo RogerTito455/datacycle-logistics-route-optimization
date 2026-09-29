@@ -141,14 +141,14 @@ def places_named(text: str) -> set[str]:
     return {place for place, pattern in _PLACE_PATTERNS.items() if pattern.search(text)}
 
 
-def names_places(text: str) -> set[str | None]:
+def zones_named(text: str) -> set[str | None]:
     """The zones of the places a note names, None for a place outside the service area."""
     return {PLACES[place] for place in places_named(text)}
 
 
 def fits_zone(note: dict, zone_id: str) -> bool:
     """Whether a note can be read at a door in this zone: it names no place, or only this zone's."""
-    return names_places(note["text"]) <= {zone_id}
+    return zones_named(note["text"]) <= {zone_id}
 
 
 def language_shares(notes: Sequence[dict]) -> dict[str, float]:
