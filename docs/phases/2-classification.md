@@ -18,7 +18,7 @@ arrives, and as it is stored for analysis.
 | Redpanda, topic | Redpanda is the platform's message broker. It speaks the Kafka protocol, so any Kafka client can write to it or read from it. A topic is a named, ordered log of messages, such as `gps.pings` |
 | RustFS, bucket | The platform's S3-compatible object storage. The `bronze` bucket keeps batch files, API responses and photos as they arrived |
 | Parquet | A columnar file format for tables. The file stores its column names and types once, in its footer, like a typed CSV header |
-| DIKW | Data, information, knowledge, wisdom: the hierarchy that phase 3 applies to the GPS ping |
+| DIKW | Data, information, knowledge, action/value (the example case calls the last level wisdom): the hierarchy that [phase 3](3-dikw.md) applies to the GPS ping |
 | PBF | Protocolbuffer Binary Format, the compressed binary format of OpenStreetMap extracts |
 | EXIF | Exchangeable Image File Format: tags a camera writes inside a JPEG file, such as when the photo was taken and the GPS position |
 | MINETUR | The Spanish ministry that publishes the price of every fuel at every service station through an open REST API (today part of MITECO) |
